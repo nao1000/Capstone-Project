@@ -1,12 +1,30 @@
-# Virtual env
-venv/
-
-# Python cache
-**/__pycache__/
+# ---- Python / Django ----
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Django local DB
-db.sqlite3
-
-# Env vars
+# Virtual environments
+venv/
 .env
+.env.*
+
+# Django
+db.sqlite3
+staticfiles/
+
+# Migrations (KEEP these)
+!**/migrations/
+!**/migrations/*.py
+**/migrations/*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
