@@ -1,0 +1,17 @@
+# Core Framework
+django>=5.0,<6.0
+djangorestframework>=3.14
+django-cors-headers>=4.3
+
+# Optimization & Data (The "Coorda" Brain)
+ortools>=9.8
+pandas>=2.2
+numpy>=1.26
+
+# Database & Environment
+psycopg2-binary>=2.9  # For PostgreSQL (easier to setup than standard psycopg2)
+python-dotenv>=1.0    # To load secrets from .env file
+
+# Code Quality (For the team)
+black>=24.0
+flake8>=7.0

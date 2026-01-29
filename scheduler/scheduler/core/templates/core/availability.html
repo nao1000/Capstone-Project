@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Availability Selector</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    /* Grid Layout: Time Label + 7 Days */
+    .grid { display: grid; grid-template-columns: 90px repeat(7, 1fr); gap: 1px; background:#ddd; border: 1px solid #ccc; }
+    .cell { background: white; height: 22px; cursor: pointer; }
+    .cell.selected { background: #b9e3ff; }
+    /* Headers */
+    .header { font-weight: 600; text-align:center; padding: 8px 0; background: #f6f6f6; }
+    /* Time Labels */
+    .time { font-size: 12px; padding: 2px 6px; background: #f6f6f6; display:flex; align-items:center; justify-content: flex-end; padding-right: 10px; color: #555; }
+    
+    .controls { margin-top: 12px; display:flex; gap: 8px; align-items: center; }
+    textarea { width: 100%; height: 200px; margin-top: 12px; font-family: monospace; }
+    label { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <h2>Availability Selector</h2>
+
+  <div style="margin-bottom: 10px;">
+    <label>Name: <input type="text" id="userName" value="" /></label>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="controls">
+    <button id="clearBtn">Clear Selection</button>
+    <button id="exportBtn">Export & Download JSON</button>
+  </div>
+
+  <textarea id="out" placeholder="JSON output will appear here..."></textarea>
+
+  <script>
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // MAPPING: 0=Sun, 1=Mon... matched to your specific keys
+    const dayKeys = ["sun", "mon", "tues", "wed", "thur", "fri", "sat"];
+
+    const startHour = 8;   // 8:00 AM
+    const endHour = 22;    // 10:00 PM
+    const stepMinutes = 15;
+
+    const gridEl = document.getElementById("grid");
+    const outEl = document.getElementById("out");
+
+    // --- Helper Functions ---
+    const pad2 = (n) => String(n).padStart(2, "0");
+    function minutesToTimeStr(totalMinutes) {
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${pad2(h)}:${pad2(m)}`;
+    }
+
+    // --- Build the Grid ---
+    // 1. Header Row
+    gridEl.appendChild(div("header", "")); // Top-left corner
+    days.forEach(d => gridEl.appendChild(div("header", d)));
+
+    // 2. Time Rows
+    const cells = []; 
+    for (let t = startHour * 60; t < endHour * 60; t += stepMinutes) {
+      // Label only on the hour
+      const label = (t % 60 === 0) ? `${Math.floor(t/60)}:00` : "";
+      gridEl.appendChild(div("time", label));
+
+      for (let day = 0; day < 7; day++) {
+        const cell = div("cell", "");
+        cell.dataset.day = String(day);
+        cell.dataset.start = minutesToTimeStr(t);
+        cell.dataset.minutes = t; // Store integer minutes for easier math
+        gridEl.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+
+    function div(className, text) {
+      const el = document.createElement("div");
+      el.className = className;
+      el.textContent = text;
+      return el;
+    }
+
+    // --- Click & Drag Selection Logic ---
+    let isMouseDown = false;
+    let dragMode = null; // 'select' or 'deselect'
+
+    function toggleCell(cell, shouldSelect) {
+      cell.classList.toggle("selected", shouldSelect);
+    }
+
+    gridEl.addEventListener("mousedown", (e) => {
+      const cell = e.target.closest(".cell");
+      if (!cell) return;
+      isMouseDown = true;
+      // If clicking a selected cell, switch to deselect mode
+      dragMode = cell.classList.contains("selected") ? "deselect" : "select";
+      toggleCell(cell, dragMode === "select");
+      e.preventDefault(); // Stop text highlighting
+    });
+
+    gridEl.addEventListener("mouseover", (e) => {
+      if (!isMouseDown) return;
+      const cell = e.target.closest(".cell");
+      if (cell) toggleCell(cell, dragMode === "select");
+    });
+
+    window.addEventListener("mouseup", () => {
+      isMouseDown = false;
+    });
+
+    // --- Export Logic ---
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      
+      // 1. Setup the structure with empty arrays
+      const unavailable = {
+        "mon": [], "tues": [], "wed": [], "thur": [], "fri": [], "sat": [], "sun": []
+      };
+
+      // 2. Gather selected minutes per day
+      // Use 'const' properly here (fixed the previous typo)
+      const rawSelections = {}; 
+
+      cells.forEach(cell => {
+        if (cell.classList.contains("selected")) {
+          const d = Number(cell.dataset.day);
+          const t = Number(cell.dataset.minutes);
+          
+          if (!rawSelections[d]) rawSelections[d] = [];
+          rawSelections[d].push(t);
+        }
+      });
+
+      // 3. Process each day into Ranges
+      Object.keys(rawSelections).forEach(dayIndex => {
+        // Sort times ascending
+        const times = rawSelections[dayIndex].sort((a, b) => a - b);
+        const dayKey = dayKeys[dayIndex]; // e.g., 1 -> "mon"
+
+        let start = times[0];
+        let prev = times[0];
+
+        for (let i = 1; i <= times.length; i++) {
+          const current = times[i];
+
+          // Check if the sequence is broken (gap > stepMinutes)
+          if (current !== prev + stepMinutes) {
+            // Range ended at 'prev'
+            // Start time is 'start'
+            // End time is 'prev' + 15 mins (to include the full block)
+            const sStr = minutesToTimeStr(start);
+            const eStr = minutesToTimeStr(prev + stepMinutes);
+
+            unavailable[dayKey].push([sStr, eStr]);
+
+            // Reset for next range
+            start = current;
+          }
+          prev = current;
+        }
+      });
+
+      // 4. Build Final JSON
+      const finalObj = {
+        "name": document.getElementById("userName").value,
+        "unavailable": unavailable,
+        "preferences": [] 
+      };
+
+      const jsonString = JSON.stringify(finalObj, null, 2);
+      outEl.value = jsonString;
+
+      // 5. Trigger Download
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      // Clean filename
+      const safeName = finalObj.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      link.download = `${safeName}_availability.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    // Clear Button
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      cells.forEach(c => c.classList.remove("selected"));
+      outEl.value = "";
+    });
+
+  </script>
+</body>
+</html>
