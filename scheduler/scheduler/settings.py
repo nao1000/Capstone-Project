@@ -116,3 +116,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# core/settings.py
+
+# Where to go after a successful login
+LOGIN_REDIRECT_URL = 'dashboard'
+
+# Where to go after logging out
+LOGOUT_REDIRECT_URL = 'login'

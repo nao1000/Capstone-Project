@@ -174,7 +174,8 @@
       const jsonString = JSON.stringify(finalObj, null, 2);
       outEl.value = jsonString;
 
-      fetch("/api/availability/", {
+      const teamId = "{{ team.id }}"; 
+      fetch(`/api/team/${teamId}/availability/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: jsonString
