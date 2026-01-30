@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path("", include("scheduler.core.urls")),
-
+    path('admin/', admin.site.urls),  # admin url
+    path("", include("scheduler.core.urls")),  # availability url
 ]

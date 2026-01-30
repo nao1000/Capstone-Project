@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html>
 <head>
@@ -5,85 +6,68 @@
   <title>Supervisor Scheduler</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f4f4f9; }
-    
-    /* Layout */
     .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .top-bar { display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+    .top-bar { display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; align-items: flex-end;}
     .panel { flex: 1; }
-    
-    /* Inputs */
-    textarea { width: 100%; height: 80px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; }
     label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 14px; }
-    input[type="text"], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box;}
+    select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box;}
     button { cursor: pointer; background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; }
     button:hover { background: #0056b3; }
     button.secondary { background: #6c757d; }
-
-    /* The Grid */
-    .grid-container { overflow-x: auto; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .grid-container { overflow-x: auto; margin-top: 20px; }
     .grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 1px; background: #ddd; border: 1px solid #ccc; width: 100%; min-width: 800px; }
-    
-    /* Cells */
-    .cell { background: white; height: 25px; font-size: 10px; display:flex; align-items: center; justify-content: center; color: transparent; user-select: none; }
-    
-    /* Headers & Labels */
+    .cell { background: white; height: 25px; font-size: 10px; display:flex; align-items: center; justify-content: center; user-select: none; }
     .header { font-weight: 700; text-align: center; padding: 8px 0; background: #f8f9fa; color: #333; }
     .time-label { background: #f8f9fa; font-size: 11px; padding-right: 8px; justify-content: flex-end; display: flex; align-items: center; color: #666; }
-
-    /* STATE STYLES */
-    /* 1. Worker is Busy (From JSON) */
-    .cell.unavailable { 
-        background-color: #ffcccc; /* Light Red */
-        background-image: repeating-linear-gradient(45deg, #ffb3b3 0, #ffb3b3 1px, transparent 0, transparent 50%);
-        background-size: 10px 10px;
-        cursor: not-allowed; 
-    }
-    
-    /* 2. Supervisor Assigns Shift */
-    .cell.scheduled { 
-        background-color: #28a745; /* Green */
-        color: white; /* Show checkmark? */
-    }
-
-    /* Legend */
+    .cell.unavailable { background-color: #ffcccc; cursor: not-allowed; background-image: repeating-linear-gradient(45deg, #ffb3b3 0, #ffb3b3 1px, transparent 0, transparent 50%); background-size: 10px 10px; }
+    .cell.scheduled { background-color: #28a745; color: white; }
     .legend { display: flex; gap: 20px; margin-bottom: 10px; font-size: 12px; }
     .dot { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
+{% csrf_token %}
+
 <div class="container">
   <h2>Supervisor Dashboard</h2>
 
   <div class="top-bar">
     <div class="panel">
-      <label>1. Paste Worker JSON</label>
-      <textarea id="inputJson" placeholder='Paste the worker JSON here...'></textarea>
-      <div style="margin-top:8px; display:flex; gap:10px;">
-        <button onclick="loadWorkerData()">Load Worker</button>
-        <button class="secondary" onclick="clearGrid()">Reset</button>
-      </div>
+      <label>1. Select Worker</label>
+      
+      <select id="workerSelect" onchange="loadWorkerData()">
+        <option value="" disabled selected>-- Choose a Worker --</option>
+        {% for worker in workers %}
+            <option value="{{ worker.id }}">
+                {{ worker.first_name|default:worker.username }} {{ worker.last_name }}
+            </option>
+        {% empty %}
+            <option disabled>No workers found in DB</option>
+        {% endfor %}
+      </select>
+      
     </div>
 
     <div class="panel">
-      <label>Worker Name</label>
-      <input type="text" id="workerName" readonly placeholder="No worker loaded">
-      
-      <div style="margin-top: 10px;">
-        <label>Assign Role / Position</label>
-        <select id="workerRole">
-          <option value="Tutor">General Tutor</option>
-          <option value="SI_Leader">SI Leader</option>
-          <option value="Lab_Assistant">Lab Assistant</option>
-          <option value="Floater">Floater</option>
-        </select>
-      </div>
+      <label>Assign Role</label>
+      <select id="workerRole">
+        <option value="Tutor">General Tutor</option>
+        <option value="SI_Leader">SI Leader</option>
+        <option value="Lab_Assistant">Lab Assistant</option>
+        <option value="Floater">Floater</option>
+      </select>
+    </div>
+
+    <div class="panel" style="flex: 0 0 auto;">
+        <button class="secondary" onclick="clearGrid()">Clear Grid</button>
     </div>
   </div>
 
   <div class="legend">
     <span><span class="dot" style="background:white"></span>Available</span>
-    <span><span class="dot" style="background:#ffcccc; background-image: repeating-linear-gradient(45deg, #ffb3b3 0, #ffb3b3 1px, transparent 0, transparent 50%); background-size: 10px 10px;"></span>Worker Busy (Unavailable)</span>
+    <span><span class="dot" style="background:#ffcccc"></span>Unavailable</span>
     <span><span class="dot" style="background:#28a745"></span>Shift Assigned</span>
   </div>
 
@@ -92,48 +76,51 @@
   </div>
 
   <div style="margin-top: 20px; text-align: right;">
-    <button onclick="exportSchedule()" style="background: #17a2b8;">Save & Export Schedule JSON</button>
+    <button id="saveBtn" onclick="saveSchedule()" style="background: #17a2b8;" disabled>Save Schedule</button>
   </div>
 </div>
 
 <script>
-  // --- CONFIGURATION ---
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  // Map JSON keys back to grid indices
   const keyToIndex = { "sun":0, "mon":1, "tues":2, "wed":3, "thur":4, "fri":5, "sat":6 };
   const indexToKey = ["sun", "mon", "tues", "wed", "thur", "fri", "sat"];
-
   const startHour = 8;
   const endHour = 22; 
   const stepMinutes = 15;
-
   const gridEl = document.getElementById("grid");
-  const cells = []; // Array to store cell DOM elements
+  const cells = []; 
 
-  // --- INITIALIZE GRID ---
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+  }
+
   function initGrid() {
     gridEl.innerHTML = "";
     cells.length = 0;
-
-    // Header
     div("header", "");
     days.forEach(d => div("header", d));
 
-    // Rows
     for (let t = startHour * 60; t < endHour * 60; t += stepMinutes) {
       const label = (t % 60 === 0) ? `${Math.floor(t/60)}:00` : "";
       div("time-label", label);
-
       for (let d = 0; d < 7; d++) {
         const cell = document.createElement("div");
         cell.className = "cell";
         cell.dataset.day = d;
         cell.dataset.minutes = t;
-        
-        // Add click listener for scheduling
         cell.addEventListener("mousedown", handleCellClick);
         cell.addEventListener("mouseover", handleCellHover);
-        
         gridEl.appendChild(cell);
         cells.push(cell);
       }
@@ -147,95 +134,62 @@
     gridEl.appendChild(el);
   }
 
-  // --- LOGIC: LOADING WORKER DATA ---
   function loadWorkerData() {
-    clearGrid(); // Reset first
-    
-    const raw = document.getElementById("inputJson").value;
-    if (!raw) return alert("Please paste JSON first.");
+    clearGrid(); 
+    const workerId = document.getElementById("workerSelect").value;
+    if (!workerId) return;
 
-    try {
-      const data = JSON.parse(raw);
-      document.getElementById("workerName").value = data.name || "Unknown";
+    fetch(`/api/get-availability/${workerId}/`)
+    .then(response => response.json())
+    .then(data => {
+      if(data.error) { alert(data.error); return; }
 
-      // Loop through the "unavailable" object
-      // data.unavailable looks like: { "mon": [["09:00", "09:50"], ...], ... }
       for (const [dayKey, ranges] of Object.entries(data.unavailable)) {
         const dayIndex = keyToIndex[dayKey.toLowerCase()];
         if (dayIndex === undefined) continue;
 
         ranges.forEach(range => {
-          // range is ["HH:MM", "HH:MM"]
           const startMins = timeStrToMinutes(range[0]);
           const endMins = timeStrToMinutes(range[1]);
-
-          // Find cells that fall in this range and mark them
           cells.forEach(cell => {
             const cellDay = parseInt(cell.dataset.day);
             const cellTime = parseInt(cell.dataset.minutes);
-
             if (cellDay === dayIndex && cellTime >= startMins && cellTime < endMins) {
               cell.classList.add("unavailable");
-              cell.title = "Worker is busy";
             }
           });
         });
       }
-    } catch (e) {
-      alert("Invalid JSON format! Check console for details.");
-      console.error(e);
-    }
+      document.getElementById("saveBtn").disabled = false;
+    })
+    .catch(err => { console.error(err); alert("Error loading worker."); });
   }
 
-  // --- LOGIC: SCHEDULING (Click & Drag) ---
   let isMouseDown = false;
-  let toggleMode = "add"; // 'add' or 'remove'
-
+  let toggleMode = "add"; 
   function handleCellClick(e) {
-    if (e.buttons !== 1) return; // Only left click
+    if (e.buttons !== 1) return; 
     const cell = e.target;
-    
-    // Prevent modifying if worker is unavailable
     if (cell.classList.contains("unavailable")) return;
-
     isMouseDown = true;
-    // If it's already scheduled, we are removing. Otherwise adding.
     toggleMode = cell.classList.contains("scheduled") ? "remove" : "add";
-    
     applySchedule(cell);
   }
-
-  function handleCellHover(e) {
-    if (isMouseDown) {
-      applySchedule(e.target);
-    }
-  }
-
+  function handleCellHover(e) { if (isMouseDown) applySchedule(e.target); }
   function applySchedule(cell) {
     if (cell.classList.contains("unavailable")) return;
-    
-    if (toggleMode === "add") {
-      cell.classList.add("scheduled");
-    } else {
-      cell.classList.remove("scheduled");
-    }
+    if (toggleMode === "add") cell.classList.add("scheduled");
+    else cell.classList.remove("scheduled");
   }
-
   window.addEventListener("mouseup", () => isMouseDown = false);
 
-  // --- LOGIC: EXPORT FINAL SCHEDULE ---
-  function exportSchedule() {
-    const name = document.getElementById("workerName").value;
+  function saveSchedule() {
+    const workerId = document.getElementById("workerSelect").value;
     const role = document.getElementById("workerRole").value;
-    
-    if (!name) return alert("No worker loaded.");
+    if (!workerId) return alert("No worker selected.");
 
-    // Group assigned shifts
-    const assignedShifts = {}; // { "mon": [[start, end]], ... }
-
-    // Helper to store raw times first
+    const assignedShifts = {}; 
     const rawTimes = {}; 
-
     cells.forEach(cell => {
       if (cell.classList.contains("scheduled")) {
         const d = parseInt(cell.dataset.day);
@@ -245,61 +199,39 @@
       }
     });
 
-    // Condense raw times into ranges
     Object.keys(rawTimes).forEach(d => {
       const times = rawTimes[d].sort((a,b) => a-b);
       const dayKey = indexToKey[d];
       assignedShifts[dayKey] = [];
-
       let start = times[0];
       let prev = times[0];
-
       for (let i = 1; i <= times.length; i++) {
         const current = times[i];
         if (current !== prev + stepMinutes) {
-          // Range End
-          assignedShifts[dayKey].push([
-            minutesToTimeStr(start), 
-            minutesToTimeStr(prev + stepMinutes)
-          ]);
+          assignedShifts[dayKey].push([minutesToTimeStr(start), minutesToTimeStr(prev + stepMinutes)]);
           start = current;
         }
         prev = current;
       }
     });
 
-    const finalOutput = {
-      worker: name,
-      role: role,
-      assigned_shifts: assignedShifts
-    };
-
-    console.log(finalOutput);
-    alert("Schedule generated! Check Console for JSON.");
-  }
-
-  // --- HELPERS ---
-  function clearGrid() {
-    cells.forEach(c => {
-      c.className = "cell"; // Reset to plain cell
+    fetch('/api/save-schedule/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ worker_id: workerId, role: role, assigned_shifts: assignedShifts })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') alert("Schedule saved!");
+        else alert("Error: " + data.message);
     });
-    document.getElementById("workerName").value = "";
   }
 
-  function timeStrToMinutes(str) {
-    const [h, m] = str.split(":").map(Number);
-    return h * 60 + m;
-  }
+  function clearGrid() { cells.forEach(c => c.className = "cell"); document.getElementById("saveBtn").disabled = true; }
+  function timeStrToMinutes(str) { const [h, m] = str.split(":").map(Number); return h * 60 + m; }
+  function minutesToTimeStr(mins) { const h = Math.floor(mins / 60); const m = mins % 60; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
 
-  function minutesToTimeStr(mins) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  }
-
-  // Run on load
   initGrid();
 </script>
-
 </body>
 </html>
