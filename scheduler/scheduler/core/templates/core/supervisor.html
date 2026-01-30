@@ -139,7 +139,8 @@
     const workerId = document.getElementById("workerSelect").value;
     if (!workerId) return;
 
-    fetch(`/api/get-availability/${workerId}/`)
+    const teamId = "{{ team.id }}";
+    fetch(`/api/team/${teamId}/get-availability/${workerId}/`)
     .then(response => response.json())
     .then(data => {
       if(data.error) { alert(data.error); return; }
