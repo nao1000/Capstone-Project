@@ -1,0 +1,137 @@
+/* scheduler.css - Shared by Supervisor and Availability */
+
+
+/* This targets the main wrapper of the page */
+.container {
+    max-width: 1000px;  /* Adjust this number to make the page narrower or wider */
+    margin: 0 auto;     /* This centers the container on the screen */
+    padding: 0 20px;    /* Prevents content from touching the screen edges on mobile */
+}
+
+/* Specifically for the supervisor dashboard to keep it tight */
+.container.supervisor {
+    max-width: 950px; 
+}
+/* Layout for Supervisor Dashboard specifically */
+.main-layout {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+
+.sidebar {
+    flex: 0 0 250px;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.grid-area {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Common Grid Container */
+.grid-container {
+    overflow-x: auto;
+    margin-top: 10px;
+    display: inline-block; /* This prevents the grid from stretching to 100% width */
+    border-radius: 4px;
+}
+
+.grid {
+    display: grid;
+    /* Unified to 90px for time labels to prevent text clipping */
+    grid-template-columns: 50px repeat(7, 70px); 
+    gap: 0px;
+    background: #ddd;
+    border: 1px solid #ccc;
+    width: fit-content;;
+}
+
+/* Common Cell Styles */
+.cell {
+    background: white;
+    height: 12px; 
+    width: 70px; /* Matching the grid-template-columns */
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    border: 1px solid #e0e0e0;
+    cursor: pointer;
+}
+
+/* Grid Headers (Days of the week) */
+.header {
+    font-weight: 700;
+    text-align: center;
+    padding: 2px 0;
+    background: #f8f9fa;
+    font-size: 10px;
+    color: #333;
+    border-bottom: 1px solid #ccc;
+}
+
+/* Time Labels (8:00, 9:00, etc) */
+.time-label, .time {
+    background: #f8f9fa;
+    font-size: 9px;
+    padding-right: 8px;
+    justify-content: flex-end;
+    display: flex;
+    align-items: center;
+    color: #666;
+    border-right: 1px solid #ccc;
+}
+
+hr {
+    margin: 15px 0 !important;
+}
+
+/* --- State Classes --- */
+
+/* 1. Availability Page: Worker selecting their own time */
+.cell.selected { 
+    background-color: #b9e3ff; 
+}
+
+/* 2. Supervisor Page: Showing worker is busy/unavailable */
+.cell.unavailable {
+    background-color: #ffcccc;
+    cursor: not-allowed;
+    background-image: repeating-linear-gradient(45deg, #ffb3b3 0, #ffb3b3 1px, transparent 0, transparent 50%);
+    background-size: 10px 10px;
+}
+
+/* 3. Supervisor Page: Shift has been assigned */
+.cell.scheduled {
+    background-color: #28a745;
+    color: white;
+}
+
+/* Worker Sidebar List (Supervisor Page) */
+.worker-list {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+}
+
+.worker-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.worker-item:hover { background: #f0f7ff; }
+.worker-item.active {
+    background: #e7f3ff;
+    border-left: 4px solid #007bff;
+}

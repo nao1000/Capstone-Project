@@ -5,14 +5,15 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from .models import AvailabilityRange, Shift, Team # <--- Make sure Team is imported
+from .models import AvailabilityRange, Shift, Team 
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
 def signup(request):
+
+    # hand in completed sign up form
     if request.method == 'POST':
-        # Retrieve form data manually (or use UserCreationForm)
         username = request.POST['username']
         email = request.POST['email']
         pass1 = request.POST['password']
@@ -23,6 +24,7 @@ def signup(request):
             messages.error(request, "Passwords do not match!")
             return render(request, 'core/auth.html')
         
+        # check if username is already in use
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken!")
             return render(request, 'core/auth.html')
@@ -35,11 +37,8 @@ def signup(request):
         login(request, user)
         return redirect('dashboard')
 
+    # get a blank sign up
     return render(request, 'core/auth.html')
-
-
-
-# --- 0. TEAM MANAGEMENT (New!) ---
 
 @login_required
 def dashboard(request):
@@ -52,6 +51,7 @@ def dashboard(request):
     # 2. Teams I am a worker in
     joined_teams = request.user.joined_teams.all()
     
+    # sends us to the dashboard with our current teams
     return render(request, "core/dashboard.html", {
         "owned_teams": owned_teams,
         "joined_teams": joined_teams
@@ -72,7 +72,7 @@ def join_team(request):
     try:
         team = Team.objects.get(join_code=code)
         if team.owner == request.user:
-            # You can't join your own team as a worker (optional rule)
+            # You can't join your own team as a worker
             pass 
         else:
             team.members.add(request.user)
@@ -100,7 +100,7 @@ def availability_view(request, team_id):
 @csrf_exempt
 @login_required
 @require_http_methods(["POST"])
-def save_availability(request, team_id): # <--- Added team_id param
+def save_availability(request, team_id):
     try:
         data = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
@@ -124,7 +124,7 @@ def save_availability(request, team_id): # <--- Added team_id param
                 if len(r) == 2:
                     AvailabilityRange.objects.create(
                         user=request.user, 
-                        team=team,     # <--- Link to Team
+                        team=team,
                         day=day, 
                         start_time=r[0], 
                         end_time=r[1]
@@ -221,3 +221,18 @@ def save_schedule(request, team_id):
                 count += 1
 
     return JsonResponse({'status': 'success', 'created': count})
+
+def add_team_role(request, team_id):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        role_name = data.get("name")
+        team = Team.objects.get(id=team_id)
+        
+        # Create the role in the DB
+        new_role = Role.objects.create(name=role_name, team=team)
+        
+        return JsonResponse({
+            "status": "success", 
+            "role_id": new_role.id, 
+            "role_name": new_role.name
+        })
