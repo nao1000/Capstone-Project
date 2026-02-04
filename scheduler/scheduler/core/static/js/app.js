@@ -45,3 +45,17 @@ function selectWorker(element, workerId) {
     const teamId = window.location.pathname.split('/')[2]; // Typical Django URL: /supervisor/5/
     loadWorkerData(workerId, teamId);
 }
+
+// Fix iOS/Safari back-forward cache after logout
+function enforceAuthOnPageShow() {
+  window.addEventListener("pageshow", async function () {
+    try {
+      const res = await fetch("/api/auth-ping/", { credentials: "include" });
+      if (!res.ok) throw new Error("not authed");
+    } catch {
+      window.location.replace("/login/?next=" + encodeURIComponent(window.location.pathname));
+    }
+  });
+}
+
+enforceAuthOnPageShow();

@@ -1,17 +1,19 @@
 import json
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from .models import AvailabilityRange, Shift, Team 
+from .models import AvailabilityRange, Role, Shift, Team
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
 def signup(request):
-
+    if request.user.is_authenticated:
+        return redirect("dashboard")
     # hand in completed sign up form
     if request.method == 'POST':
         username = request.POST['username']
@@ -40,6 +42,11 @@ def signup(request):
     # get a blank sign up
     return render(request, 'core/auth.html')
 
+@login_required
+def auth_ping(request):
+    return JsonResponse({"authenticated": True})
+
+@never_cache
 @login_required
 def dashboard(request):
     """
@@ -84,6 +91,7 @@ def join_team(request):
 
 # --- 1. WORKER SIDE (Updated for Teams) ---
 
+@never_cache
 @login_required
 def availability_view(request, team_id):
     """
@@ -97,7 +105,6 @@ def availability_view(request, team_id):
 
     return render(request, "core/availability.html", {"team": team})
 
-@csrf_exempt
 @login_required
 @require_http_methods(["POST"])
 def save_availability(request, team_id):
@@ -136,6 +143,7 @@ def save_availability(request, team_id):
 
 # --- 2. SUPERVISOR SIDE (Updated for Teams) ---
 
+@never_cache
 @login_required
 def supervisor_dashboard(request, team_id):
     """
@@ -222,17 +230,28 @@ def save_schedule(request, team_id):
 
     return JsonResponse({'status': 'success', 'created': count})
 
+@login_required
+@require_POST
+@csrf_protect
 def add_team_role(request, team_id):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        role_name = data.get("name")
-        team = Team.objects.get(id=team_id)
-        
-        # Create the role in the DB
-        new_role = Role.objects.create(name=role_name, team=team)
-        
-        return JsonResponse({
-            "status": "success", 
-            "role_id": new_role.id, 
-            "role_name": new_role.name
-        })
+    team = get_object_or_404(Team, id=team_id)
+
+    if team.owner != request.user:
+        return HttpResponseForbidden("You are not the supervisor of this team.")
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    role_name = (data.get("name") or "").strip()
+    if not role_name:
+        return HttpResponseBadRequest("Missing role name")
+
+    new_role = Role.objects.create(name=role_name, team=team)
+
+    return JsonResponse({
+        "status": "success",
+        "role_id": new_role.id,
+        "role_name": new_role.name
+    })
