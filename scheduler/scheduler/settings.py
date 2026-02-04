@@ -121,5 +121,9 @@ STATIC_URL = 'static/'
 # Where to go after a successful login
 LOGIN_REDIRECT_URL = 'dashboard'
 
-# Where to go after logging out
-LOGOUT_REDIRECT_URL = 'login'
+# # Where to go after logging out
+# LOGOUT_REDIRECT_URL = 'login'
+
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"

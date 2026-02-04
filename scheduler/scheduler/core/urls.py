@@ -34,4 +34,7 @@ urlpatterns = [
 
     # 3. Signup (Uses our custom view above)
     path('signup/', views.signup, name='signup'),
+    
+    # auth required for users
+    path("api/auth-ping/", views.auth_ping, name="auth_ping"),
 ]
