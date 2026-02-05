@@ -17,3 +17,34 @@
     padding: 0.5em 0.8em;
     font-weight: 500;
 }
+
+/* Custom Role Tags */
+.role-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e0f2fe; /* Light blue */
+    color: #0369a1;            /* Dark blue text */
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid #bae6fd;
+    transition: all 0.2s ease;
+}
+
+.role-tag:hover {
+    background-color: #bae6fd;
+}
+
+.delete-role-btn {
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    color: #7dd3fc;
+    transition: color 0.2s;
+}
+
+.delete-role-btn:hover {
+    color: #0369a1; /* Darkens on hover */
+}

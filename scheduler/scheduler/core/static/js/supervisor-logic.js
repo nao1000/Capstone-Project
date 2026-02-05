@@ -3,11 +3,17 @@
  * Focus: Role Management & Room/Event Accessibility
  */
 
-console.log("Supervisor Logic Loaded. TEAM_ID:", TEAM_ID);
+// console.log("Supervisor Logic Loaded. TEAM_ID:", TEAM_ID);
 
 // --- 1. ROLE MANAGEMENT ---
 
+const TEAM_ID = "{{ team.id }}";
+const CSRF_TOKEN = "{{ csrf_token }}";
+
+// 2. Add Role Function (Now internal to the HTML)
 async function addRole() {
+    console.log("addRole triggered. Team ID:", window.TEAM_ID);
+    
     const roleInput = document.getElementById('newRoleName');
     const roleName = roleInput.value.trim();
     
@@ -17,42 +23,103 @@ async function addRole() {
     }
 
     try {
-        const response = await fetch(`/api/team/${TEAM_ID}/roles/create/`, {
+        // We use window.TEAM_ID because the .js file can't read {{ team.id }} directly
+        const response = await fetch(`/api/team/${window.TEAM_ID}/roles/create/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN 
+                'X-CSRFToken': window.CSRF_TOKEN // Seeded from HTML
             },
             body: JSON.stringify({ name: roleName })
         });
 
-        const data = await response.json();
-
         if (response.ok) {
-            const data = await response.json(); // data includes {id: 5, name: "Tutor"}
-
-            // 1. Update the badges
+            const data = await response.json();
+            
+            // 1. Update the Badges
             const container = document.getElementById('roleBadgeContainer');
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-info text-dark me-1';
-            badge.textContent = data.name;
-            container.appendChild(badge);
+            if (container) {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-info text-dark me-1';
+                badge.textContent = data.name;
+                container.appendChild(badge);
+            }
 
-            // 2. Update ALL dropdowns in the table
+            // 2. Update the Dropdowns for all workers
             const dropdowns = document.querySelectorAll('select.form-select');
             dropdowns.forEach(select => {
-                const option = document.createElement('option');
-                option.value = data.id;      // The database ID
-                option.textContent = data.name; // The role name
-                select.appendChild(option);
+                const opt = document.createElement('option');
+                opt.value = data.role_id;
+                opt.textContent = data.name;
+                select.appendChild(opt);
             });
 
             roleInput.value = '';
+            console.log("Role created successfully:", data.name);
         } else {
-            alert("Error: " + (data.error || "Could not create role"));
+            const errorData = await response.json();
+            alert("Error: " + (errorData.error || "Failed to create role."));
         }
     } catch (err) {
         console.error("Fetch error:", err);
+    }
+}
+
+async function deleteRole(roleId) {
+    if (!confirm("Are you sure you want to delete this role? This may affect assigned workers.")) return;
+
+    try {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/roles/${roleId}/delete/`, {
+            method: 'DELETE', // Using DELETE method is cleaner for removals
+            headers: {
+                'X-CSRFToken': window.CSRF_TOKEN
+            }
+        });
+
+        if (response.ok) {
+            // Remove the badge from the UI
+            const badge = document.getElementById(`role-badge-${roleId}`);
+            if (badge) badge.remove();
+            
+            // Optional: Refresh page to update worker dropdowns
+            // location.reload();
+        } else {
+            alert("Failed to delete role.");
+        }
+    } catch (err) {
+        console.error("Delete error:", err);
+    }
+}
+
+async function assignRoleToWorker(workerId, roleId) {
+    // If they select "Choose Role...", we might want to clear it or just return
+    if (roleId === "") {
+        console.log("No role selected");
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/roles/assign/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.CSRF_TOKEN
+            },
+            body: JSON.stringify({ 
+                worker_id: workerId, 
+                role_id: roleId 
+            })
+        });
+
+        if (response.ok) {
+            console.log(`Role ${roleId} assigned to worker ${workerId}`);
+            // Optional: a tiny toast notification instead of a loud alert
+            // alert("Role updated!"); 
+        } else {
+            alert("Failed to assign role.");
+        }
+    } catch (err) {
+        console.error("Assignment error:", err);
     }
 }
 
@@ -105,3 +172,7 @@ function filterWorkers() {
         }
     });
 }
+
+
+
+
