@@ -48,21 +48,29 @@ class Role(models.Model):
     def __str__(self):
         return f"{self.name} ({self.team.name})"
 
-# Availability Model
-# models.py
+
 class AvailabilityRange(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    day = models.CharField(max_length=10) # e.g., 'mon', 'tues'
+    day = models.CharField(max_length=10) # 'mon', 'tue', 'wed', etc.
     start_time = models.TimeField()
     end_time = models.TimeField()
     building = models.CharField(max_length=100, blank=True)
-    
-    # Use ManyToManyField to allow multiple role preferences per block
-    preferred_roles = models.ManyToManyField(Role)
 
     def __str__(self):
-        return f"{self.user.username} - {self.day} ({self.start_time})"
+        return f"{self.user.username}: {self.day} {self.start_time}-{self.end_time}"
+
+class UserRolePreference(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    # This stores the "Global" roles the user is willing to do for this team
+    roles = models.ManyToManyField(Role, blank=True)
+
+    class Meta:
+        unique_together = ('user', 'team') # One set of preferences per user/team
+
+    def __str__(self):
+        return f"{self.user.username} Roles for {self.team.name}"
 
 # defined event by a supervisor
 class Shift(models.Model):

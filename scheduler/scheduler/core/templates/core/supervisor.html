@@ -30,41 +30,74 @@
                                 <th>Assign Role</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {% for worker in workers %}
-                            <tr>
-                                <td>
-                                    <strong>{{ worker.first_name|default:worker.username }}</strong>
-                                    <br><small class="text-muted">{{ worker.email }}</small>
-                                </td>
-                                <td>
-                                    {% if worker.team_availability %}
-                                        <span class="badge bg-success-soft text-success">✓ Submitted</span>
-                                    {% else %}
-                                        <span class="badge bg-warning-soft text-warning">✗ Pending</span>
+                      <tbody>
+                        {% for entry in member_list %}
+                        <tr>
+                            <td>
+                                <strong>{{ entry.user.first_name|default:entry.user.username }}</strong>
+                                <br><small class="text-muted">{{ entry.user.email }}</small>
+                            </td>
+                            <td>
+                                {# The existing status badge #}
+                                {% if entry.status == 'Submitted' %}
+                                    <span class="badge bg-success">✓ Submitted</span>
+                                    
+                                    {# NEW: The visual list of what the worker actually wants #}
+                                    {% if entry.preferred_roles %}
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                Worker Prefers:
+                                            </small>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for pref in entry.preferred_roles %}
+                                                    <span class="badge rounded-pill bg-light text-dark border" style="font-size: 0.7rem; font-weight: 500;">
+                                                        {{ pref.name }}
+                                                    </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <select class="form-select form-select-sm" 
-                                            onchange="assignRoleToWorker('{{ worker.id }}', this.value)">
-                                        <option value="">Choose Role...</option>
-                                        {% for role in roles %}
+                                    
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">✗ Pending</span>
+                                {% endif %}
+                            </td>
+                        <td>
+                            <select class="form-select form-select-sm" 
+                                    onchange="assignRoleToWorker('{{ entry.user.id }}', this.value)">
+                                <option value="">Choose Preferred Role...</option>
+                                
+                                {# Change 'roles' to 'entry.preferred_roles' #}
+                                {% for role in entry.preferred_roles %}
+                                    <option value="{{ role.id }}" 
+                                        {% if entry.current_role_id == role.id %}selected{% endif %}>
+                                        {{ role.name }}
+                                    </option>
+                                {% endfor %}
+                                
+                                {# Optional: Add a separator and then all roles if the supervisor needs to override #}
+                                {% if roles %}
+                                    <option disabled>──────────</option>
+                                    <option value="">All Other Roles:</option>
+                                    {% for role in roles %}
+                                        {# Only show if not already in the preferred list #}
+                                        {% if role not in entry.preferred_roles %}
                                             <option value="{{ role.id }}" 
-                                                {% for assignment in worker.current_team_assignments %}
-                                                    {% if assignment.role_id == role.id %}selected{% endif %}
-                                                {% endfor %}>
+                                                {% if entry.current_role_id == role.id %}selected{% endif %}>
                                                 {{ role.name }}
                                             </option>
-                                        {% endfor %}
-                                    </select>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center py-4">No members in this team yet.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4">No members in this team yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
                     </table>
                 </div>
             </div>

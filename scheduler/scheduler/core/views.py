@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from .models import AvailabilityRange, Role, Shift, Team, TeamRoleAssignment, TeamEvent
+from .models import AvailabilityRange, Role, Shift, Team, TeamRoleAssignment, TeamEvent, UserRolePreference
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
@@ -97,13 +97,18 @@ def join_team(request):
 def availability_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     
-    # Fetch data
+    # 1. Fetch time ranges (removed .prefetch_related('preferred_roles'))
     availabilities = AvailabilityRange.objects.filter(
         user=request.user, 
         team=team
-    ).prefetch_related('preferred_roles')
+    )
 
-    # Create a list of dictionaries manually to match exactly what your JS expects
+    # 2. Fetch the user's global roles for this team (Path B)
+    role_prefs = UserRolePreference.objects.filter(user=request.user, team=team).first()
+    # Get a list of IDs so the JS knows which checkboxes to tick on load
+    selected_role_ids = list(role_prefs.roles.values_list('id', flat=True)) if role_prefs else []
+
+    # 3. Format ranges for the JS Grid
     avail_list = []
     for a in availabilities:
         avail_list.append({
@@ -111,49 +116,63 @@ def availability_view(request, team_id):
             "start": a.start_time.strftime('%H:%M'),
             "end": a.end_time.strftime('%H:%M'),
             "building": a.building,
-            "roleIds": [str(r.id) for r in a.preferred_roles.all()],
-            "roleNames": ", ".join([r.name for r in a.preferred_roles.all()]),
-            "color": a.preferred_roles.first().color if a.preferred_roles.exists() else "#007bff"
+            # We no longer send roles per-block, just the block itself
+            "color": "#4a90e2" 
         })
+
+    # 4. Get all possible roles for the sidebar checkboxes
+    all_roles = Role.objects.filter(team=team)
 
     context = {
         "team": team,
-        "existing_availabilities_json": avail_list # This is the list for the json_script
+        "roles": all_roles, # For the sidebar
+        "selected_role_ids": selected_role_ids, # To check the boxes on load
+        "existing_availabilities_json": avail_list 
     }
     return render(request, "core/availability.html", context)
 
 
-# views.py
 @login_required
 def save_availability(request, team_id):
     if request.method == "POST":
-        import json
-        data = json.loads(request.body)
-        preferences = data.get('preferences', [])
-        
-        # 1. Clean up existing records for this user/team to prevent duplicates
-        AvailabilityRange.objects.filter(user=request.user, team_id=team_id).delete()
-        
-        # 2. Save new blocks
-        for pref in preferences:
-            # Create the base record
-            range_obj = AvailabilityRange.objects.create(
-                user=request.user,
-                team_id=team_id,
-                day=pref['day'],
-                start_time=pref['start_time'],
-                end_time=pref['end_time'],
-                building=pref['building']
-            )
+        try:
+            data = json.loads(request.body)
+            team = get_object_or_404(Team, id=team_id)
             
-            # 3. Handle the Many-to-Many Roles
-            # 'role_ids' is the list we sent from JS: JSON.parse(block.dataset.roleIds)
-            role_ids = pref.get('role_ids', [])
-            if role_ids:
-                roles = Role.objects.filter(id__in=role_ids)
-                range_obj.preferred_roles.set(roles) # This links the roles
-        
-        return JsonResponse({"status": "success"})
+            # The JS sends 'ranges', NOT 'preferences'
+            ranges_data = data.get('ranges', []) 
+            role_ids = data.get('role_ids', [])
+
+            with transaction.atomic():
+                # 1. Wipe old data
+                AvailabilityRange.objects.filter(user=request.user, team=team).delete()
+                
+                # 2. Save new blocks
+                for item in ranges_data:
+                    # Use .get() to prevent crashes if a key is missing
+                    # Check for 'start' vs 'start_time'
+                    start = item.get('start') or item.get('start_time')
+                    end = item.get('end') or item.get('end_time')
+                    day = item.get('day', 'mon').lower()[:3] # Ensure 'monday' -> 'mon'
+
+                    AvailabilityRange.objects.create(
+                        user=request.user,
+                        team=team,
+                        day=day,
+                        start_time=start,
+                        end_time=end,
+                        building=item.get('building', '')
+                    )
+                
+                # 3. Save Role Preferences
+                role_prefs, _ = UserRolePreference.objects.get_or_create(user=request.user, team=team)
+                role_prefs.roles.set(Role.objects.filter(id__in=role_ids, team=team))
+
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            # This print will tell you EXACTLY what went wrong in your terminal
+            print(f"CRITICAL SAVE ERROR: {str(e)}")
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
 # --- 2. SUPERVISOR SIDE (Updated for Teams) ---
@@ -272,32 +291,39 @@ def add_event(request, team_id):
 @login_required
 def supervisor_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden()
-
-    # Optimized Query for 80+ Workers:
-    # 1. Fetch all members
-    # 2. Prefetch availability ONLY for this team
-    # 3. Prefetch role assignments ONLY for this team
-    workers = team.members.all().prefetch_related(
-        Prefetch(
-            'availabilityrange_set', 
-            queryset=AvailabilityRange.objects.filter(team=team),
-            to_attr='team_availability'
-        ),
-        Prefetch(
-            'team_role_assignments',
-            queryset=TeamRoleAssignment.objects.filter(team=team).select_related('role'),
-            to_attr='current_team_assignments'
-        )
-    )
-    
+    members = team.members.all()
     roles = Role.objects.filter(team=team)
     
-    return render(request, "core/supervisor.html", {
-        "team": team,
-        "workers": workers,
-        "roles": roles
+    member_list = []
+    for member in members:
+        # Check if they have drawn any time blocks
+        has_availability = AvailabilityRange.objects.filter(user=member, team=team).exists()
+        
+        # Check if they have selected any roles (Path B)
+        role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
+        
+        # Explicitly get the list of Role objects
+        preferred_roles = []
+        if role_prefs:
+            preferred_roles = list(role_prefs.roles.all())
+
+        # Logic: If they did either, they are "Submitted"
+        status = "Submitted" if (has_availability or preferred_roles) else "Pending"
+        
+        # Get the manager's current assignment for this worker
+        current_assignment = TeamRoleAssignment.objects.filter(user=member, team=team).first()
+        
+        member_list.append({
+            'user': member,
+            'status': status,
+            'preferred_roles': preferred_roles, # The HTML loop uses this
+            'current_role_id': current_assignment.role_id if current_assignment else None        
+            })
+
+    return render(request, 'core/supervisor.html', {
+        'team': team,
+        'member_list': member_list,
+        'roles': roles
     })
 
 @login_required
