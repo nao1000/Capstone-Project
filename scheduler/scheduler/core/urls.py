@@ -74,6 +74,7 @@ urlpatterns = [
     path("api/team/<uuid:team_id>/roles/assign/", views.assign_role, name="assign_role"),
     path("api/team/<uuid:team_id>/roles/unassign/", views.unassign_role, name="unassign_role"),
     path("api/team/<uuid:team_id>/roles/worker/<int:worker_id>/", views.worker_roles, name="worker_roles"),
+    path("api/team/<uuid:team_id>/roles/<int:role_id>/delete/", views.delete_role, name="delete_role"),
 
     # AUTHENTICATION
     path('login/', auth_views.LoginView.as_view(template_name='core/auth.html'), name='login'),

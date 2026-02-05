@@ -15,6 +15,9 @@
     <div class="row">
         <div class="col-lg-7">
             <div class="card shadow-sm mb-4">
+                <div class="mb-3">
+                    <input type="text" id="workerSearch" class="form-control" placeholder="Search workers by name or email..." onkeyup="filterWorkers()">
+                </div>
                 <div class="card-header bg-white">
                     <h5 class="mb-0">Team Members</h5>
                 </div>
@@ -46,7 +49,12 @@
                                             onchange="assignRoleToWorker('{{ worker.id }}', this.value)">
                                         <option value="">Choose Role...</option>
                                         {% for role in roles %}
-                                            <option value="{{ role.id }}">{{ role.name }}</option>
+                                            <option value="{{ role.id }}" 
+                                                {% for assignment in worker.current_team_assignments %}
+                                                    {% if assignment.role_id == role.id %}selected{% endif %}
+                                                {% endfor %}>
+                                                {{ role.name }}
+                                            </option>
                                         {% endfor %}
                                     </select>
                                 </td>
@@ -72,9 +80,13 @@
                         <input type="text" id="newRoleName" class="form-control" placeholder="e.g. Lead Tutor">
                         <button class="btn btn-outline-primary" onclick="addRole()">Add Role</button>
                     </div>
+                    
                     <div id="roleBadgeContainer" class="d-flex flex-wrap gap-2">
                         {% for role in roles %}
-                            <span class="badge bg-info text-dark">{{ role.name }}</span>
+                            <span class="role-tag" id="role-badge-{{ role.id }}">
+                                {{ role.name }}
+                                <span class="delete-role-btn" onclick="deleteRole('{{ role.id }}')">&times;</span>
+                            </span>
                         {% endfor %}
                     </div>
                 </div>
@@ -118,64 +130,10 @@
     </div>
 </div>
 <script>
-    // 1. Global Constants
-    const TEAM_ID = "{{ team.id }}";
-    const CSRF_TOKEN = "{{ csrf_token }}";
-
-    // 2. Add Role Function (Now internal to the HTML)
-    async function addRole() {
-        console.log("addRole triggered inside HTML");
-        const roleInput = document.getElementById('newRoleName');
-        const roleName = roleInput.value.trim();
-        
-        if (!roleName) {
-            alert("Please enter a role name.");
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/team/${TEAM_ID}/roles/create/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': CSRF_TOKEN
-                },
-                body: JSON.stringify({ name: roleName })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // Add badge to the container
-                const container = document.getElementById('roleBadgeContainer');
-                if (container) {
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-info text-dark me-1';
-                    badge.textContent = data.name;
-                    container.appendChild(badge);
-                }
-                roleInput.value = '';
-                console.log("Role created successfully:", data.name);
-            } else {
-                alert("Failed to create role.");
-            }
-        } catch (err) {
-            console.error("Fetch error:", err);
-        }
-    }
-
-    // 3. Assign Role to Worker logic
-    async function assignRoleToWorker(workerId, roleId) {
-        if (!roleId) return;
-        const response = await fetch(`/api/team/${TEAM_ID}/roles/assign/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
-            },
-            body: JSON.stringify({ worker_id: workerId, role_id: roleId })
-        });
-        if (response.ok) { alert("Role assigned!"); }
-    }
+    // These MUST be outside of comments so Django can fill them
+    // and the external JS file can read them.
+    window.TEAM_ID = "{{ team.id }}";
+    window.CSRF_TOKEN = "{{ csrf_token }}";
 </script>
 
 <script src="{% static 'js/supervisor-logic.js' %}"></script>

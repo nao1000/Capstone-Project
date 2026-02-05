@@ -261,12 +261,23 @@ def supervisor_view(request, team_id):
     if team.owner != request.user:
         return HttpResponseForbidden()
 
-    # Prefetch for the ✅ check
+    # Optimized Query for 80+ Workers:
+    # 1. Fetch all members
+    # 2. Prefetch availability ONLY for this team
+    # 3. Prefetch role assignments ONLY for this team
     workers = team.members.all().prefetch_related(
-        Prefetch('availabilityrange_set', 
-                 queryset=AvailabilityRange.objects.filter(team=team),
-                 to_attr='team_availability')
+        Prefetch(
+            'availabilityrange_set', 
+            queryset=AvailabilityRange.objects.filter(team=team),
+            to_attr='team_availability'
+        ),
+        Prefetch(
+            'team_role_assignments',
+            queryset=TeamRoleAssignment.objects.filter(team=team).select_related('role'),
+            to_attr='current_team_assignments'
+        )
     )
+    
     roles = Role.objects.filter(team=team)
     
     return render(request, "core/supervisor.html", {
@@ -318,39 +329,48 @@ def save_schedule(request, team_id):
 
     team = get_object_or_404(Team, id=team_id)
 
-    # Only Supervisor can save schedule
     if team.owner != request.user:
         return HttpResponseForbidden("Only the supervisor can save schedules.")
 
     worker_id = data.get('worker_id')
-    role = data.get('role')
+    role_id = data.get('role') # This comes from the dropdown in scheduler
     assigned_shifts = data.get('assigned_shifts') 
 
     if not worker_id:
         return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
 
     target_user = get_object_or_404(User, id=worker_id)
+    
+    # Correctly lookup the Role object for the Shift
+    role_obj = None
+    if role_id:
+        role_obj = Role.objects.filter(id=role_id, team=team).first()
 
-    # Optional: Clear existing shifts for this user/team to prevent duplicates?
-    # Shift.objects.filter(user=target_user, team=team).delete()
+    try:
+        with transaction.atomic():
+            # Clear existing shifts for this specific worker/team combo
+            Shift.objects.filter(user=target_user, team=team).delete()
 
-    count = 0
-    if assigned_shifts:
-        for day, shifts in assigned_shifts.items():
-            for time_range in shifts:
-                start, end = time_range
-                Shift.objects.create(
-                    user=target_user,
-                    team=team,    # <--- Link to Team
-                    day=day,
-                    start_time=start,
-                    end_time=end,
-                    role=role
-                )
-                count += 1
+            count = 0
+            if assigned_shifts:
+                for day, shifts in assigned_shifts.items():
+                    for time_range in shifts:
+                        if len(time_range) == 2:
+                            start, end = time_range
+                            Shift.objects.create(
+                                user=target_user,
+                                team=team,
+                                day=day.lower(),
+                                start_time=start,
+                                end_time=end,
+                                role=role_obj
+                            )
+                            count += 1
 
-    return JsonResponse({'status': 'success', 'created': count})
-
+        return JsonResponse({'status': 'success', 'created': count})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
 @login_required
 @require_http_methods(["POST"])
 def create_role(request, team_id):
@@ -371,6 +391,17 @@ def create_role(request, team_id):
     return JsonResponse({"ok": True, "role_id": role.id, "created": created, "name": role.name})
 
 @login_required
+@require_http_methods(["DELETE"])
+def delete_role(request, team_id, role_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden()
+
+    role = get_object_or_404(Role, id=role_id, team=team)
+    role.delete()
+    return JsonResponse({"ok": True})
+
+@login_required
 def list_roles(request, team_id):
     team = get_object_or_404(Team, id=team_id)
 
@@ -385,29 +416,39 @@ def list_roles(request, team_id):
 @require_http_methods(["POST"])
 def assign_role(request, team_id):
     team = get_object_or_404(Team, id=team_id)
+    
+    # Permission check
     if team.owner != request.user:
-        return HttpResponseForbidden("Only supervisors can assign roles.")
+        return JsonResponse({"error": "Unauthorized"}, status=403)
 
     try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
+        data = json.loads(request.body)
+        worker_id = data.get("worker_id")
+        role_id = data.get("role_id")
 
-    worker_id = data.get("worker_id")
-    role_id = data.get("role_id")
-    if not worker_id or not role_id:
-        return HttpResponseBadRequest("worker_id and role_id required")
+        if not role_id:
+            # If "Choose Role..." (empty) is selected, remove existing assignments
+            TeamRoleAssignment.objects.filter(team=team, user_id=worker_id).delete()
+            return JsonResponse({"ok": True, "message": "Role cleared"})
 
-    worker = get_object_or_404(User, id=worker_id)
+        role = get_object_or_404(Role, id=role_id, team=team)
+        
+        # Update or Create: Ensures a worker has ONE specific role in this team
+        # If your business logic allows multiple roles, use .get_or_create() instead
+        assignment, created = TeamRoleAssignment.objects.update_or_create(
+            team=team,
+            user_id=worker_id,
+            defaults={'role': role}
+        )
 
-    # worker must be a member (or you can also allow owner)
-    if worker != team.owner and worker not in team.members.all():
-        return HttpResponseBadRequest("Worker is not on this team")
+        return JsonResponse({
+            "ok": True, 
+            "role_name": role.name, 
+            "worker_id": worker_id
+        })
 
-    role = get_object_or_404(Role, id=role_id, team=team)
-
-    assignment, created = TeamRoleAssignment.objects.get_or_create(team=team, user=worker, role=role)
-    return JsonResponse({"ok": True, "created": created})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 @login_required
 @require_http_methods(["POST"])
