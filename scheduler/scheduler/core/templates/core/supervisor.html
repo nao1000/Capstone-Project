@@ -2,101 +2,181 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/scheduler.css' %}">
+<link rel="stylesheet" href="{% static 'css/supervisor.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container supervisor">
-    <h2>Supervisor Dashboard: {{ team.name }}</h2>
-
-    <div class="main-layout">
-        <aside class="sidebar">
-            <div class="panel">
-                <label>Team Members</label>
-                <input type="text" id="workerSearch" placeholder="Search..." onkeyup="filterWorkers()">
-                <div class="worker-list" id="workerList">
-                    {% for worker in workers %}
-                    <div class="worker-item" onclick="selectWorker(this, '{{ worker.id }}')"
-                        data-name="{{ worker.username|lower }}">
-                        <span class="worker-name">
-                            {{ worker.first_name|default:worker.username }} {{ worker.last_name }}
-                        </span>
-                        <span class="status-icon">{% if worker.availabilityrange_set.exists %}✅{% endif %}</span>
-                    </div>
-                    {% empty %}
-                    <div class="p-2">No members found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="panel role-manager">
-                <label>Create New Role</label>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="newRoleName" placeholder="e.g. Senior Tutor">
-                    <button class="btn-primary" onclick="addRole()">+</button>
-                </div>
-                <div id="roleBadgeContainer" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
-                    {% for role in team.roles.all %}
-                    <span class="role-badge">{{ role.name }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="panel event-manager">
-                <label>Manage Events</label>
-                <form>
-                    <input type="text" id="eventName" placeholder="Event Name" required>
-                    <div class="input-group">
-                        <label for="dayOfWeek">Select Day:</label>
-                        <select id="dayOfWeek" required>
-                            <option value="" disabled selected>Choose a day...</option>
-                            <option value="sun">Sunday</option>
-                            <option value="mon">Monday</option>
-                            <option value="tues">Tuesday</option>
-                            <option value="wed">Wednesday</option>
-                            <option value="thur">Thursday</option>
-                            <option value="fri">Friday</option>
-                            <option value="sat">Saturday</option>
-                        </select>
-                        <input type="time" id="startTime" required>
-                        <span>to</span>
-                        <input type="time" id="endTime" required>
-                    </div>
-                    <button type="button" class="btn-primary" onclick="addEvent()">Add Event</button>
-                </form>
-            </div>
-        </aside>
-
-        <section class="grid-area">
-            <p><strong>Worker Availability (Read-Only)</strong></p>
-            <div class="grid-container view-only">
-                <div id="viewGrid" class="grid"></div>
-            </div>
-
-            <hr style="margin: 30px 0; border: 1px solid #ddd;">
-
-            <p><strong>Assign Shifts (Click/Drag)</strong></p>
-            <div class="grid-container">
-                <div id="grid" class="grid"></div>
-            </div>
-
-            <div class="actions" style="margin-top: 20px;">
-                <button id="saveBtn" class="btn-primary" onclick="saveSchedule()" disabled style="width: 200px;">Save
-                    Schedule</button>
-            </div>
-        </section>
+<div class="container supervisor-dashboard mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Team Management: {{ team.name }}</h2>
+        <a href="{% url 'scheduler' team.id %}" class="btn btn-primary">Open Full Scheduler →</a>
     </div>
 
-</div>
-{% endblock %}
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Team Members</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Worker</th>
+                                <th>Status</th>
+                                <th>Assign Role</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for worker in workers %}
+                            <tr>
+                                <td>
+                                    <strong>{{ worker.first_name|default:worker.username }}</strong>
+                                    <br><small class="text-muted">{{ worker.email }}</small>
+                                </td>
+                                <td>
+                                    {% if worker.team_availability %}
+                                        <span class="badge bg-success-soft text-success">✓ Submitted</span>
+                                    {% else %}
+                                        <span class="badge bg-warning-soft text-warning">✗ Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" 
+                                            onchange="assignRoleToWorker('{{ worker.id }}', this.value)">
+                                        <option value="">Choose Role...</option>
+                                        {% for role in roles %}
+                                            <option value="{{ role.id }}">{{ role.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4">No members in this team yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-{% block extra_js %}
-<script src="{% static 'js/app.js' %}"></script>
-<script src="{% static 'js/supervisor-logic.js' %}"></script>
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Manage Roles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" id="newRoleName" class="form-control" placeholder="e.g. Lead Tutor">
+                        <button class="btn btn-outline-primary" onclick="addRole()">Add Role</button>
+                    </div>
+                    <div id="roleBadgeContainer" class="d-flex flex-wrap gap-2">
+                        {% for role in roles %}
+                            <span class="badge bg-info text-dark">{{ role.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Room Access / Events</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Room/Event Name</label>
+                        <input type="text" id="eventName" class="form-control" placeholder="e.g. Main Conference Room">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Day</label>
+                            <select id="dayOfWeek" class="form-select">
+                                <option value="mon">Monday</option>
+                                <option value="tue">Tuesday</option>
+                                <option value="wed">Wednesday</option>
+                                <option value="thu">Thursday</option>
+                                <option value="fri">Friday</option>
+                                <option value="sat">Saturday</option>
+                                <option value="sun">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Start</label>
+                            <input type="time" id="startTime" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">End</label>
+                            <input type="time" id="endTime" class="form-control">
+                        </div>
+                    </div>
+                    <button class="btn btn-success w-100" onclick="addEvent()">Save Room Availability</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
-    // Initialize grids and pass Django variables
-    document.addEventListener('DOMContentLoaded', () => {
-        initSupervisorGrids("{{ team.id }}");
-    });
+    // 1. Global Constants
+    const TEAM_ID = "{{ team.id }}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    // 2. Add Role Function (Now internal to the HTML)
+    async function addRole() {
+        console.log("addRole triggered inside HTML");
+        const roleInput = document.getElementById('newRoleName');
+        const roleName = roleInput.value.trim();
+        
+        if (!roleName) {
+            alert("Please enter a role name.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/team/${TEAM_ID}/roles/create/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({ name: roleName })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Add badge to the container
+                const container = document.getElementById('roleBadgeContainer');
+                if (container) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-info text-dark me-1';
+                    badge.textContent = data.name;
+                    container.appendChild(badge);
+                }
+                roleInput.value = '';
+                console.log("Role created successfully:", data.name);
+            } else {
+                alert("Failed to create role.");
+            }
+        } catch (err) {
+            console.error("Fetch error:", err);
+        }
+    }
+
+    // 3. Assign Role to Worker logic
+    async function assignRoleToWorker(workerId, roleId) {
+        if (!roleId) return;
+        const response = await fetch(`/api/team/${TEAM_ID}/roles/assign/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ worker_id: workerId, role_id: roleId })
+        });
+        if (response.ok) { alert("Role assigned!"); }
+    }
 </script>
+
+<script src="{% static 'js/supervisor-logic.js' %}"></script>
 {% endblock %}
