@@ -100,11 +100,18 @@ function finalizeDrawing(y1, y2) {
     const bottom = Math.ceil(Math.max(y1, y2) / 25) * 25;
     if (bottom - top < 25) return;
 
+    // We no longer block the user if checkboxes are empty
     const checked = document.querySelectorAll('.role-checkbox:checked');
     const roleIds = Array.from(checked).map(cb => cb.value);
-    const roleNames = Array.from(checked).map(cb => cb.dataset.name).join(', ');
     
-    if (roleIds.length === 0) return alert("Select at least one role!");
+    // Fallback if no roles are selected
+    const roleNames = roleIds.length > 0 
+        ? Array.from(checked).map(cb => cb.dataset.name).join(', ') 
+        : "General Availability";
+    
+    const blockColor = roleIds.length > 0 
+        ? checked[0].dataset.color 
+        : "#6c757d"; // Gray for general availability
 
     renderBlockOnGrid({
         dayIndex: startDayIndex,
@@ -113,7 +120,7 @@ function finalizeDrawing(y1, y2) {
         roleIds: roleIds,
         roleNames: roleNames,
         building: document.getElementById('prefBuilding').value || "Any",
-        color: checked[0].dataset.color
+        color: blockColor
     });
 }
 
