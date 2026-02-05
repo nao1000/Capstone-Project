@@ -1,118 +1,211 @@
-function initAvailabilityGrid(teamId) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayKeys = ['sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat'];
-    const startHour = 8;
-    const endHour = 22;
-    const stepMinutes = 15;
+// availability-logic.js
 
-    const gridEl = document.getElementById('grid');
-    const cells = [];
+let isDrawing = false;
+let startY = 0;
+let startDayIndex = 0;
+const DAYS = ['sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat'];
 
-    // --- 1. Build the Grid ---
-    function div(className, text) {
-        const el = document.createElement('div');
-        el.className = className;
-        el.textContent = text;
-        return el;
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    initBackgroundGrid();
+    setupDrawingListeners();
+    loadExistingData(); // NEW: Loads the baked JSON data
+});
 
-    gridEl.innerHTML = ''; // Clear any existing content
-    gridEl.appendChild(div('header', '')); // Top-left empty corner
-    days.forEach(d => gridEl.appendChild(div('header', d)));
-
-    for (let t = startHour * 60; t < endHour * 60; t += stepMinutes) {
-        const label = t % 60 === 0 ? `${Math.floor(t / 60)}:00` : '';
-        gridEl.appendChild(div('time', label));
-
-        for (let day = 0; day < 7; day++) {
-            const cell = div('cell', '');
-            cell.dataset.day = String(day);
-            cell.dataset.minutes = t;
-            gridEl.appendChild(cell);
-            cells.push(cell);
+function initBackgroundGrid() {
+    const bg = document.getElementById('gridBackground');
+    if (!bg) return;
+    bg.innerHTML = '';
+    for (let hour = window.START_HOUR; hour < window.END_HOUR; hour++) {
+        for (let quarter = 0; quarter < 60; quarter += 15) {
+            const label = document.createElement('div');
+            label.className = 'time-slot-label';
+            label.textContent = quarter === 0 ? `${hour}:00` : '';
+            bg.appendChild(label);
+            for (let d = 0; d < 7; d++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell-bg';
+                cell.dataset.day = d;
+                bg.appendChild(cell);
+            }
         }
     }
+}
 
-    // --- 2. Drag & Selection Logic ---
-    let isMouseDown = false;
-    let dragMode = null;
+function loadExistingData() {
+    if (!window.SAVED_AVAILABILITY) return;
 
-    gridEl.addEventListener('mousedown', e => {
-        const cell = e.target.closest('.cell');
-        if (!cell) return;
-        isMouseDown = true;
-        dragMode = cell.classList.contains('selected') ? 'deselect' : 'select';
-        cell.classList.toggle('selected', dragMode === 'select');
-        e.preventDefault();
-    });
+    const dayMap = { 'sun': 0, 'mon': 1, 'tues': 2, 'wed': 3, 'thur': 4, 'fri': 5, 'sat': 6 };
 
-    gridEl.addEventListener('mouseover', e => {
-        if (!isMouseDown) return;
-        const cell = e.target.closest('.cell');
-        if (cell) cell.classList.toggle('selected', dragMode === 'select');
-    });
+    window.SAVED_AVAILABILITY.forEach(avail => {
+        const dayIdx = dayMap[avail.day];
+        
+        // Calculate Y position
+        const [sH, sM] = avail.start.split(':').map(Number);
+        const [eH, eM] = avail.end.split(':').map(Number);
+        
+        const topPx = ((sH - window.START_HOUR) * 60 + sM) / 15 * 25;
+        const bottomPx = ((eH - window.START_HOUR) * 60 + eM) / 15 * 25;
 
-    window.addEventListener('mouseup', () => isMouseDown = false);
-    // --- 3. Export & Save Logic ---
-    const exportButton = document.getElementById('exportBtn');
-    console.log("hello1")
-    if (exportButton) {
-        console.log("hello2")
-        exportButton.onclick = function() {
-        console.log("Exporting data for team:", teamId);
-        const unavailable = {}; 
-        dayKeys.forEach(key => unavailable[key] = []);
-
-        // Group selected cell minutes by day
-        const dayMap = {};
-        cells.forEach(cell => {
-            if (cell.classList.contains('selected')) {
-                const dIdx = cell.dataset.day;
-                const dayName = dayKeys[parseInt(dIdx)];
-                if (!dayMap[dayName]) dayMap[dayName] = [];
-                dayMap[dayName].push(parseInt(cell.dataset.minutes));
-            }
+        renderBlockOnGrid({
+            dayIndex: dayIdx,
+            top: topPx,
+            height: bottomPx - topPx,
+            roleIds: avail.roleIds,
+            roleNames: avail.roleNames,
+            building: avail.building,
+            color: avail.color
         });
+    });
+}
 
-        // Convert individual 15-min blocks into [start, end] ranges
-        for (const day in dayMap) {
-            const times = dayMap[day].sort((a, b) => a - b);
-            if (times.length === 0) continue;
+function setupDrawingListeners() {
+    const wrapper = document.getElementById('gridWrapper');
+    const overlay = document.getElementById('drawingOverlay');
 
-            let start = times[0];
-            for (let i = 0; i < times.length; i++) {
-                // If next block isn't consecutive, or it's the end of the array
-                if (times[i + 1] !== times[i] + stepMinutes) {
-                    unavailable[day].push([
-                        minutesToTimeStr(start), 
-                        minutesToTimeStr(times[i] + stepMinutes)
-                    ]);
-                    start = times[i + 1];
-                }
-            }
-        }
+    wrapper.onmousedown = (e) => {
+        const cell = e.target.closest('.grid-cell-bg');
+        if (!cell) return;
+        isDrawing = true;
+        const rect = wrapper.getBoundingClientRect();
+        startDayIndex = parseInt(cell.dataset.day);
+        startY = e.clientY - rect.top;
+        overlay.classList.remove('d-none');
+    };
 
-        const finalObj = {
-            unavailable: unavailable,
-            preferences: []
+    window.onmousemove = (e) => {
+        if (!isDrawing) return;
+        const rect = wrapper.getBoundingClientRect();
+        const currentY = e.clientY - rect.top;
+        const top = Math.min(startY, currentY);
+        const height = Math.abs(currentY - startY);
+        const colWidth = (wrapper.offsetWidth - 60) / 7;
+        
+        overlay.style.top = top + 'px';
+        overlay.style.height = height + 'px';
+        overlay.style.left = (60 + (startDayIndex * colWidth)) + 'px';
+        overlay.style.width = colWidth + 'px';
+    };
+
+    window.onmouseup = (e) => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        document.getElementById('drawingOverlay').classList.add('d-none');
+        const rect = wrapper.getBoundingClientRect();
+        finalizeDrawing(startY, e.clientY - rect.top);
+    };
+}
+
+function finalizeDrawing(y1, y2) {
+    const top = Math.floor(Math.min(y1, y2) / 25) * 25;
+    const bottom = Math.ceil(Math.max(y1, y2) / 25) * 25;
+    if (bottom - top < 25) return;
+
+    const checked = document.querySelectorAll('.role-checkbox:checked');
+    const roleIds = Array.from(checked).map(cb => cb.value);
+    const roleNames = Array.from(checked).map(cb => cb.dataset.name).join(', ');
+    
+    if (roleIds.length === 0) return alert("Select at least one role!");
+
+    renderBlockOnGrid({
+        dayIndex: startDayIndex,
+        top: top,
+        height: bottom - top,
+        roleIds: roleIds,
+        roleNames: roleNames,
+        building: document.getElementById('prefBuilding').value || "Any",
+        color: checked[0].dataset.color
+    });
+}
+
+function renderBlockOnGrid(data) {
+    const layer = document.getElementById('blocks-layer');
+    const block = document.createElement('div');
+    block.className = 'pref-block';
+    
+    block.dataset.roleIds = JSON.stringify(data.roleIds);
+    block.dataset.building = data.building;
+    
+    block.style.top = data.top + 'px';
+    block.style.height = data.height + 'px';
+    block.style.left = (data.dayIndex * (100/7)) + '%';
+    block.style.width = (100/7) + '%';
+    block.style.backgroundColor = data.color;
+    
+    block.innerHTML = `
+        <button class="delete-btn" onclick="this.parentElement.remove()">×</button>
+        <div style="padding: 2px;">
+            <div class="fw-bold" style="font-size: 10px;">${data.roleNames}</div>
+            <div style="font-size: 9px;">${data.building}</div>
+        </div>
+    `;
+    layer.appendChild(block);
+}
+
+// ... saveAllPreferences() and getCookie() functions go here ...
+
+/**
+ * Collects all blocks and POSTs them to Django
+ */
+async function saveAllPreferences() {
+    const blocks = document.querySelectorAll('.pref-block');
+    const preferences = [];
+
+    blocks.forEach(block => {
+        // 1. Calculate Start/End Time based on pixels
+        const topPx = parseInt(block.style.top);
+        const heightPx = parseInt(block.style.height);
+        
+        // Convert pixels back to total minutes from midnight
+        const startTotalMinutes = (topPx / 25) * 15 + (window.START_HOUR * 60);
+        const endTotalMinutes = startTotalMinutes + (heightPx / 25) * 15;
+
+        const formatTime = (mins) => {
+            const h = Math.floor(mins / 60).toString().padStart(2, '0');
+            const m = (mins % 60).toString().padStart(2, '0');
+            return `${h}:${m}`;
         };
 
-        // Send to Django
-        fetch(`/api/team/${teamId}/availability/`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(finalObj)
-        })
-        .then(res => {
-            if (!res.ok) throw new Error("Network response was not ok");
-            return res.json();
-        })
-        .then(data => alert("Availability saved successfully!"))
-        .catch(err => {
-            console.error(err);
-            alert("Error saving: Check browser console.");
+        // 2. Determine Day based on left percentage
+        const dayIndex = Math.round(parseFloat(block.style.left) / (100 / 7));
+
+        preferences.push({
+            day: DAYS[dayIndex],
+            start_time: formatTime(startTotalMinutes),
+            end_time: formatTime(endTotalMinutes),
+            role_ids: JSON.parse(block.dataset.roleIds), // Multiple roles!
+            building: block.dataset.building
         });
-    }}}
+    });
+
+    // 3. Send to Django
+    const response = await fetch(`/api/team/${window.TEAM_ID}/save-availability/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken') // Ensure this helper exists
+        },
+        body: JSON.stringify({ preferences: preferences })
+    });
+
+    if (response.ok) {
+        alert("Availability saved successfully!");
+    } else {
+        alert("Failed to save. Check console for errors.");
+    }
+}
+
+// Helper to get CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}

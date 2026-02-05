@@ -92,54 +92,68 @@ def join_team(request):
 
 # --- 1. WORKER SIDE (Updated for Teams) ---
 
+@login_required
 @never_cache
-@login_required
 def availability_view(request, team_id):
-    """
-    Renders the availability grid for a SPECIFIC team.
-    """
     team = get_object_or_404(Team, id=team_id)
     
-    # Security: Ensure user is actually in this team
-    if request.user not in team.members.all():
-        return HttpResponseForbidden("You are not a member of this team.")
+    # Fetch data
+    availabilities = AvailabilityRange.objects.filter(
+        user=request.user, 
+        team=team
+    ).prefetch_related('preferred_roles')
 
-    return render(request, "core/availability.html", {"team": team})
+    # Create a list of dictionaries manually to match exactly what your JS expects
+    avail_list = []
+    for a in availabilities:
+        avail_list.append({
+            "day": a.day,
+            "start": a.start_time.strftime('%H:%M'),
+            "end": a.end_time.strftime('%H:%M'),
+            "building": a.building,
+            "roleIds": [str(r.id) for r in a.preferred_roles.all()],
+            "roleNames": ", ".join([r.name for r in a.preferred_roles.all()]),
+            "color": a.preferred_roles.first().color if a.preferred_roles.exists() else "#007bff"
+        })
 
+    context = {
+        "team": team,
+        "existing_availabilities_json": avail_list # This is the list for the json_script
+    }
+    return render(request, "core/availability.html", context)
+
+
+# views.py
 @login_required
-@require_http_methods(["POST"])
 def save_availability(request, team_id):
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
-
-    team = get_object_or_404(Team, id=team_id)
-    
-    # Security Check
-    if request.user not in team.members.all():
-        return HttpResponseForbidden("Not a member")
-
-    unavailable = data.get("unavailable")
-    
-    # DELETE existing ranges ONLY for this team
-    AvailabilityRange.objects.filter(user=request.user, team=team).delete()
-
-    created_count = 0
-    if isinstance(unavailable, dict):
-        for day, ranges in unavailable.items():
-            for r in ranges:
-                if len(r) == 2:
-                    AvailabilityRange.objects.create(
-                        user=request.user, 
-                        team=team,
-                        day=day, 
-                        start_time=r[0], 
-                        end_time=r[1]
-                    )
-                    created_count += 1
-
-    return JsonResponse({"ok": True, "created": created_count})
+    if request.method == "POST":
+        import json
+        data = json.loads(request.body)
+        preferences = data.get('preferences', [])
+        
+        # 1. Clean up existing records for this user/team to prevent duplicates
+        AvailabilityRange.objects.filter(user=request.user, team_id=team_id).delete()
+        
+        # 2. Save new blocks
+        for pref in preferences:
+            # Create the base record
+            range_obj = AvailabilityRange.objects.create(
+                user=request.user,
+                team_id=team_id,
+                day=pref['day'],
+                start_time=pref['start_time'],
+                end_time=pref['end_time'],
+                building=pref['building']
+            )
+            
+            # 3. Handle the Many-to-Many Roles
+            # 'role_ids' is the list we sent from JS: JSON.parse(block.dataset.roleIds)
+            role_ids = pref.get('role_ids', [])
+            if role_ids:
+                roles = Role.objects.filter(id__in=role_ids)
+                range_obj.preferred_roles.set(roles) # This links the roles
+        
+        return JsonResponse({"status": "success"})
 
 
 # --- 2. SUPERVISOR SIDE (Updated for Teams) ---

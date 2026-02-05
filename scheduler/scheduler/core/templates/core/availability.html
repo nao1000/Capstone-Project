@@ -2,33 +2,80 @@
 {% load static %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'css/scheduler.css' %}">
+<link rel="stylesheet" href="{% static 'css/availability.css' %}">
 {% endblock %}
 
 {% block content %}
-    <h2>Availability Selector</h2>
-
-    <div style="margin-bottom: 10px;">
-        <label>Name: <input type="text" id="userName" value="{{ request.user.username }}" /></label>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Submit Your Availability: {{ team.name }}</h2>
+        <button class="btn btn-success px-4" onclick="saveAllPreferences()">Save Changes</button>
     </div>
 
-    <div id="grid" class="grid"></div>
-
-    <div class="controls">
-        <button id="clearBtn" class="btn-secondary">Clear Selection</button>
-        <button id="exportBtn" class="btn-primary">Export & Save</button>
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body bg-light rounded d-flex flex-wrap gap-4 align-items-end">
+            <div style="min-width: 200px;">
+                <label class="form-label fw-bold small text-uppercase">1. Choose Role</label>
+                <select id="prefRole" class="form-select">
+                    {% for role in team.roles.all %}
+                        <option value="{{ role.id }}" data-color="{{ role.color }}">{{ role.name }}</option>
+                    {% empty %}
+                        <option disabled>No roles created by supervisor</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="min-width: 250px;">
+                <label class="form-label fw-bold small text-uppercase">2. Building / Room</label>
+                <input type="text" id="prefBuilding" class="form-control" placeholder="e.g. Science Hall 202">
+            </div>
+            <div class="flex-grow-1 text-muted small pb-2">
+                <i class="bi bi-info-lg text-primary"></i> 
+                <strong>How to use:</strong> Click and drag vertically on the grid to mark when and where you prefer to work.
+            </div>
+        </div>
     </div>
 
-    <textarea id="out" class="hidden" placeholder="JSON output..."></textarea>
-{% endblock %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-white border-0 py-2" 
+            style="display: grid; grid-template-columns: 60px repeat(7, 1fr); text-align: center; font-weight: bold; color: #666; font-size: 0.85rem;">
+            <div></div> <div>SUN</div>
+            <div>MON</div>
+            <div>TUE</div>
+            <div>WED</div>
+            <div>THU</div>
+            <div>FRI</div>
+            <div>SAT</div>
+        </div>
 
-{% block extra_js %}
-    <script src="{% static 'js/app.js' %}"></script>
-    <script src="{% static 'js/availability.js' %}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // We pass the team ID from Django to your JS file here
-            initAvailabilityGrid("{{ team.id }}");
-        });
-    </script>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Weekly Availability: {{ team.name }}</h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-danger" onclick="clearGrid()">Clear All</button>
+            <button class="btn btn-success px-4" onclick="saveAllPreferences()">Save Schedule</button>
+        </div>
+    </div>
+
+        <div class="grid-wrapper" id="gridWrapper">
+            <div id="gridBackground" class="grid-bg-container"></div>
+            <div id="blocks-layer"></div>
+            <div id="drawingOverlay" class="drawing-overlay d-none"></div>
+        </div>
+    </div>
+</div>
+
+{{ existing_availabilities_json|json_script:"availability-data" }}
+
+<script>
+    // 2. Simple Configuration
+    window.TEAM_ID = "{{ team.id }}";
+    window.START_HOUR = 8;
+    window.END_HOUR = 22;
+    window.SLOT_HEIGHT = 25;
+
+    // 3. The Data Bridge (No loops, no syntax errors)
+    const dataElement = document.getElementById('availability-data');
+    window.SAVED_AVAILABILITY = JSON.parse(dataElement.textContent);
+</script>
+
+<script src="{% static 'js/availability.js' %}"></script>
 {% endblock %}

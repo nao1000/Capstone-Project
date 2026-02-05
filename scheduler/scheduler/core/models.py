@@ -31,23 +31,6 @@ class TeamEvent(models.Model):
 
     def __str__(self):
         return f"{self.name} on {self.day}"
-    
-# Availability Model
-class AvailabilityRange(models.Model):
-    # tied to a specific user in a specific team    
-    id = models.BigAutoField(primary_key=True) 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    
-    # Link this range to a specific team
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True) 
-    
-    # saves the actual time
-    day = models.CharField(max_length=5) 
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-
-    def __str__(self):
-        return f"{self.user.username} - {self.day}"
 
 # worker's role defined by supervisor
 class Role(models.Model):
@@ -64,6 +47,22 @@ class Role(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.team.name})"
+
+# Availability Model
+# models.py
+class AvailabilityRange(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    day = models.CharField(max_length=10) # e.g., 'mon', 'tues'
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    building = models.CharField(max_length=100, blank=True)
+    
+    # Use ManyToManyField to allow multiple role preferences per block
+    preferred_roles = models.ManyToManyField(Role)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.day} ({self.start_time})"
 
 # defined event by a supervisor
 class Shift(models.Model):
