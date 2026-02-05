@@ -34,8 +34,7 @@
             <p style="font-size: 13px; color: #666; margin: 0 0 15px 0;">
                 Members: {{ team.members.count }}
             </p>
-            <a href="{% url 'supervisor' team.id %}" class="open-btn supervisor">Manage Schedule →</a>
-        </div>
+            <a href="{% url 'supervisor' team.id %}" class="btn btn-primary">Manage Team</a>        </div>
         {% empty %}
         <p class="empty-state">You haven't created any teams yet.</p>
         {% endfor %}

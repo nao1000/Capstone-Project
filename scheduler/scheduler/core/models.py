@@ -22,6 +22,16 @@ class Team(models.Model):
     def __str__(self):
         return self.name
 
+class TeamEvent(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='events')
+    name = models.CharField(max_length=100) # e.g., "Main Lab" or "Conference Room"
+    day = models.CharField(max_length=10)   # mon, tues, wed...
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.name} on {self.day}"
+    
 # Availability Model
 class AvailabilityRange(models.Model):
     # tied to a specific user in a specific team    
@@ -39,15 +49,23 @@ class AvailabilityRange(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.day}"
 
+# worker's role defined by supervisor
 class Role(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=50)
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="roles")
     color = models.CharField(max_length=7, default="#007bff")
 
+    # requires role to be unique within the team (no duplicate roles)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["team", "name"], name="uniq_role_name_per_team")
+        ]
+
     def __str__(self):
         return f"{self.name} ({self.team.name})"
 
+# defined event by a supervisor
 class Shift(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -64,3 +82,17 @@ class Shift(models.Model):
     def __str__(self):
         return f"SHIFT: {self.user.username} ({self.role})"
 
+# assign roles to workers
+class TeamRoleAssignment(models.Model):
+    team = models.ForeignKey("Team", on_delete=models.CASCADE, related_name="role_assignments")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="team_role_assignments")
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="assignments")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["team", "user", "role"], name="uniq_role_assignment")
+        ]
+
+    def __str__(self):
+        return f"{self.team.name}: {self.user.username} -> {self.role.name}"

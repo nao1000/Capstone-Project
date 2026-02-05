@@ -1,0 +1,19 @@
+.bg-success-soft { background-color: #e8f5e9; }
+.bg-warning-soft { background-color: #fff3e0; }
+
+.supervisor-dashboard .card {
+    border: none;
+    border-radius: 8px;
+}
+
+.supervisor-dashboard .table thead th {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+}
+
+.badge {
+    padding: 0.5em 0.8em;
+    font-weight: 500;
+}
