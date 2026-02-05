@@ -47,6 +47,26 @@
             <div>SAT</div>
         </div>
 
+        <div class="sidebar">
+           <h3>Preferred Roles</h3>
+            {% for role in roles %}
+            <label>
+                <input type="checkbox" class="role-checkbox" value="{{ role.id }}"
+                    {% if role.id in selected_role_ids %}checked{% endif %}>
+                {{ role.name }}
+            </label><br>
+            {% endfor %}
+            <select id="prefBuilding">
+                <option value="Main Library">Main Library</option>
+                <option value="Science Center">Science Center</option>
+                <option value="Student Union">Student Union</option>
+            </select>
+
+            <hr>
+            
+            <button id="saveAllBtn" class="btn-save">Save All Preferences</button>
+        </div>
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Weekly Availability: {{ team.name }}</h2>
         <div class="d-flex gap-2">

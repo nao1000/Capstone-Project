@@ -98,30 +98,32 @@ function setupDrawingListeners() {
 function finalizeDrawing(y1, y2) {
     const top = Math.floor(Math.min(y1, y2) / 25) * 25;
     const bottom = Math.ceil(Math.max(y1, y2) / 25) * 25;
+    
+    // Minimal block size (15 mins)
     if (bottom - top < 25) return;
-
-    // We no longer block the user if checkboxes are empty
-    const checked = document.querySelectorAll('.role-checkbox:checked');
-    const roleIds = Array.from(checked).map(cb => cb.value);
-    
-    // Fallback if no roles are selected
-    const roleNames = roleIds.length > 0 
-        ? Array.from(checked).map(cb => cb.dataset.name).join(', ') 
-        : "General Availability";
-    
-    const blockColor = roleIds.length > 0 
-        ? checked[0].dataset.color 
-        : "#6c757d"; // Gray for general availability
 
     renderBlockOnGrid({
         dayIndex: startDayIndex,
         top: top,
         height: bottom - top,
-        roleIds: roleIds,
-        roleNames: roleNames,
         building: document.getElementById('prefBuilding').value || "Any",
-        color: blockColor
+        color: "#4a90e2" // Single color for all time blocks
     });
+}
+
+async function saveAll() {
+    const blocks = document.querySelectorAll('.pref-block');
+    const checkedRoles = document.querySelectorAll('.role-checkbox:checked');
+    
+    const payload = {
+        ranges: Array.from(blocks).map(block => ({
+            day: DAYS[Math.round(parseFloat(block.style.left) / (100/7))],
+            start: pixelsToTime(parseInt(block.style.top)),
+            end: pixelsToTime(parseInt(block.style.top) + parseInt(block.style.height)),
+            building: block.dataset.building
+        })),
+        role_ids: Array.from(checkedRoles).map(cb => cb.value)
+    };
 }
 
 function renderBlockOnGrid(data) {
@@ -148,60 +150,72 @@ function renderBlockOnGrid(data) {
     layer.appendChild(block);
 }
 
-// ... saveAllPreferences() and getCookie() functions go here ...
 
 /**
  * Collects all blocks and POSTs them to Django
  */
+document.getElementById('saveAllBtn').addEventListener('click', saveAllPreferences);
+
 async function saveAllPreferences() {
     const blocks = document.querySelectorAll('.pref-block');
-    const preferences = [];
+    const checkedRoles = document.querySelectorAll('.role-checkbox:checked');
+    
+    // 1. Prepare the Data Payload
+    const payload = {
+        role_ids: Array.from(checkedRoles).map(cb => cb.value),
+        ranges: Array.from(blocks).map(block => {
+            // Convert pixels back to time
+            const topPx = parseInt(block.style.top);
+            const heightPx = parseInt(block.style.height);
+            
+            // Assuming 25px = 15 minutes and grid starts at window.START_HOUR
+            const startTotalMins = (topPx / 25) * 15 + (window.START_HOUR * 60);
+            const endTotalMins = startTotalMins + (heightPx / 25) * 15;
 
-    blocks.forEach(block => {
-        // 1. Calculate Start/End Time based on pixels
-        const topPx = parseInt(block.style.top);
-        const heightPx = parseInt(block.style.height);
-        
-        // Convert pixels back to total minutes from midnight
-        const startTotalMinutes = (topPx / 25) * 15 + (window.START_HOUR * 60);
-        const endTotalMinutes = startTotalMinutes + (heightPx / 25) * 15;
+            const toTimeStr = (totalMins) => {
+                const h = Math.floor(totalMins / 60).toString().padStart(2, '0');
+                const m = (totalMins % 60).toString().padStart(2, '0');
+                return `${h}:${m}`;
+            };
 
-        const formatTime = (mins) => {
-            const h = Math.floor(mins / 60).toString().padStart(2, '0');
-            const m = (mins % 60).toString().padStart(2, '0');
-            return `${h}:${m}`;
-        };
+            // Get Day Index from left percentage (e.g., "14.28%")
+            const leftPercent = parseFloat(block.style.left);
+            const dayIdx = Math.round(leftPercent / (100 / 7));
+            const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-        // 2. Determine Day based on left percentage
-        const dayIndex = Math.round(parseFloat(block.style.left) / (100 / 7));
+            return {
+                day: DAYS[dayIdx],
+                start: toTimeStr(startTotalMins),
+                end: toTimeStr(endTotalMins),
+                building: block.dataset.building
+            };
+        })
+    };
 
-        preferences.push({
-            day: DAYS[dayIndex],
-            start_time: formatTime(startTotalMinutes),
-            end_time: formatTime(endTotalMinutes),
-            role_ids: JSON.parse(block.dataset.roleIds), // Multiple roles!
-            building: block.dataset.building
+    // 2. Send to Django
+    try {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/save-availability/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
         });
-    });
 
-    // 3. Send to Django
-    const response = await fetch(`/api/team/${window.TEAM_ID}/save-availability/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken') // Ensure this helper exists
-        },
-        body: JSON.stringify({ preferences: preferences })
-    });
-
-    if (response.ok) {
-        alert("Availability saved successfully!");
-    } else {
-        alert("Failed to save. Check console for errors.");
+        if (response.ok) {
+            alert("All preferences saved successfully!");
+        } else {
+            const errorData = await response.json();
+            alert("Error: " + errorData.message);
+        }
+    } catch (err) {
+        console.error("Save failed:", err);
+        alert("Server error. Check console.");
     }
 }
 
-// Helper to get CSRF Token
+// Helper to get CSRF token from cookies
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {

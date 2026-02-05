@@ -54,16 +54,15 @@ urlpatterns = [
 
     # --- WORKER ROUTES ---
     path('team/<uuid:team_id>/availability/', views.availability_view, name='availability'),
-    path('api/team/<uuid:team_id>/availability/', views.save_availability, name='save_availability'),
+    
+    # FIX: Changed 'availability' to 'save-availability' to match your JS fetch call
+    path('api/team/<uuid:team_id>/save-availability/', views.save_availability, name='save_availability'),
 
     # --- SUPERVISOR ROUTES ---
-    # ADD THIS LINE BACK IN:
     path("team/<uuid:team_id>/supervisor/", views.supervisor_view, name="supervisor"),
-    
-    # This remains for the full scheduling grid
     path("team/<uuid:team_id>/scheduler/", views.scheduler_view, name="scheduler"),
 
-    # ... everything else (APIs, Auth, etc.) ...
+    # --- API ENDPOINTS ---
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
     path('api/team/<uuid:team_id>/save-schedule/', views.save_schedule, name='save_schedule'),
     path("api/team/<uuid:team_id>/events/add/", views.add_event, name="add_event"),
