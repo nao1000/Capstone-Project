@@ -328,7 +328,6 @@ def supervisor_view(request, team_id):
 
 @login_required
 def get_worker_availability(request, team_id, worker_id):
-    
     team = get_object_or_404(Team, id=team_id)
     # allow supervisor only
     if team.owner != request.user:
@@ -346,9 +345,9 @@ def get_worker_availability(request, team_id, worker_id):
 
     if not (is_supervisor or is_self):
         return HttpResponseForbidden("Unauthorized")
-
+    
     ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
-
+    print(len(ranges))
     data = {}
     for r in ranges:
         day_key = r.day.lower()
@@ -357,6 +356,7 @@ def get_worker_availability(request, team_id, worker_id):
             r.end_time.strftime("%H:%M"),
         ])
 
+    print(len(data))
     return JsonResponse({"unavailable": data})
 
 @login_required
@@ -415,6 +415,7 @@ def save_schedule(request, team_id):
 @require_http_methods(["POST"])
 def create_role(request, team_id):
     team = get_object_or_404(Team, id=team_id)
+    print(f"Attempting to create role for team {team_id} by user {request.user.username}")
     if team.owner != request.user:
         return HttpResponseForbidden("Only supervisors can create roles.")
 
@@ -427,9 +428,17 @@ def create_role(request, team_id):
     if not name:
         return HttpResponseBadRequest("Missing role name")
 
-    role, created = Role.objects.get_or_create(team=team, name=name)
-    return JsonResponse({"ok": True, "role_id": role.id, "created": created, "name": role.name})
-
+    try:
+        # Check if role already exists for THIS team
+        role = Role.objects.get(team=team, name=name)
+        return JsonResponse({"ok": True, "role_id": role.id, "created": False, "name": role.name})
+    except Role.DoesNotExist:
+        # Create new role (no capacity field needed)
+        role = Role.objects.create(team=team, name=name)
+        return JsonResponse({"ok": True, "role_id": role.id, "created": True, "name": role.name})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+    
 @login_required
 @require_http_methods(["DELETE"])
 def delete_role(request, team_id, role_id):

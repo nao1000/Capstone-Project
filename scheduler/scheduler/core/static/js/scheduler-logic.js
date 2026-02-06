@@ -1,7 +1,7 @@
 // Constants for the grid
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const keyToIndex = { "sun": 0, "mon": 1, "tues": 2, "wed": 3, "thur": 4, "fri": 5, "sat": 6 };
-const indexToKey = ["sun", "mon", "tues", "wed", "thur", "fri", "sat"];
+const keyToIndex = { "sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6 };
+const indexToKey = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const startHour = 8;
 const endHour = 17;
 const stepMinutes = 15;
@@ -101,25 +101,45 @@ function loadWorkerData(workerId, teamId) {
     fetch(`/api/team/${teamId}/get-availability/${workerId}/`)
         .then(res => res.json())
         .then(data => {
+            console.log("Full API response:", data); // Debug the entire response
+            
             if (data.unavailable) {
                 for (const [dayKey, ranges] of Object.entries(data.unavailable)) {
-                    const dayIndex = keyToIndex[dayKey.toLowerCase()];
+                    const normalizedDayKey = dayKey.toLowerCase().trim();
+                    const dayIndex = keyToIndex[normalizedDayKey];
+                    
+                    console.log(`Day: ${normalizedDayKey}, Index: ${dayIndex}, Ranges:`, ranges);
+                    
+                    if (dayIndex === undefined) {
+                        console.warn(`⚠️ Day key "${dayKey}" not found in keyToIndex!`);
+                        continue;
+                    }
+                    
                     ranges.forEach(range => {
                         const startMins = timeStrToMinutes(range[0]);
                         const endMins = timeStrToMinutes(range[1]);
                         
+                        console.log(`  Marking ${normalizedDayKey} from ${startMins} to ${endMins}`);
+                        
+                        // Mark only cells that match this day AND time range
+                        let markedCount = 0;
                         viewCells.forEach(cell => {
                             const cellDay = parseInt(cell.dataset.day);
                             const cellTime = parseInt(cell.dataset.minutes);
+                            
                             if (cellDay === dayIndex && cellTime >= startMins && cellTime < endMins) {
                                 cell.classList.add("unavailable");
+                                markedCount++;
                             }
                         });
+                        
+                        console.log(`  ✓ Marked ${markedCount} cells`);
                     });
                 }
             }
             document.getElementById("saveBtn").disabled = false;
-        });
+        })
+        .catch(err => console.error("Fetch error:", err));
 }
 
 
@@ -220,22 +240,6 @@ async function addRole() {
     }
 }
 
-// THIS HELPER IS REQUIRED FOR DJANGO POST REQUESTS
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
 async function selectWorker(element, workerId) {
     // UI highlight
     document.querySelectorAll('.worker-item').forEach(el => el.classList.remove('active'));
@@ -313,41 +317,6 @@ function getCookie(name) {
 // Constants for the grid
 const DAYS = ['sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat'];
 const HOURS = 24;
-
-/**
- * Called on page load (from your scheduler.html script tag)
- */
-function initSupervisorGrids(teamId) {
-    window.TEAM_ID = teamId;
-    createGridCells('viewGrid', true); // Read-only availability
-    createGridCells('grid', false);    // Assignment grid
-}
-
-/**
- * Generates the 168 cells (24 hours * 7 days) for a grid
- */
-function createGridCells(containerId, isReadOnly) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    container.innerHTML = ''; // Clear it
-
-    for (let hour = 0; hour < HOURS; hour++) {
-        DAYS.forEach(day => {
-            const cell = document.createElement('div');
-            cell.classList.add('grid-cell');
-            cell.dataset.day = day;
-            cell.dataset.time = `${hour.toString().padStart(2, '0')}:00`;
-            
-            if (!isReadOnly) {
-                // Add click/drag listeners for the assignment grid here
-                cell.onclick = () => toggleShift(cell);
-            }
-            
-            container.appendChild(cell);
-        });
-    }
-}
 
 /**
  * Fetches and displays a worker's availability on the viewGrid

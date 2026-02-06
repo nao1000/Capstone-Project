@@ -16,7 +16,7 @@
                 <input type="text" id="workerSearch" placeholder="Search..." onkeyup="filterWorkers()">
                 <div class="worker-list" id="workerList">
                     {% for worker in workers %}
-                    <div class="worker-item" onclick="selectWorker(this, '{{ worker.id }}')"
+                    <div class="worker-item" onclick="loadWorkerData('{{ worker.id }}', '{{ team.id }}')"
                         data-name="{{ worker.username|lower }}">
                         <span class="worker-name">
                             {{ worker.first_name|default:worker.username }} {{ worker.last_name }}
@@ -25,19 +25,6 @@
                     </div>
                     {% empty %}
                     <div class="p-2">No members found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="panel role-manager">
-                <label>Create New Role</label>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="newRoleName" placeholder="e.g. Senior Tutor">
-                    <button class="btn-primary" onclick="addRole()">+</button>
-                </div>
-                <div id="roleBadgeContainer" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
-                    {% for role in team.roles.all %}
-                    <span class="role-badge">{{ role.name }}</span>
                     {% endfor %}
                 </div>
             </div>
@@ -91,12 +78,9 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/app.js' %}"></script>
-<script src="{% static 'js/supervisor-logic.js' %}"></script>
+<script src="{% static 'js/scheduler-logic.js' %}"></script>
 <script>
-    // Initialize grids and pass Django variables
-    document.addEventListener('DOMContentLoaded', () => {
-        initSupervisorGrids("{{ team.id }}");
-    });
+    initSupervisorGrids("{{ team.id }}");
+    console.log("fuck")
 </script>
 {% endblock %}

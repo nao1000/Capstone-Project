@@ -3,7 +3,7 @@
 let isDrawing = false;
 let startY = 0;
 let startDayIndex = 0;
-const DAYS = ['sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat'];
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 document.addEventListener('DOMContentLoaded', () => {
     initBackgroundGrid();
@@ -34,7 +34,7 @@ function initBackgroundGrid() {
 function loadExistingData() {
     if (!window.SAVED_AVAILABILITY) return;
 
-    const dayMap = { 'sun': 0, 'mon': 1, 'tues': 2, 'wed': 3, 'thur': 4, 'fri': 5, 'sat': 6 };
+    const dayMap = { 'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6 };
 
     window.SAVED_AVAILABILITY.forEach(avail => {
         const dayIdx = dayMap[avail.day];
@@ -181,7 +181,6 @@ async function saveAllPreferences() {
             // Get Day Index from left percentage (e.g., "14.28%")
             const leftPercent = parseFloat(block.style.left);
             const dayIdx = Math.round(leftPercent / (100 / 7));
-            const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
             return {
                 day: DAYS[dayIdx],
