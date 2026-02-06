@@ -12,56 +12,41 @@ const CSRF_TOKEN = "{{ csrf_token }}";
 
 // 2. Add Role Function (Now internal to the HTML)
 async function addRole() {
-    console.log("addRole triggered. Team ID:", window.TEAM_ID);
-    
-    const roleInput = document.getElementById('newRoleName');
-    const roleName = roleInput.value.trim();
-    
+    const roleName = document.getElementById('newRoleName').value.trim();
+    const capInput = document.getElementById('roleCap').value.trim();
     if (!roleName) {
         alert("Please enter a role name.");
         return;
     }
-
     try {
-        // We use window.TEAM_ID because the .js file can't read {{ team.id }} directly
         const response = await fetch(`/api/team/${window.TEAM_ID}/roles/create/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': window.CSRF_TOKEN // Seeded from HTML
+                'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({ name: roleName })
+            body: JSON.stringify({ name: roleName, cap: capInput, current: 0 })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            
-            // 1. Update the Badges
-            const container = document.getElementById('roleBadgeContainer');
-            if (container) {
-                const badge = document.createElement('span');
-                badge.className = 'badge bg-info text-dark me-1';
-                badge.textContent = data.name;
-                container.appendChild(badge);
-            }
-
-            // 2. Update the Dropdowns for all workers
-            const dropdowns = document.querySelectorAll('select.form-select');
-            dropdowns.forEach(select => {
-                const opt = document.createElement('option');
-                opt.value = data.role_id;
-                opt.textContent = data.name;
-                select.appendChild(opt);
-            });
-
-            roleInput.value = '';
-            console.log("Role created successfully:", data.name);
+        const data = await response.json();
+        if (data.ok) {
+            alert(`Role "${roleName}" created!`);
+            // add a new role without refreshing the page and make it look like what it looks like in supervisor.html
+            // make it so it doesn't have to refresh the page to update the dropdowns for assigning roles to workers
+            const roleList = document.getElementById('roleList');
+            const newBadge = document.createElement('span');
+            newBadge.className = 'badge bg-secondary me-2';
+            newBadge.id = `role-badge-${data.role_id}`;
+            newBadge.innerHTML = `
+                ${data.name} 
+                <button class="btn btn-sm btn-danger ms-1" onclick="deleteRole(${data.role_id})">&times;</button>
+            `;
+            roleList.appendChild(newBadge);
         } else {
-            const errorData = await response.json();
-            alert("Error: " + (errorData.error || "Failed to create role."));
+            alert("Error: " + data.error);
         }
     } catch (err) {
-        console.error("Fetch error:", err);
+        console.error("Error:", err);
     }
 }
 
