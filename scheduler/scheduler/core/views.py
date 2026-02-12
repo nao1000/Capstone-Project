@@ -161,7 +161,8 @@ def save_availability(request, team_id):
                         day=day,
                         start_time=start,
                         end_time=end,
-                        building=item.get('building', '')
+                        building=item.get('building', ''),
+                        eventName=item.get('eventName', '')
                     )
                 
                 # 3. Save Role Preferences
