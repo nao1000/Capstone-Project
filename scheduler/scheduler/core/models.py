@@ -56,6 +56,7 @@ class AvailabilityRange(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     building = models.CharField(max_length=100, blank=True)
+    eventName = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"{self.user.username}: {self.day} {self.start_time}-{self.end_time}"
