@@ -253,37 +253,108 @@ async function saveAll () {
   }
 }
 
-function renderBlockOnGrid (data) {
-  const layer = document.getElementById('blocks-layer')
-  const block = document.createElement('div')
-  block.className = 'pref-block'
+function renderBlockOnGrid(data) {
+  const layer = document.getElementById('blocks-layer');
+  const block = document.createElement('div');
+  block.className = 'pref-block';
 
-  block.dataset.roleIds = JSON.stringify(data.roleIds)
-  block.dataset.building = data.building
-  block.dataset.startTime = data.startTime
-  block.dataset.endTime = data.endTime
-  block.dataset.eventName = data.eventName || ''
+  block.dataset.startTime = data.startTime;
+  block.dataset.endTime = data.endTime;
+  block.dataset.building = data.building;
+  block.dataset.eventName = data.eventName || '';
+  block.dataset.roleIds = JSON.stringify(data.roleIds || []);
 
-  block.style.top = data.top + 'px'
-  block.style.height = data.height + 'px'
-  block.style.left = data.dayIndex * (100 / 7) + '%'
-  block.style.width = 100 / 7 + '%'
-  block.style.backgroundColor = data.color
+  block.style.top = data.top + 'px';
+  block.style.height = data.height + 'px';
+  block.style.left = (data.dayIndex * (100 / 7)) + '%';
+  block.style.width = (100 / 7) + '%'; // Ensures the block fills the column width
+  block.style.backgroundColor = data.color || '#4a90e2';
 
   block.innerHTML = `
         <button class="delete-btn" onclick="this.parentElement.remove()">×</button>
-        <div style="padding: 2px;">
-            <div class="fw-bold" style="font-size: 10px;">${
-              data.eventName || 'Event'
-            }</div>
+        <button class="clone-btn" onclick="duplicateBlock(this.parentElement)" 
+                style="position:absolute; right:5px; bottom:2px; background:none; border:none; color:white; font-size:12px; cursor:pointer;">📋</button>
+        <div style="padding: 2px; height:100%;" onmousedown="initMove(event, this.parentElement)">
+            <div class="fw-bold" style="font-size: 10px;">${data.eventName || 'Event'}</div>
             <div style="font-size: 9px;">${data.building}</div>
-            <div style="font-size: 8px; color: #333;">${formatTimeRange(
-              data.startTime,
-              data.endTime
-            )}</div>
+            <div class="block-time-label" style="font-size: 8px; color: rgba(255,255,255,0.9);">
+                ${formatTimeRange(data.startTime, data.endTime)}
+            </div>
         </div>
-    `
-  layer.appendChild(block)
+    `;
+  layer.appendChild(block);
+}
+
+// Function to copy an existing block
+function duplicateBlock(blockElement) {
+    const data = {
+        dayIndex: Math.min(6, (Math.round(parseFloat(blockElement.style.left) / (100 / 7)) + 1)), // Move one day to the right
+        top: parseInt(blockElement.style.top),
+        height: parseInt(blockElement.style.height),
+        startTime: blockElement.dataset.startTime,
+        endTime: blockElement.dataset.endTime,
+        eventName: blockElement.dataset.eventName,
+        building: blockElement.dataset.building,
+        color: blockElement.style.backgroundColor,
+        roleIds: JSON.parse(blockElement.dataset.roleIds || "[]")
+    };
+    renderBlockOnGrid(data);
+}
+
+// availability.js
+
+function initMove(e, block) {
+    e.stopPropagation(); // Prevents triggering the background grid drawing
+    
+    const layer = document.getElementById('blocks-layer');
+    const rect = layer.getBoundingClientRect();
+    const colWidth = rect.width / 7; // Precise width of one day column
+
+    let startX = e.clientX;
+    let startY = e.clientY;
+    
+    // Get starting positions (fallback to 0 if not set)
+    let originalTop = parseInt(block.style.top) || 0;
+    let originalLeftPercent = parseFloat(block.style.left) || 0;
+    let originalDayIdx = Math.round(originalLeftPercent / (100 / 7));
+
+    function onMouseMove(e) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        // 1. Calculate Day Shift (Horizontal)
+        const dayShift = Math.round(deltaX / colWidth);
+        const newDayIdx = Math.max(0, Math.min(6, originalDayIdx + dayShift));
+        
+        // 2. Calculate Top Shift (Vertical snapping to 25px)
+        const newTop = Math.max(0, Math.round((originalTop + deltaY) / 25) * 25);
+
+        // 3. Apply Styles (Crucial: use percentages for left to maintain responsiveness)
+        block.style.top = newTop + 'px';
+        block.style.left = (newDayIdx * (100 / 7)) + '%';
+
+        // 4. Update Time Data in dataset
+        const startMins = (newTop / 25) * 15 + (window.START_HOUR * 60);
+        const heightPx = parseInt(block.style.height);
+        const endMins = startMins + (heightPx / 25) * 15;
+
+        block.dataset.startTime = startMins;
+        block.dataset.endTime = endMins;
+
+        // 5. Update the visible text inside the block
+        const timeLabel = block.querySelector('.block-time-label');
+        if (timeLabel) {
+            timeLabel.textContent = formatTimeRange(startMins, endMins);
+        }
+    }
+
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 }
 
 /**

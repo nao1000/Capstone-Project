@@ -48,10 +48,11 @@
 #blocks-layer {
     position: absolute;
     top: 0;
-    left: 60px; /* Must match the 60px time column width */
+    left: 60px; /* Offset for the time labels */
     right: 0;
     bottom: 0;
-    pointer-events: none; 
+    pointer-events: none; /* Allows drawing underneath */
+    display: block; 
 }
 
 /* The visual blocks created by users */
