@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coorda Scheduler</title>
+    <style>
+        :root {
+            --header-bg: #7a92ac;
+            --card-bg: #ffffff;
+            --grid-line: #e0e0e0;
+            --grid-line-hour: #c0c0c0;
+            --primary-blue: #7393B3;
+            --event-bg: #dbeafe;
+            --event-border: #2563eb;
+            --text-main: #333;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f6;
+            /* Slightly darker bg to make card pop */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- THE COMPACT CARD --- */
+        /* This controls the overall size on screen */
+        .scheduler-card {
+            background-color: var(--card-bg);
+            width: 95%;
+            max-width: 1300px;
+            height: 85vh;
+            /* Takes up 85% of viewport height */
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- SLIM HEADER --- */
+        header {
+            background-color: var(--header-bg);
+            color: white;
+            padding: 0 25px;
+            height: 50px;
+            /* Fixed slim height */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .nav {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* --- TOOLBAR --- */
+        .toolbar {
+            padding: 0 25px;
+            height: 45px;
+            /* Fixed slim height */
+            border-bottom: 1px solid var(--grid-line);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fcfcfc;
+            flex-shrink: 0;
+        }
+
+        .toolbar h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #444;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hint::before {
+            content: 'ℹ';
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            background: #ddd;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 14px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* --- GRID HEADER (Days) --- */
+        .grid-header {
+            display: grid;
+            grid-template-columns: 50px repeat(7, 1fr);
+            /* Time col is 50px */
+            border-bottom: 1px solid var(--grid-line);
+            height: 35px;
+            /* Slim header */
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
+
+        .header-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            border-right: 1px solid var(--grid-line);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-cell:last-child {
+            border-right: none;
+        }
+
+        /* --- GRID BODY CONTAINER --- */
+        .scroll-area {
+            flex: 1;
+            /* Fills the rest of the card */
+            position: relative;
+            overflow: hidden;
+            /* No scrollbars */
+            background: white;
+        }
+
+        .grid-body {
+            display: grid;
+            grid-template-columns: 50px repeat(7, 1fr);
+            height: 100%;
+            position: relative;
+        }
+
+        /* Time Column */
+        .time-col {
+            border-right: 1px solid var(--grid-line);
+            background: #ffffff;
+            position: relative;
+        }
+
+        .time-label {
+            position: absolute;
+            right: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #777;
+            transform: translateY(-50%);
+            background: white;
+            padding-left: 4px;
+            z-index: 2;
+        }
+
+        /* Day Columns */
+        .day-col {
+            border-right: 1px solid var(--grid-line);
+            position: relative;
+        }
+
+        .day-col:last-child {
+            border-right: none;
+        }
+
+        /* VISUAL TRICK: Zebra Striping 
+           We use a repeating gradient to color every other hour slightly grey.
+           This helps the eye track across the screen without heavy lines.
+        */
+        .day-col {
+            background-image: repeating-linear-gradient(to bottom,
+                    transparent,
+                    transparent calc(var(--slot-height) * 4),
+                    #fafbfc calc(var(--slot-height) * 4),
+                    #fafbfc calc(var(--slot-height) * 8));
+        }
+
+        /* The faint lines for 15-min increments */
+        .day-col::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+            background-size: 100% var(--slot-height);
+            opacity: 0.4;
+            /* Very subtle */
+            pointer-events: none;
+        }
+
+        /* The darker lines for Hour increments */
+        .day-col::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
+            background-size: 100% calc(var(--slot-height) * 4);
+            pointer-events: none;
+        }
+
+        /* --- EVENTS --- */
+        .event-block {
+            position: absolute;
+            left: 1px;
+            right: 1px;
+            background-color: var(--event-bg);
+            border: 1px solid var(--event-border);
+            border-left: 3px solid var(--event-border);
+            border-radius: 3px;
+            padding: 0 4px;
+            color: #1e3a8a;
+            overflow: hidden;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s;
+        }
+
+        .event-block:hover {
+            transform: scale(1.02);
+            z-index: 11;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .event-block.temp {
+            opacity: 0.6;
+            pointer-events: none;
+            border-style: dashed;
+        }
+
+        .event-content {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .event-title {
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .event-time {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 1px;
+        }
+
+        .event-loc {
+            font-size: 9px;
+            color: #444;
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            /* Darker dim */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+            /* Blur background */
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: white;
+            width: 350px;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #444;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn {
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        .btn-cancel {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-cancel:hover {
+            background: #dee2e6;
+        }
+
+        .btn-save {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: #5a7a9a;
+        }
+
+        /* Style for the Delete X */
+        .delete-x {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            width: 20px;
+            height: 20px;
+            line-height: 18px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 50;
+            /* Ensure it sits on top of everything */
+            display: none;
+            /* Hidden by default */
+            border-radius: 0 0 0 4px;
+            /* Rounded corner */
+        }
+
+        .delete-x:hover {
+            color: #ef4444;
+            /* Red on hover */
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Show the X when hovering the event block */
+        .event-block:hover .delete-x {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="scheduler-card">
+
+        <header>
+            <div class="logo">Coorda</div>
+            <div class="nav">Supervisor</div>
+        </header>
+
+        <div class="toolbar">
+            <h3>Team Schedule</h3>
+            <div class="hint">Click & Drag to add shift</div>
+        </div>
+
+        <div class="grid-header">
+            <div class="header-cell">Time</div>
+            <div class="header-cell">Sun</div>
+            <div class="header-cell">Mon</div>
+            <div class="header-cell">Tue</div>
+            <div class="header-cell">Wed</div>
+            <div class="header-cell">Thu</div>
+            <div class="header-cell">Fri</div>
+            <div class="header-cell">Sat</div>
+        </div>
+
+
+        <div class="scroll-area" id="scrollContainer">
+            <div class="grid-body" id="gridBody">
+                <div class="time-col" id="timeColumn"></div>
+                <div class="day-col" data-day="0"></div>
+                <div class="day-col" data-day="1"></div>
+                <div class="day-col" data-day="2"></div>
+                <div class="day-col" data-day="3"></div>
+                <div class="day-col" data-day="4"></div>
+                <div class="day-col" data-day="5"></div>
+                <div class="day-col" data-day="6"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal-box">
+            <div class="modal-header">New Shift</div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Worker / Event Name</label>
+                    <input type="text" id="modalEventName" placeholder="e.g. John Doe">
+                </div>
+                <div class="input-group">
+                    <label>Location (Optional)</label>
+                    <input type="text" id="modalLocation" placeholder="e.g. Front Desk">
+                </div>
+                <div style="font-size: 12px; color: #666; font-weight: 500;" id="modalTimeDisplay"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-save" onclick="saveEvent()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-success px-4" onclick="saveAllPreferences()">Save Schedule</button>
+
+    </form>
+
+    {{ existing_availabilities_json|json_script:"availability-data" }}
+    <script>
+
+        // 2. Define Variables BEFORE loading the external script
+        // Use escapejs to ensure the UUID string is safe
+        window.TEAM_ID = "{{ team.id|escapejs }}";
+
+        // Debugging: This will prove what ID Django is actually sending
+        console.log("DJANGO SENT ID:", window.TEAM_ID);
+
+        window.START_HOUR = 8;
+        window.END_HOUR = 22;
+        window.SLOT_HEIGHT = 25;
+
+        // 3. Load Saved Data
+        const dataElement = document.getElementById('availability-data');
+        if (dataElement) {
+            window.SAVED_AVAILABILITY = JSON.parse(dataElement.textContent);
+        }
+
+        // STATE
+        let isDragging = false;
+        let startY = 0;
+        let startTop = 0;
+        let activeEvent = null;
+        let activeCol = null;
+        let currentStartMin = 0;
+        let currentEndMin = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initLayout();
+            setupDragListeners();
+            addSavedEventsToGrid();
+            window.addEventListener('resize', initLayout);
+        });
+
+        async function saveAllPreferences() {
+            // read through all event blocks, extract their data, and send to server via AJAX
+            const events = document.querySelectorAll('.event-block:not(.temp)');
+            const eventData = [];
+            events.forEach(ev => {
+                const day = ev.parentElement.dataset.day;
+                const topPx = parseFloat(ev.style.top);
+                const heightPx = parseFloat(ev.style.height);
+
+                const startSlotIndex = Math.round(topPx / SLOT_HEIGHT);
+                const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
+
+                const startMin = (startSlotIndex * 15) + (START_HOUR * 60);
+                const endMin = startMin + (slotsCount * 15);
+
+                eventData.push({
+                    name: ev.querySelector('.event-title').textContent,
+                    location: ev.querySelector('.event-loc') ? ev.querySelector('.event-loc').textContent : '',
+                    day: parseInt(day),
+                    start_min: startMin,
+                    end_min: endMin
+                });
+            });
+
+            try {
+                const response = await fetch(`/api/team/${window.TEAM_ID}/save-availability/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ events: eventData })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error("Error saving events:", error);
+            }
+            console.log("Saving Events:", eventData);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function initLayout() {
+            fitGridToContainer();
+            drawTimeLabels();
+        }
+
+        function addSavedEventsToGrid() {
+            if (!window.SAVED_AVAILABILITY) return;
+
+            // 1. Map string days (from DB) to integer indices (for HTML)
+            const dayStringToInt = {
+                'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6
+            };
+
+            window.SAVED_AVAILABILITY.forEach(item => {
+                // 2. Find the correct column
+                const dayKey = (item.day || '').toLowerCase();
+                const dayIndex = dayStringToInt[dayKey];
+
+                if (dayIndex === undefined) return; // Skip invalid days
+                const dayCol = document.querySelector(`.day-col[data-day="${dayIndex}"]`);
+                if (!dayCol) return;
+
+                // 3. Calculate Time (This defines topPx and heightPx)
+                const startParts = item.start.split(':');
+                const endParts = item.end.split(':');
+
+                // Convert "09:30" to total minutes (e.g. 570)
+                const startMin = (parseInt(startParts[0]) * 60) + parseInt(startParts[1]);
+                const endMin = (parseInt(endParts[0]) * 60) + parseInt(endParts[1]);
+
+                // Adjust relative to the start of the calendar (e.g. 8:00 AM)
+                const totalStartMin = startMin - (START_HOUR * 60);
+                const totalEndMin = endMin - (START_HOUR * 60);
+
+                if (totalStartMin < 0) return; // Skip events before start time
+
+                // Calculate Pixel Position
+                const topPx = (totalStartMin / 15) * SLOT_HEIGHT;
+                const heightPx = ((totalEndMin - totalStartMin) / 15) * SLOT_HEIGHT;
+
+                // 4. Create the Element
+                const eventBlock = document.createElement('div');
+                eventBlock.className = 'event-block';
+                eventBlock.style.top = `${topPx}px`;
+                eventBlock.style.height = `${heightPx}px`;
+
+                const loc = item.building || item.location || '';
+
+                // 5. Set HTML (Including the Delete 'X' button)
+                // Note: We use onclick="removeEventBlock(event, this)"
+                eventBlock.innerHTML = `
+            <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+            <div class="event-content">
+                <div class="event-title">${item.eventName || 'Busy'}</div>
+                <div class="event-time">${item.start} - ${item.end}</div>
+                ${loc ? `<div class="event-loc">${loc}</div>` : ''}
+            </div>`;
+
+                dayCol.appendChild(eventBlock);
+            });
+        }
+
+        // 1. CALCULATE PERFECT FIT
+        function fitGridToContainer() {
+            const container = document.getElementById('scrollContainer');
+            const availableHeight = container.clientHeight;
+
+            const totalHours = END_HOUR - START_HOUR;
+            const totalSlots = totalHours * 4; // 15 min slots
+
+            // Calculate height per slot
+            SLOT_HEIGHT = availableHeight / totalSlots;
+
+            // Set CSS variable for background lines
+            document.documentElement.style.setProperty('--slot-height', `${SLOT_HEIGHT}px`);
+        }
+
+        function removeEventBlock(e, xButton) {
+            // 1. Stop the click from passing through to the event block
+            // (This prevents the Modal from opening when you just want to delete)
+            e.stopPropagation();
+
+            // 2. Optional: Confirm dialog
+            if (!confirm("Remove this shift?")) return;
+
+            // 3. Find the parent event-block and remove it
+            const block = xButton.closest('.event-block');
+            if (block) {
+                block.remove();
+            }
+        }
+
+        // 2. DRAW TIME LABELS
+        function drawTimeLabels() {
+            const timeCol = document.getElementById('timeColumn');
+            timeCol.innerHTML = ''; // Clear
+
+            const totalHours = END_HOUR - START_HOUR;
+
+            for (let h = START_HOUR; h <= END_HOUR; h++) {
+                // Don't draw the very last label at the bottom edge if it looks messy
+                if (h === END_HOUR) continue;
+
+                const label = document.createElement('div');
+                label.className = 'time-label';
+
+                const suffix = h >= 12 ? 'PM' : 'AM';
+                const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 || h === 24 ? 12 : h);
+                label.textContent = `${displayH} ${suffix}`;
+
+                // Position based on percentage
+                const percentTop = ((h - START_HOUR) / totalHours) * 100;
+                label.style.top = `${percentTop}%`;
+
+                timeCol.appendChild(label);
+            }
+        }
+
+        // 3. DRAG & DROP LOGIC
+        function setupDragListeners() {
+            const dayCols = document.querySelectorAll('.day-col');
+
+            dayCols.forEach(col => {
+                col.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.event-block')) return; // Ignore clicks on events
+
+                    isDragging = true;
+                    activeCol = col;
+
+                    const rect = col.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+
+                    // Snap to grid
+                    startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+                    // Visual feedback
+                    activeEvent = document.createElement('div');
+                    activeEvent.className = 'event-block temp';
+                    activeEvent.style.top = `${startTop}px`;
+                    activeEvent.style.height = `${SLOT_HEIGHT}px`;
+                    activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`;
+
+                    col.appendChild(activeEvent);
+                });
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging || !activeEvent || !activeCol) return;
+
+                const rect = activeCol.getBoundingClientRect();
+                const currentRelativeY = e.clientY - rect.top;
+
+                // Calculate Height
+                let newHeight = (Math.floor(currentRelativeY / SLOT_HEIGHT) * SLOT_HEIGHT) - startTop + SLOT_HEIGHT;
+                if (newHeight < SLOT_HEIGHT) newHeight = SLOT_HEIGHT;
+
+                activeEvent.style.height = `${newHeight}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    openModal();
+                }
+            });
+        }
+
+        // 4. MODAL & SAVE LOGIC
+        function openModal() {
+            const modal = document.getElementById('eventModal');
+            modal.classList.add('show');
+
+            document.getElementById('modalEventName').value = '';
+            document.getElementById('modalLocation').value = '';
+            document.getElementById('modalEventName').focus();
+
+            // Calculate Times for Display
+            const topPx = parseFloat(activeEvent.style.top);
+            const heightPx = parseFloat(activeEvent.style.height);
+
+            const startSlotIndex = Math.round(topPx / SLOT_HEIGHT);
+            const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
+
+            currentStartMin = (startSlotIndex * 15) + (START_HOUR * 60);
+            currentEndMin = currentStartMin + (slotsCount * 15);
+
+            document.getElementById('modalTimeDisplay').textContent =
+                `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`;
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('show');
+            if (activeEvent && activeEvent.classList.contains('temp')) {
+                activeEvent.remove();
+            }
+            activeEvent = null;
+        }
+
+
+
+        function saveEvent() {
+            // ... existing variable definitions ...
+            const name = document.getElementById('modalEventName').value || 'Shift';
+            const location = document.getElementById('modalLocation').value;
+            const timeString = `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)}`;
+
+            // ... size calculations ...
+            const heightPx = parseFloat(activeEvent.style.height);
+            const isSmall = heightPx < (SLOT_HEIGHT * 2.5);
+
+            if (activeEvent) {
+                activeEvent.classList.remove('temp');
+
+                // UPDATED HTML STRING BELOW:
+                let html = `
+            <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+            <div class="event-content">
+                <div class="event-title">${name}</div>
+                <div class="event-time">${timeString}</div>`;
+
+                if (!isSmall && location) {
+                    html += `<div class="event-loc">${location}</div>`;
+                }
+
+                html += `</div>`;
+                activeEvent.innerHTML = html;
+            }
+
+            document.getElementById('eventModal').classList.remove('show');
+            activeEvent = null;
+        }
+
+        function formatMin(totalMinutes) {
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            const suffix = h >= 12 ? 'PM' : 'AM';
+            const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 || h === 24 ? 12 : h);
+            const displayM = m < 10 ? '0' + m : m;
+            return `${displayH}:${displayM} ${suffix}`;
+        }
+    </script>
+
+</body>
+
+</html>

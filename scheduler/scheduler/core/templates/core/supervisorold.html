@@ -1,0 +1,174 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supervisor.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container supervisor-dashboard mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Team Management: {{ team.name }}</h2>
+        <a href="{% url 'scheduler' team.id %}" class="btn btn-primary">Open Full Scheduler →</a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="mb-3">
+                    <input type="text" id="workerSearch" class="form-control" placeholder="Search workers by name or email..." onkeyup="filterWorkers()">
+                </div>
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Team Members</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Worker</th>
+                                <th>Status</th>
+                                <th>Assign Role</th>
+                            </tr>
+                        </thead>
+                      <tbody>
+                        {% for entry in member_list %}
+                        <tr>
+                            <td>
+                                <strong>{{ entry.user.first_name|default:entry.user.username }}</strong>
+                                <br><small class="text-muted">{{ entry.user.email }}</small>
+                            </td>
+                            <td>
+                                {# The existing status badge #}
+                                {% if entry.status == 'Submitted' %}
+                                    <span class="badge bg-success">✓ Submitted</span>
+                                    
+                                    {# NEW: The visual list of what the worker actually wants #}
+                                    {% if entry.preferred_roles %}
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                Worker Prefers:
+                                            </small>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for pref in entry.preferred_roles %}
+                                                    <span class="badge rounded-pill bg-light text-dark border" style="font-size: 0.7rem; font-weight: 500;">
+                                                        {{ pref.name }}
+                                                    </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">✗ Pending</span>
+                                {% endif %}
+                            </td>
+                        <td>
+                            <select class="form-select form-select-sm" 
+                                    onchange="assignRoleToWorker('{{ entry.user.id }}', this.value)">
+                                <option value="">Choose Preferred Role...</option>
+                                
+                                {# Change 'roles' to 'entry.preferred_roles' #}
+                                {% for role in entry.preferred_roles %}
+                                    <option value="{{ role.id }}" 
+                                        {% if entry.current_role_id == role.id %}selected{% endif %}>
+                                        {{ role.name }}
+                                    </option>
+                                {% endfor %}
+                                
+                                {# Optional: Add a separator and then all roles if the supervisor needs to override #}
+                                {% if roles %}
+                                    <option disabled>──────────</option>
+                                    <option value="">All Other Roles:</option>
+                                    {% for role in roles %}
+                                        {# Only show if not already in the preferred list #}
+                                        {% if role not in entry.preferred_roles %}
+                                            <option value="{{ role.id }}" 
+                                                {% if entry.current_role_id == role.id %}selected{% endif %}>
+                                                {{ role.name }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4">No members in this team yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Manage Roles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" id="newRoleName" class="form-control" placeholder="e.g. Lead Tutor">
+                        <input type="number" id="roleCap" class="form-control" placeholder="e.g. 10">                        
+                        <button class="btn btn-outline-primary" onclick="addRole()">Add Role</button>
+                    </div>
+                    
+                    <div id="roleBadgeContainer" class="d-flex flex-wrap gap-2">
+                        {% for role in roles %}
+                            <span class="role-tag" id="role-badge-{{ role.id }}">
+                                {{ role.name }}
+                                <span class="delete-role-btn" onclick="deleteRole('{{ role.id }}')">&times;</span>
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Room Access / Events</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Room/Event Name</label>
+                        <input type="text" id="eventName" class="form-control" placeholder="e.g. Main Conference Room">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Day</label>
+                            <select id="dayOfWeek" class="form-select">
+                                <option value="mon">Monday</option>
+                                <option value="tue">Tuesday</option>
+                                <option value="wed">Wednesday</option>
+                                <option value="thu">Thursday</option>
+                                <option value="fri">Friday</option>
+                                <option value="sat">Saturday</option>
+                                <option value="sun">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Start</label>
+                            <input type="time" id="startTime" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">End</label>
+                            <input type="time" id="endTime" class="form-control">
+                        </div>
+                    </div>
+                    <button class="btn btn-success w-100" onclick="addEvent()">Save Room Availability</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // These MUST be outside of comments so Django can fill them
+    // and the external JS file can read them.
+    window.TEAM_ID = "{{ team.id }}";
+    window.CSRF_TOKEN = "{{ csrf_token }}";
+</script>
+
+<script src="{% static 'js/supervisor-logic.js' %}"></script>
+{% endblock %}

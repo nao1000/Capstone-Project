@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coorda Fixed Dashboard</title>
+    <style>
+        :root {
+            --primary-bg: #7393B3;
+            --text-main: #333;
+            --gray-light: #e0e0e0;
+            --border-color: #999;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            color: var(--text-main);
+            /* Prevents the entire layout from collapsing below a certain point */
+            min-width: 1200px;
+            overflow-x: auto;
+        }
+
+        header {
+            background-color: var(--primary-bg);
+            color: white;
+            padding: 10px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+            /* Fixed Height */
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 300;
+        }
+
+        /* Main Layout - Fixed Dimensions */
+        .container {
+            display: flex;
+            padding: 30px 40px;
+            gap: 40px;
+            width: 1120px;
+            /* Fixed Total Width */
+            margin: 0 auto;
+            /* Centers the fixed block on large screens */
+        }
+
+        .main-content {
+            width: 800px;
+            /* Fixed Width */
+            flex-shrink: 0;
+            /* Prevents shrinking */
+        }
+
+        .sidebar {
+            width: 280px;
+            /* Fixed Width */
+            height: 600px;
+            /* Fixed Height */
+            background-color: var(--gray-light);
+            flex-shrink: 0;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            width: 750px;
+            /* Locked width for the underline */
+        }
+
+        /* Teams - Static Grid */
+        .teams-grid {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+            width: 800px;
+        }
+
+        .team-box {
+            width: 160px;
+            /* Fixed square size */
+            height: 160px;
+            background-color: var(--gray-light);
+            flex-shrink: 0;
+        }
+
+        /* Action Forms - Static Sizes */
+        .action-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .action-card {
+            background-color: var(--gray-light);
+            width: 250px;
+            /* Fixed width */
+            height: 120px;
+            /* Fixed height */
+            text-align: center;
+            padding-top: 15px;
+            flex-shrink: 0;
+        }
+
+        input[type="text"] {
+            width: 200px;
+            /* Fixed input width */
+            height: 25px;
+            border: 1px solid white;
+            margin-top: 10px;
+        }
+
+        /* Wrapper to control the scrolling area */
+        .teams-scroll-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            /* Enables horizontal scrolling */
+            padding-bottom: 15px;
+            /* Space for the scrollbar */
+            white-space: nowrap;
+            /* Keeps items in a single line */
+        }
+
+        /* The Grid/Flex Container */
+        .teams-grid {
+            display: inline-flex;
+            /* Allows the container to grow horizontally */
+            gap: 20px;
+        }
+
+        /* The Card Styling */
+        .team-box {
+            width: 160px;
+            height: 160px;
+            background-color: var(--gray-light);
+            display: inline-flex;
+            /* changed to inline-flex to work inside scroll wrapper */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--text-main);
+            position: relative;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            /* Optional: adds rounded corners */
+            vertical-align: top;
+            transition: transform 0.2s;
+        }
+
+        .team-box:hover {
+            background-color: #d0d0d0;
+            transform: translateY(-2px);
+        }
+
+        /* Styling the Join Code inside the box */
+        .team-code {
+            margin-top: 8px;
+            font-size: 11px;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* Existing styles for badge and text */
+        .badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            /* Moved to right for better look */
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .team-initial {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .team-label {
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 5px;
+            white-space: normal;
+            /* Allows long names to wrap inside the box */
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">Coorda</div>
+        <div class="nav-links">
+            <span>Home 🔔 Name 👤</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <h1>Welcome Back " "!</h1>
+
+            <section>
+                <h2>Your Teams</h2>
+                <div class="teams-scroll-wrapper">
+                    <div class="teams-grid">
+                        {% for team in owned_teams %}
+                        <a href="{% url 'supervisor' team.id %}" class="team-box supervisor-box">
+                            <span class="badge">Supervisor</span>
+                            <div class="team-initial">{{ team.name|slice:":1" }}</div>
+                            <div class="team-label">{{ team.name }}</div>
+                            <div class="team-code">Code: {{ team.join_code }}</div>
+                        </a>
+                        {% empty %}
+                        {% endfor %}
+
+                        {% for team in joined_teams %}
+                        <a href="{% url 'availability' team.id %}" class="team-box worker-box">
+                            <span class="badge">Worker</span>
+                            <div class="team-initial">{{ team.name|slice:":1" }}</div>
+                            <div class="team-label">{{ team.name }}</div>
+                            <div class="team-code">Member</div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Join/Create Team</h2>
+                <div class="action-container">
+
+                    <div class="action-card">
+                        <div>Join Team</div>
+                        <form action="{% url 'join_team' %}" method="POST">
+                            {% csrf_token %}
+                            <input type="text" name="join_code" placeholder="Enter Code" required>
+                            <button type="submit" class="action-btn">Join</button>
+                        </form>
+                    </div>
+
+                    <div class="action-card">
+                        <div>Create New Team</div>
+                        <form action="{% url 'create_team' %}" method="POST">
+                            {% csrf_token %}
+                            <input type="text" name="team_name" placeholder="Team Name" required>
+                            <button type="submit" class="action-btn">Create</button>
+                        </form>
+                    </div>
+
+                </div>
+            </section>
+        </div>
+
+        <div class="sidebar"></div>
+    </div>
+
+</body>
+
+</html>

@@ -48,7 +48,7 @@ from . import views
 # ]
 urlpatterns = [
     # --- DASHBOARD & TEAM MANAGEMENT ---
-    path('dashboard/', views.dashboard, name='dashboard'),
+    path('dashboard2/', views.dashboard, name='dashboard2'),
     path('team/create/', views.create_team, name='create_team'),
     path('team/join/', views.join_team, name='join_team'),
 
@@ -76,7 +76,7 @@ urlpatterns = [
     path("api/team/<uuid:team_id>/roles/<int:role_id>/delete/", views.delete_role, name="delete_role"),
 
     # AUTHENTICATION
-    path('login/', auth_views.LoginView.as_view(template_name='core/auth.html'), name='login'),
+    path('login/', auth_views.LoginView.as_view(template_name='core/auth2.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('signup/', views.signup, name='signup'),
     path("api/auth-ping/", views.auth_ping, name="auth_ping"),
