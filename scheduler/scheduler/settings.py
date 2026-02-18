@@ -119,11 +119,11 @@ STATIC_URL = 'static/'
 # core/settings.py
 
 # Where to go after a successful login
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'dashboard2'
 
 # # Where to go after logging out
 # LOGOUT_REDIRECT_URL = 'login'
 
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/dashboard/"
+LOGIN_REDIRECT_URL = "/dashboard2/"
 LOGOUT_REDIRECT_URL = "/login/"

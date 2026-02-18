@@ -15,7 +15,7 @@ from django.contrib import messages
 
 def signup(request):
     if request.user.is_authenticated:
-        return redirect("dashboard")
+        return redirect("dashboard2")
     # hand in completed sign up form
     if request.method == 'POST':
         username = request.POST['username']
@@ -26,12 +26,12 @@ def signup(request):
         # Simple validation
         if pass1 != pass2:
             messages.error(request, "Passwords do not match!")
-            return render(request, 'core/auth.html')
+            return render(request, 'core/auth2.html')
         
         # check if username is already in use
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken!")
-            return render(request, 'core/auth.html')
+            return render(request, 'core/auth2.html')
 
         # Create the user
         user = User.objects.create_user(username=username, email=email, password=pass1)
@@ -39,10 +39,10 @@ def signup(request):
         
         # Log them in immediately
         login(request, user)
-        return redirect('dashboard')
+        return redirect('dashboard2')
 
     # get a blank sign up
-    return render(request, 'core/auth.html')
+    return render(request, 'core/auth2.html')
 
 def auth_ping(request):
     return JsonResponse({"authenticated": request.user.is_authenticated})
@@ -60,7 +60,7 @@ def dashboard(request):
     joined_teams = request.user.joined_teams.all()
     
     # sends us to the dashboard with our current teams
-    return render(request, "core/dashboard.html", {
+    return render(request, "core/dashboard2.html", {
         "owned_teams": owned_teams,
         "joined_teams": joined_teams
     })
@@ -71,7 +71,7 @@ def create_team(request):
     name = request.POST.get("team_name")
     if name:
         Team.objects.create(name=name, owner=request.user)
-    return redirect("dashboard")
+    return redirect("dashboard2")
 
 @login_required
 @require_http_methods(["POST"])
@@ -87,7 +87,7 @@ def join_team(request):
     except Team.DoesNotExist:
         # Handle error (maybe add a message in real app)
         pass
-    return redirect("dashboard")
+    return redirect("dashboard2")
 
 
 # --- 1. WORKER SIDE (Updated for Teams) ---
@@ -129,8 +129,18 @@ def availability_view(request, team_id):
         "selected_role_ids": selected_role_ids, # To check the boxes on load
         "existing_availabilities_json": avail_list 
     }
-    return render(request, "core/availability.html", context)
+    return render(request, "core/availability2.html", context)
 
+def minutes_to_string(minutes):
+    if minutes is None:
+        return ""
+    
+    # Calculate hours and remaining minutes
+    hours = int(minutes) // 60
+    mins = int(minutes) % 60
+    
+    # Return formatted string (02d ensures 9 becomes 09)
+    return f"{hours:02d}:{mins:02d}"
 
 @login_required
 def save_availability(request, team_id):
@@ -139,42 +149,58 @@ def save_availability(request, team_id):
             data = json.loads(request.body)
             team = get_object_or_404(Team, id=team_id)
             
-            # The JS sends 'ranges', NOT 'preferences'
-            ranges_data = data.get('ranges', []) 
+            # 1. FIX: The JS sends 'events', not 'ranges'
+            events_data = data.get('events', []) 
+            
+            # JS payload might not include role_ids in this specific call
+            # Default to empty list to prevent errors
             role_ids = data.get('role_ids', [])
 
             with transaction.atomic():
-                # 1. Wipe old data
+                # 2. Wipe old data
                 AvailabilityRange.objects.filter(user=request.user, team=team).delete()
                 
-                # 2. Save new blocks
-                for item in ranges_data:
-                    # Use .get() to prevent crashes if a key is missing
-                    # Check for 'start' vs 'start_time'
-                    start = item.get('start') or item.get('start_time')
-                    end = item.get('end') or item.get('end_time')
-                    day = item.get('day', 'mon').lower()[:3] # Ensure 'monday' -> 'mon'
+                # 3. Map JS Day integers (0=Sun) to Model strings ('sun')
+                # Adjust if your week starts on Monday (0=Mon)
+                day_map = {0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat'}
+
+                for item in events_data:
+                    # 4. Convert JS Minutes (Integers) to Python Time Objects
+
+                    print(f"Processing item: {item}")  # Debugging line
+                    start_val = minutes_to_string(item.get('start_min'))
+                    end_val = minutes_to_string(item.get('end_min'))
+
+                    # 5. Handle Day conversion
+                    day_int = item.get('day')
+                    # Default to 'mon' if day is missing or invalid
+                    day_str = day_map.get(day_int, 'mon') 
 
                     AvailabilityRange.objects.create(
                         user=request.user,
                         team=team,
-                        day=day,
-                        start_time=start,
-                        end_time=end,
-                        building=item.get('building', ''),
-                        eventName=item.get('eventName', '')
+                        day=day_str,
+                        start_time=start_val,
+                        end_time=end_val,
+                        # Map JS 'location' to Model 'building'
+                        building=item.get('location', ''), 
+                        # Map JS 'name' to Model 'eventName' (if field exists)
+                        eventName=item.get('name', '')   
                     )
                 
-                # 3. Save Role Preferences
-                role_prefs, _ = UserRolePreference.objects.get_or_create(user=request.user, team=team)
-                role_prefs.roles.set(Role.objects.filter(id__in=role_ids, team=team))
+                # 6. Save Role Preferences (only if sent)
+                if role_ids:
+                    role_prefs, _ = UserRolePreference.objects.get_or_create(user=request.user, team=team)
+                    role_prefs.roles.set(Role.objects.filter(id__in=role_ids, team=team))
 
-            return JsonResponse({"status": "success"})
+            return JsonResponse({"status": "success", "count": len(events_data)})
+
         except Exception as e:
-            # This print will tell you EXACTLY what went wrong in your terminal
+            # Print error to terminal for debugging
             print(f"CRITICAL SAVE ERROR: {str(e)}")
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
+            
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
 
 # --- 2. SUPERVISOR SIDE (Updated for Teams) ---
 

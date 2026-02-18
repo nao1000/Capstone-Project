@@ -91,57 +91,74 @@ function applySchedule(cell) {
     else cell.classList.remove("scheduled");
 }
 
-function loadWorkerData(workerId, teamId) {
-    // Clear grids first
-    viewCells.forEach(c => c.classList.remove("unavailable"));
-    document.getElementById("saveBtn").disabled = true;
+function renderBlockOnGrid(data) {
+  const layer = document.getElementById('blocks-layer');
+  const block = document.createElement('div');
+  block.className = 'pref-block';
 
-    if (!workerId) return;
+  block.dataset.startTime = data.startTime;
+  block.dataset.endTime = data.endTime;
+  block.dataset.building = data.building;
+  block.dataset.eventName = data.eventName || '';
+  block.dataset.roleIds = JSON.stringify(data.roleIds || []);
 
-    fetch(`/api/team/${teamId}/get-availability/${workerId}/`)
-        .then(res => res.json())
-        .then(data => {
-            console.log("Full API response:", data); // Debug the entire response
-            
-            if (data.unavailable) {
-                for (const [dayKey, ranges] of Object.entries(data.unavailable)) {
-                    const normalizedDayKey = dayKey.toLowerCase().trim();
-                    const dayIndex = keyToIndex[normalizedDayKey];
-                    
-                    console.log(`Day: ${normalizedDayKey}, Index: ${dayIndex}, Ranges:`, ranges);
-                    
-                    if (dayIndex === undefined) {
-                        console.warn(`⚠️ Day key "${dayKey}" not found in keyToIndex!`);
-                        continue;
-                    }
-                    
-                    ranges.forEach(range => {
-                        const startMins = timeStrToMinutes(range[0]);
-                        const endMins = timeStrToMinutes(range[1]);
-                        
-                        console.log(`  Marking ${normalizedDayKey} from ${startMins} to ${endMins}`);
-                        
-                        // Mark only cells that match this day AND time range
-                        let markedCount = 0;
-                        viewCells.forEach(cell => {
-                            const cellDay = parseInt(cell.dataset.day);
-                            const cellTime = parseInt(cell.dataset.minutes);
-                            
-                            if (cellDay === dayIndex && cellTime >= startMins && cellTime < endMins) {
-                                cell.classList.add("unavailable");
-                                markedCount++;
-                            }
-                        });
-                        
-                        console.log(`  ✓ Marked ${markedCount} cells`);
-                    });
-                }
-            }
-            document.getElementById("saveBtn").disabled = false;
-        })
-        .catch(err => console.error("Fetch error:", err));
+  block.style.top = data.top + 'px';
+  block.style.height = data.height + 'px';
+  block.style.left = (data.dayIndex * (100 / 7)) + '%';
+  block.style.width = (100 / 7) + '%'; // Ensures the block fills the column width
+  block.style.backgroundColor = data.color || '#4a90e2';
+
+  block.innerHTML = `
+        <button class="delete-btn" onclick="this.parentElement.remove()">×</button>
+        <button class="clone-btn" onclick="duplicateBlock(this.parentElement)" 
+                style="position:absolute; right:5px; bottom:2px; background:none; border:none; color:white; font-size:12px; cursor:pointer;">📋</button>
+        <div style="padding: 2px; height:100%;" onmousedown="initMove(event, this.parentElement)">
+            <div class="fw-bold" style="font-size: 10px;">${data.eventName || 'Event'}</div>
+            <div style="font-size: 9px;">${data.building}</div>
+            <div class="block-time-label" style="font-size: 8px; color: rgba(255,255,255,0.9);">
+                ${formatTimeRange(data.startTime, data.endTime)}
+            </div>
+        </div>
+    `;
+  layer.appendChild(block);
 }
 
+function loadWorkerData(workdid, teamid) {
+    const dayMap = { 'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6 };
+
+    window.SAVED_AVAILABILITY.forEach(avail => {
+        // 1. Map the day string to index
+        const dayIdx = dayMap[avail.day.toLowerCase()];
+        if (dayIdx === undefined) return;
+
+        // 2. Parse times
+        const [sH, sM] = avail.start.split(':').map(Number);
+        const [eH, eM] = avail.end.split(':').map(Number);
+
+        const startTotalMins = sH * 60 + sM;
+        const endTotalMins = eH * 60 + eM;
+
+        // 3. Convert to Grid Pixels
+        // Formula: (Minutes from grid start / 15-min increments) * pixel height
+        const gridStartMins = window.START_HOUR * 60;
+        const topPx = ((startTotalMins - gridStartMins) / 15) * 25;
+        const bottomPx = ((endTotalMins - gridStartMins) / 15) * 25;
+
+        // 4. Render
+        renderBlockOnGrid({
+            dayIndex: dayIdx,
+            top: topPx,
+            height: bottomPx - topPx,
+            roleIds: avail.roleIds || [],
+            roleNames: avail.roleNames || avail.event_name || 'Saved Range',
+            building: avail.building || avail.location || '',
+            color: avail.color || '#4a90e2',
+            startTime: startTotalMins,
+            endTime: endTotalMins,
+            eventName: avail.event_name || ''
+        });
+    });
+}
 
 function addEvent() {
     const name = document.getElementById('eventName').value;
