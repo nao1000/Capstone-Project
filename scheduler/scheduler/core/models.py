@@ -16,21 +16,33 @@ class Team(models.Model):
 
     # The workers -- many workers in one team is possible
     members = models.ManyToManyField(User, related_name="joined_teams", blank=True)
-   
+
     join_code = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
 
     def __str__(self):
         return self.name
 
-class TeamEvent(models.Model):
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='events')
-    name = models.CharField(max_length=100) # e.g., "Main Lab" or "Conference Room"
-    day = models.CharField(max_length=10)   # mon, tues, wed...
+class Room(models.Model):
+    name = models.CharField(max_length=100)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="rooms")
+    capacity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["team", "name"], name="uniq_room_per_team")
+        ]
+
+    def __str__(self):
+        return self.name
+
+class RoomAvailability(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="availability_slots")
+    day = models.CharField(max_length=10) # 'mon', 'tue', etc.
     start_time = models.TimeField()
     end_time = models.TimeField()
 
     def __str__(self):
-        return f"{self.name} on {self.day}"
+        return f"{self.room.name} ({self.day}): {self.start_time}-{self.end_time}"
 
 # worker's role defined by supervisor
 class Role(models.Model):
@@ -47,7 +59,6 @@ class Role(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.team.name})"
-
 
 class AvailabilityRange(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -77,18 +88,19 @@ class UserRolePreference(models.Model):
 class Shift(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    
-    # Link this shift to a specific team
     team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True)
-    
-    # similar to availability
+
+    # NEW: Link the shift to a room
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='shifts')
+
     day = models.CharField(max_length=5)
     start_time = models.TimeField()
     end_time = models.TimeField()
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"SHIFT: {self.user.username} ({self.role})"
+        room_info = f" at {self.room.name}" if self.room else ""
+        return f"SHIFT: {self.user.username} ({self.role}){room_info}"
 
 # assign roles to workers
 class TeamRoleAssignment(models.Model):
@@ -104,3 +116,17 @@ class TeamRoleAssignment(models.Model):
 
     def __str__(self):
         return f"{self.team.name}: {self.user.username} -> {self.role.name}"
+
+
+class TeamEvent(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='events')
+    # Change 'name' or keep it for the event title, but add 'room'
+    name = models.CharField(max_length=100) # e.g., "Weekly Sync" or "Chem 101 Lab"
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
+    day = models.CharField(max_length=10)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        room_name = self.room.name if self.room else "No Room"
+        return f"{self.name} in {room_name} on {self.day}"
