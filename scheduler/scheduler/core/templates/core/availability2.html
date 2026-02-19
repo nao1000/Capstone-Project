@@ -184,7 +184,7 @@
             border-right: none;
         }
 
-        /* VISUAL TRICK: Zebra Striping 
+        /* VISUAL TRICK: Zebra Striping
            We use a repeating gradient to color every other hour slightly grey.
            This helps the eye track across the screen without heavy lines.
         */
@@ -395,13 +395,24 @@
             background: #dee2e6;
         }
 
-        .btn-save {
-            background: var(--primary-blue);
-            color: white;
+        .save-schedule-btn {
+            background-color: #cdd2de; /* The light lavender/grey from Auth */
+            border: none;
+            padding: 12px 24px;       /* Adjusted padding for a horizontal look */
+            border-radius: 4px;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+
+            /* Center it slightly or give it margin if needed */
+            margin: 10px;
+            display: inline-block;
         }
 
-        .btn-save:hover {
-            background: #5a7a9a;
+        .save-schedule-btn:hover {
+            background-color: #bec3cf; /* The hover state from Auth */
         }
 
         /* Style for the Delete X */
@@ -500,7 +511,7 @@
         </div>
     </div>
 
-    <button class="btn btn-success px-4" onclick="saveAllPreferences()">Save Schedule</button>
+    <button class="save-schedule-btn" onclick="saveAllPreferences()">Save Schedule</button>
 
     </form>
 
@@ -573,6 +584,7 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+                alert("Schedule Saved!")
             } catch (error) {
                 console.error("Error saving events:", error);
             }

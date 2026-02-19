@@ -9,15 +9,18 @@ from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import AvailabilityRange, Role, Shift, Team, TeamRoleAssignment, TeamEvent, UserRolePreference
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
 def signup(request):
     if request.user.is_authenticated:
-        return redirect("dashboard2")
-    # hand in completed sign up form
+        logout(request)
+
     if request.method == 'POST':
+        # 1. Grab the new fields from the POST data
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
         username = request.POST['username']
         email = request.POST['email']
         pass1 = request.POST['password']
@@ -27,21 +30,24 @@ def signup(request):
         if pass1 != pass2:
             messages.error(request, "Passwords do not match!")
             return render(request, 'core/auth2.html')
-        
-        # check if username is already in use
+
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken!")
             return render(request, 'core/auth2.html')
 
-        # Create the user
-        user = User.objects.create_user(username=username, email=email, password=pass1)
+        # 2. Pass first_name and last_name into create_user
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=pass1,
+            first_name=first_name,  # Save first name
+            last_name=last_name     # Save last name
+        )
         user.save()
-        
-        # Log them in immediately
+
         login(request, user)
         return redirect('dashboard2')
 
-    # get a blank sign up
     return render(request, 'core/auth2.html')
 
 def auth_ping(request):
@@ -55,10 +61,10 @@ def dashboard(request):
     """
     # 1. Teams I supervise
     owned_teams = request.user.owned_teams.all()
-    
+
     # 2. Teams I am a worker in
     joined_teams = request.user.joined_teams.all()
-    
+
     # sends us to the dashboard with our current teams
     return render(request, "core/dashboard2.html", {
         "owned_teams": owned_teams,
@@ -81,7 +87,7 @@ def join_team(request):
         team = Team.objects.get(join_code=code)
         if team.owner == request.user:
             # You can't join your own team as a worker
-            pass 
+            pass
         else:
             team.members.add(request.user)
     except Team.DoesNotExist:
@@ -96,10 +102,10 @@ def join_team(request):
 @never_cache
 def availability_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    
+
     # 1. Fetch time ranges (removed .prefetch_related('preferred_roles'))
     availabilities = AvailabilityRange.objects.filter(
-        user=request.user, 
+        user=request.user,
         team=team
     )
 
@@ -117,7 +123,7 @@ def availability_view(request, team_id):
             "end": a.end_time.strftime('%H:%M'),
             "building": a.building,
             # We no longer send roles per-block, just the block itself
-            "color": "#4a90e2" 
+            "color": "#4a90e2"
         })
 
     # 4. Get all possible roles for the sidebar checkboxes
@@ -127,18 +133,18 @@ def availability_view(request, team_id):
         "team": team,
         "roles": all_roles, # For the sidebar
         "selected_role_ids": selected_role_ids, # To check the boxes on load
-        "existing_availabilities_json": avail_list 
+        "existing_availabilities_json": avail_list
     }
     return render(request, "core/availability2.html", context)
 
 def minutes_to_string(minutes):
     if minutes is None:
         return ""
-    
+
     # Calculate hours and remaining minutes
     hours = int(minutes) // 60
     mins = int(minutes) % 60
-    
+
     # Return formatted string (02d ensures 9 becomes 09)
     return f"{hours:02d}:{mins:02d}"
 
@@ -148,10 +154,10 @@ def save_availability(request, team_id):
         try:
             data = json.loads(request.body)
             team = get_object_or_404(Team, id=team_id)
-            
+
             # 1. FIX: The JS sends 'events', not 'ranges'
-            events_data = data.get('events', []) 
-            
+            events_data = data.get('events', [])
+
             # JS payload might not include role_ids in this specific call
             # Default to empty list to prevent errors
             role_ids = data.get('role_ids', [])
@@ -159,7 +165,7 @@ def save_availability(request, team_id):
             with transaction.atomic():
                 # 2. Wipe old data
                 AvailabilityRange.objects.filter(user=request.user, team=team).delete()
-                
+
                 # 3. Map JS Day integers (0=Sun) to Model strings ('sun')
                 # Adjust if your week starts on Monday (0=Mon)
                 day_map = {0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat'}
@@ -174,7 +180,7 @@ def save_availability(request, team_id):
                     # 5. Handle Day conversion
                     day_int = item.get('day')
                     # Default to 'mon' if day is missing or invalid
-                    day_str = day_map.get(day_int, 'mon') 
+                    day_str = day_map.get(day_int, 'mon')
 
                     AvailabilityRange.objects.create(
                         user=request.user,
@@ -183,11 +189,11 @@ def save_availability(request, team_id):
                         start_time=start_val,
                         end_time=end_val,
                         # Map JS 'location' to Model 'building'
-                        building=item.get('location', ''), 
+                        building=item.get('location', ''),
                         # Map JS 'name' to Model 'eventName' (if field exists)
-                        eventName=item.get('name', '')   
+                        eventName=item.get('name', '')
                     )
-                
+
                 # 6. Save Role Preferences (only if sent)
                 if role_ids:
                     role_prefs, _ = UserRolePreference.objects.get_or_create(user=request.user, team=team)
@@ -199,7 +205,7 @@ def save_availability(request, team_id):
             # Print error to terminal for debugging
             print(f"CRITICAL SAVE ERROR: {str(e)}")
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
-            
+
     return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
 
 # --- 2. SUPERVISOR SIDE (Updated for Teams) ---
@@ -211,13 +217,13 @@ def scheduler_view(request, team_id):
     Renders the Full Scheduler (the grid page).
     """
     team = get_object_or_404(Team, id=team_id)
-    
+
     if team.owner != request.user:
         return HttpResponseForbidden("You are not the supervisor of this team.")
 
     workers = team.members.all().prefetch_related(
         Prefetch(
-            'availabilityrange_set', 
+            'availabilityrange_set',
             queryset=AvailabilityRange.objects.filter(team=team),
             to_attr='team_availability'
         )
@@ -247,14 +253,14 @@ def save_schedule(request, team_id):
         return HttpResponseForbidden("Only the supervisor can save schedules.")
 
     worker_id = data.get('worker_id')
-    role_id = data.get('role') 
-    assigned_shifts = data.get('assigned_shifts') 
+    role_id = data.get('role')
+    assigned_shifts = data.get('assigned_shifts')
 
     if not worker_id:
         return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
 
     target_user = get_object_or_404(User, id=worker_id)
-    
+
     # Validate Role
     role_obj = None
     if role_id:
@@ -282,9 +288,9 @@ def save_schedule(request, team_id):
                                 role=role_obj
                             )
                             count += 1
-                            
+
         return JsonResponse({'status': 'success', 'created': count})
-        
+
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -305,10 +311,10 @@ def add_event(request, team_id):
             end_time=data.get('end')
         )
         return JsonResponse({
-            "ok": True, 
+            "ok": True,
             "event": {
-                "id": event.id, 
-                "name": event.name, 
+                "id": event.id,
+                "name": event.name,
                 "day": event.day
             }
         })
@@ -320,15 +326,15 @@ def supervisor_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     members = team.members.all()
     roles = Role.objects.filter(team=team)
-    
+
     member_list = []
     for member in members:
         # Check if they have drawn any time blocks
         has_availability = AvailabilityRange.objects.filter(user=member, team=team).exists()
-        
+
         # Check if they have selected any roles (Path B)
         role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
-        
+
         # Explicitly get the list of Role objects
         preferred_roles = []
         if role_prefs:
@@ -336,15 +342,15 @@ def supervisor_view(request, team_id):
 
         # Logic: If they did either, they are "Submitted"
         status = "Submitted" if (has_availability or preferred_roles) else "Pending"
-        
+
         # Get the manager's current assignment for this worker
         current_assignment = TeamRoleAssignment.objects.filter(user=member, team=team).first()
-        
+
         member_list.append({
             'user': member,
             'status': status,
             'preferred_roles': preferred_roles, # The HTML loop uses this
-            'current_role_id': current_assignment.role_id if current_assignment else None        
+            'current_role_id': current_assignment.role_id if current_assignment else None
             })
 
     return render(request, 'core/supervisor.html', {
@@ -359,7 +365,7 @@ def get_worker_availability(request, team_id, worker_id):
     # allow supervisor only
     if team.owner != request.user:
         return HttpResponseForbidden("Supervisor only")
-    
+
     target_user = get_object_or_404(User, id=worker_id)
 
     # Must be relevant to this team
@@ -372,7 +378,7 @@ def get_worker_availability(request, team_id, worker_id):
 
     if not (is_supervisor or is_self):
         return HttpResponseForbidden("Unauthorized")
-    
+
     ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
     print(len(ranges))
     data = {}
@@ -401,13 +407,13 @@ def save_schedule(request, team_id):
 
     worker_id = data.get('worker_id')
     role_id = data.get('role') # This comes from the dropdown in scheduler
-    assigned_shifts = data.get('assigned_shifts') 
+    assigned_shifts = data.get('assigned_shifts')
 
     if not worker_id:
         return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
 
     target_user = get_object_or_404(User, id=worker_id)
-    
+
     # Correctly lookup the Role object for the Shift
     role_obj = None
     if role_id:
@@ -437,7 +443,7 @@ def save_schedule(request, team_id):
         return JsonResponse({'status': 'success', 'created': count})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-    
+
 @login_required
 @require_http_methods(["POST"])
 def create_role(request, team_id):
@@ -465,7 +471,7 @@ def create_role(request, team_id):
         return JsonResponse({"ok": True, "role_id": role.id, "created": True, "name": role.name})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
-    
+
 @login_required
 @require_http_methods(["DELETE"])
 def delete_role(request, team_id, role_id):
@@ -492,7 +498,7 @@ def list_roles(request, team_id):
 @require_http_methods(["POST"])
 def assign_role(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    
+
     # Permission check
     if team.owner != request.user:
         return JsonResponse({"error": "Unauthorized"}, status=403)
@@ -508,7 +514,7 @@ def assign_role(request, team_id):
             return JsonResponse({"ok": True, "message": "Role cleared"})
 
         role = get_object_or_404(Role, id=role_id, team=team)
-        
+
         # Update or Create: Ensures a worker has ONE specific role in this team
         # If your business logic allows multiple roles, use .get_or_create() instead
         assignment, created = TeamRoleAssignment.objects.update_or_create(
@@ -518,8 +524,8 @@ def assign_role(request, team_id):
         )
 
         return JsonResponse({
-            "ok": True, 
-            "role_name": role.name, 
+            "ok": True,
+            "role_name": role.name,
             "worker_id": worker_id
         })
 
@@ -549,7 +555,7 @@ def unassign_role(request, team_id):
 @login_required
 def worker_roles(request, team_id, worker_id):
     team = get_object_or_404(Team, id=team_id)
-    
+
     # supervisor can only view worker roles if they are assigned to that team
     worker = get_object_or_404(User, id=worker_id)
     if worker != team.owner and worker not in team.members.all():

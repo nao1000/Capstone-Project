@@ -526,7 +526,7 @@
                 <i class="fa-regular fa-bell"></i>
             </div>
             <div class="user-profile">
-                <span>Name</span>
+                <span>{{ user.first_name|default:user.username }}</span>
                 <i class="fa-regular fa-circle-user"></i>
             </div>
         </div>
@@ -559,9 +559,9 @@
                     <tbody>
                         {% for entry in member_list %}
                         <tr>
-                            <td>{{ entry.user.first_name|default:entry.user.username }}</td>
+                            <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
                             <td>{{ entry.user.email }}</td>
-                            <td>@{{ entry.user.username }}</td>
+                            <td>{{ entry.user.username }}</td>
                             <td><span class="status-badge active">Active</span></td>
                             <td>Supervisor</td>
                             <td><button class="btn-icon"><i class="fa-solid fa-ellipsis"></i></button></td>
