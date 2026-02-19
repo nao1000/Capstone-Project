@@ -631,6 +631,11 @@
 
                 <div class="room-controls">
                     <select id="roomSelect" onchange="switchRoom()">
+                        {% for room in rooms %}
+                        <option value="{{ room.id }}" data-capacity="{{ room.capacity }}">
+                            {{ room.name }} (Cap: {{ room.capacity }})
+                        </option>
+                        {% endfor %}
                     </select>
                     <button class="btn btn-secondary" onclick="addNewRoom()">
                         <i class="fa-solid fa-plus"></i> New Room
@@ -652,6 +657,11 @@
             </div>
         </div>
     </div>
+    <div id="room-data-source" style="display:none;">
+        {% for room in rooms %}
+        <span class="room-info" data-id="{{ room.id }}" data-name="{{ room.name|escapejs }}"></span>
+        {% endfor %}
+    </div>
 
     <script>
         window.TEAM_ID = "{{ team.id }}";  // Make team ID available in JS
@@ -661,13 +671,16 @@
         const END_HOUR = 18;   // 6 PM
         const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-        // Mock Database for Rooms
-        let roomData = [
-            { id: 1, name: "Conference Room A", schedule: [] }, // schedule contains "dayIndex-hour" strings
-            { id: 2, name: "Main Hall", schedule: [] }
-        ];
+        // Pull data from the hidden HTML elements
+        const roomElements = document.querySelectorAll('.room-info');
+        let roomData = Array.from(roomElements).map(el => ({
+            id: parseInt(el.dataset.id),
+            name: el.dataset.name,
+            schedule: []
+        }));
 
-        let currentRoomId = 1;
+        // Set the first room as default
+        let currentRoomId = roomData.length > 0 ? roomData[0].id : null;
         let isDragging = false;
         let isPainting = true; // true = adding, false = removing
 
@@ -776,17 +789,43 @@
         }
 
         // 3. Add New Room
-        function addNewRoom() {
+        async function addNewRoom() {
             const name = prompt("Enter new room name:");
-            if (name) {
-                const newId = Date.now(); // Simple unique ID
-                roomData.push({ id: newId, name: name, schedule: [] });
+            if (!name) return;
 
-                saveCurrentRoomToMemory(); // Save whatever we were doing
-                currentRoomId = newId;
+            try {
+                const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/create/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    // Note: Sending capacity 1 as default to match your view's expectation
+                    body: JSON.stringify({ name: name, capacity: 1 })
+                });
 
-                populateRoomSelect(); // Refresh dropdown
-                loadRoomSchedule(newId); // clear grid for new room
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    // MATCHING YOUR VIEW: using data.room_id and data.name (or the name variable)
+                    const newRoomId = data.room_id;
+
+                    roomData.push({
+                        id: newRoomId,
+                        name: name,
+                        schedule: []
+                    });
+
+                    saveCurrentRoomToMemory();
+                    currentRoomId = newRoomId;
+
+                    populateRoomSelect();
+                    loadRoomSchedule(newRoomId);
+                } else {
+                    alert("Failed to create room: " + (data.error || "Unknown error"));
+                }
+            } catch (error) {
+                console.error("Error creating room:", error);
             }
         }
 
@@ -826,17 +865,25 @@
         }
 
         // Final Save Button
-        function saveAllRooms() {
-            saveCurrentRoomToMemory(); // Ensure current view is saved
-            console.log("Saving to Database...", roomData);
-            alert("Availability saved for all rooms!");
-            closeScheduler();
-        }
+        async function saveAllRooms() {
+            saveCurrentRoomToMemory(); // Make sure the latest grid is in memory
 
-        function saveCurrentRoomToMemory() {
-            return;
-        }
+            const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/save-availability/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}" // Crucial for Django security
+                },
+                body: JSON.stringify({ rooms: roomData })
+            });
 
+            if (response.ok) {
+                alert("Availability saved to the database!");
+                closeScheduler();
+            } else {
+                alert("Error saving availability.");
+            }
+        }
 
         function openScheduler() {
             document.getElementById('schedulerModal').classList.add('show');
