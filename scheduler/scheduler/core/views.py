@@ -1,14 +1,14 @@
 import json
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from .models import AvailabilityRange, Role, Shift, Team, TeamRoleAssignment, TeamEvent, UserRolePreference
+from .models import AvailabilityRange, Role, Shift, Team, TeamRoleAssignment, TeamEvent, UserRolePreference, Room, RoomAvailability
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
@@ -392,57 +392,57 @@ def get_worker_availability(request, team_id, worker_id):
     print(len(data))
     return JsonResponse({"unavailable": data})
 
-@login_required
-@require_http_methods(["POST"])
-def save_schedule(request, team_id):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+# @login_required
+# @require_http_methods(["POST"])
+# def save_schedule(request, team_id):
+#     try:
+#         data = json.loads(request.body)
+#     except json.JSONDecodeError:
+#         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
-    team = get_object_or_404(Team, id=team_id)
+#     team = get_object_or_404(Team, id=team_id)
 
-    if team.owner != request.user:
-        return HttpResponseForbidden("Only the supervisor can save schedules.")
+#     if team.owner != request.user:
+#         return HttpResponseForbidden("Only the supervisor can save schedules.")
 
-    worker_id = data.get('worker_id')
-    role_id = data.get('role') # This comes from the dropdown in scheduler
-    assigned_shifts = data.get('assigned_shifts')
+#     worker_id = data.get('worker_id')
+#     role_id = data.get('role') # This comes from the dropdown in scheduler
+#     assigned_shifts = data.get('assigned_shifts')
 
-    if not worker_id:
-        return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
+#     if not worker_id:
+#         return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
 
-    target_user = get_object_or_404(User, id=worker_id)
+#     target_user = get_object_or_404(User, id=worker_id)
 
-    # Correctly lookup the Role object for the Shift
-    role_obj = None
-    if role_id:
-        role_obj = Role.objects.filter(id=role_id, team=team).first()
+#     # Correctly lookup the Role object for the Shift
+#     role_obj = None
+#     if role_id:
+#         role_obj = Role.objects.filter(id=role_id, team=team).first()
 
-    try:
-        with transaction.atomic():
-            # Clear existing shifts for this specific worker/team combo
-            Shift.objects.filter(user=target_user, team=team).delete()
+#     try:
+#         with transaction.atomic():
+#             # Clear existing shifts for this specific worker/team combo
+#             Shift.objects.filter(user=target_user, team=team).delete()
 
-            count = 0
-            if assigned_shifts:
-                for day, shifts in assigned_shifts.items():
-                    for time_range in shifts:
-                        if len(time_range) == 2:
-                            start, end = time_range
-                            Shift.objects.create(
-                                user=target_user,
-                                team=team,
-                                day=day.lower(),
-                                start_time=start,
-                                end_time=end,
-                                role=role_obj
-                            )
-                            count += 1
+#             count = 0
+#             if assigned_shifts:
+#                 for day, shifts in assigned_shifts.items():
+#                     for time_range in shifts:
+#                         if len(time_range) == 2:
+#                             start, end = time_range
+#                             Shift.objects.create(
+#                                 user=target_user,
+#                                 team=team,
+#                                 day=day.lower(),
+#                                 start_time=start,
+#                                 end_time=end,
+#                                 role=role_obj
+#                             )
+#                             count += 1
 
-        return JsonResponse({'status': 'success', 'created': count})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+#         return JsonResponse({'status': 'success', 'created': count})
+#     except Exception as e:
+#         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 @require_http_methods(["POST"])
@@ -574,3 +574,113 @@ def worker_roles(request, team_id, worker_id):
         "roles": [{"id": a.role.id, "name": a.role.name} for a in assigned]
     })
 
+@login_required
+@require_POST
+def create_room(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Unauthorized")
+
+    try:
+        data = json.loads(request.body)
+        room = Room.objects.create(
+            team=team,
+            name=data.get('name'),
+            capacity=data.get('capacity', 1)
+        )
+        return JsonResponse({"ok": True, "room_id": room.id})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+@login_required
+@require_POST
+def add_room_availability(request, room_id):
+    room = get_object_or_404(Room, id=room_id)
+    if room.team.owner != request.user:
+        return HttpResponseForbidden("Unauthorized")
+
+    try:
+        data = json.loads(request.body)
+        RoomAvailability.objects.create(
+            room=room,
+            day=data.get('day').lower(),
+            start_time=data.get('start'),
+            end_time=data.get('end')
+        )
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+@login_required
+@require_http_methods(["POST"])
+def save_schedule(request, team_id):
+    try:
+        # 1. Initialize 'data' from the request body
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+    # 2. Define 'team' and check permissions
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Only the supervisor can save schedules.")
+
+    # 3. Define 'worker_id', 'target_user', and 'assigned_shifts'
+    worker_id = data.get('worker_id')
+    assigned_shifts = data.get('assigned_shifts')
+
+    if not worker_id:
+        return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
+
+    target_user = get_object_or_404(User, id=worker_id)
+
+    # 4. Handle Role and Room lookups
+    role_id = data.get('role')
+    role_obj = Role.objects.filter(id=role_id, team=team).first() if role_id else None
+
+    room_id = data.get('room_id')  # Ensure your JS sends this!
+    room_obj = Room.objects.filter(id=room_id, team=team).first() if room_id else None
+
+    try:
+        with transaction.atomic():
+            # 5. Clear existing shifts for this specific worker/team combo
+            Shift.objects.filter(user=target_user, team=team).delete()
+
+            count = 0
+            if assigned_shifts:
+                for day, shifts in assigned_shifts.items():
+                    for time_range in shifts:
+                        if len(time_range) == 2:
+                            start, end = time_range
+
+                            # 6. CAPACITY CHECK LOGIC
+                            if room_obj:
+                                # Count shifts in this room that overlap with the new one
+                                overlapping_count = Shift.objects.filter(
+                                    room=room_obj,
+                                    day=day.lower(),
+                                ).filter(
+                                    Q(start_time__lt=end) & Q(end_time__gt=start)
+                                ).count()
+
+                                if overlapping_count >= room_obj.capacity:
+                                    # This error will trigger the 'except' block and rollback the delete
+                                    raise Exception(f"Room {room_obj.name} is full on {day} at {start}!")
+
+                            # 7. Create the new shift
+                            Shift.objects.create(
+                                user=target_user,
+                                team=team,
+                                room=room_obj,
+                                day=day.lower(),
+                                start_time=start,
+                                end_time=end,
+                                role=role_obj
+                            )
+                            count += 1
+
+        return JsonResponse({'status': 'success', 'created': count})
+
+    except Exception as e:
+        # This catches the capacity Exception or any DB errors
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

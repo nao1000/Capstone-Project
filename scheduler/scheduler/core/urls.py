@@ -23,20 +23,20 @@ from . import views
 
 #     # API: Get a specific worker's availability within this team
 #     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
-    
+
 #     # API: Save the final schedule for this team
 #     path('api/team/<uuid:team_id>/save-schedule/', views.save_schedule, name='save_schedule'),
-    
+
 #     # AUTHENTICATION
 #     # 1. Login (Uses Django's built-in view, but points to our html)
 #     path('login/', auth_views.LoginView.as_view(template_name='core/auth.html'), name='login'),
-    
+
 #     # 2. Logout (Redirects to login page after)
 #     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 
 #     # 3. Signup (Uses our custom view above)
 #     path('signup/', views.signup, name='signup'),
-    
+
 #     # auth required for users
 #     path("api/auth-ping/", views.auth_ping, name="auth_ping"),
 #     path("api/team/<uuid:team_id>/roles/", views.list_roles, name="list_roles"),
@@ -54,8 +54,6 @@ urlpatterns = [
 
     # --- WORKER ROUTES ---
     path('team/<uuid:team_id>/availability/', views.availability_view, name='availability'),
-    
-    # FIX: Changed 'availability' to 'save-availability' to match your JS fetch call
     path('api/team/<uuid:team_id>/save-availability/', views.save_availability, name='save_availability'),
 
     # --- SUPERVISOR ROUTES ---
@@ -66,7 +64,11 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
     path('api/team/<uuid:team_id>/save-schedule/', views.save_schedule, name='save_schedule'),
     path("api/team/<uuid:team_id>/events/add/", views.add_event, name="add_event"),
-    
+
+    # ROOMS API
+    path("api/team/<uuid:team_id>/rooms/", views.create_room, name="create_room"),
+    path("api/room/<int:room_id>/availability/", views.add_room_availability, name="add_room_availability"),
+
     # ROLES API
     path("api/team/<uuid:team_id>/roles/", views.list_roles, name="list_roles"),
     path("api/team/<uuid:team_id>/roles/create/", views.create_role, name="create_role"),
