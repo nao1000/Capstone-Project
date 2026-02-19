@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coorda - Supervisor Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* --- GLOBAL VARIABLES & RESET --- */
+        :root {
+            --nav-bg: #7a92ac;
+            --bg-color: #eef2f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --grid-line: #e0e0e0;
+            --grid-line-hour: #c0c0c0;
+            --primary-blue: #7393B3;
+
+            /* Shift Colors */
+            --event-bg: #dbeafe;
+            --event-border: #2563eb;
+            --event-text: #1e3a8a;
+
+            /* Availability Colors (Top Grid) */
+            --avail-bg: #e6f4ea;
+            --avail-border: #34a853;
+            --avail-text: #0d652d;
+
+            --font-headers: 'Oswald', sans-serif;
+            --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+            /* Fixed height for 15-min intervals */
+            --slot-height: 15px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            user-select: none;
+            /* Prevent text selection while dragging */
+        }
+
+        /* --- NAVBAR --- */
+        .navbar {
+            background-color: var(--nav-bg);
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .brand {
+            font-family: var(--font-headers);
+            font-size: 32px;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-headers);
+            font-size: 24px;
+            font-weight: 300;
+        }
+
+        .main-container {
+            display: flex;
+            padding: 20px 30px;
+            /* Reduced padding slightly */
+            gap: 20px;
+            /* Tighter gap */
+            max-width: 100%;
+            /* Allow it to use full monitor width */
+            margin: 0 auto;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 220px;
+            /* Shrunk from 300px */
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .panel-title {
+            font-family: var(--font-headers);
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        .worker-list {
+            border: 1px solid var(--grid-line);
+            border-radius: 4px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .worker-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--grid-line);
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .worker-item:hover,
+        .worker-item.active {
+            background-color: #f5f5f5;
+        }
+
+        /* --- GRIDS AREA --- */
+        .grids-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: row;
+            /* Changed from column to row */
+            gap: 20px;
+            min-width: 0;
+            /* Prevents flex children from overflowing */
+        }
+
+        /* --- THE COMPACT CALENDAR CARD --- */
+        .scheduler-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            flex: 1;
+            /* Makes both cards take up exactly 50% of the space */
+            min-width: 0;
+        }
+
+        .toolbar {
+            padding: 0 25px;
+            height: 55px;
+            border-bottom: 1px solid var(--grid-line);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fcfcfc;
+            flex-shrink: 0;
+        }
+
+        .toolbar h3 {
+            margin: 0;
+            font-family: var(--font-headers);
+            font-size: 24px;
+            font-weight: 400;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-clear {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-clear:hover {
+            background: #dee2e6;
+        }
+
+        .btn-save {
+            background-color: #cdd2de;
+            color: #333;
+            padding: 8px 20px;
+        }
+
+        .btn-save:hover {
+            background-color: #bec3cf;
+        }
+
+        /* --- CSS GRID ARCHITECTURE --- */
+        .grid-header {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            border-bottom: 1px solid var(--grid-line);
+            height: 40px;
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
+
+        .header-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            border-right: 1px solid var(--grid-line);
+            text-transform: uppercase;
+        }
+
+        .header-cell:last-child {
+            border-right: none;
+        }
+
+        .scroll-area {
+            /* Removed max-height and overflow-y to disable scrolling */
+            background: white;
+            position: relative;
+        }
+
+        .grid-body {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            height: calc(10 * 4 * var(--slot-height));
+            /* 10 hours, 4 slots/hr */
+            position: relative;
+        }
+
+        /* Columns */
+        .time-col {
+            border-right: 1px solid var(--grid-line);
+            background: #ffffff;
+            position: relative;
+        }
+
+        .day-col {
+            border-right: 1px solid var(--grid-line);
+            position: relative;
+        }
+
+        .day-col:last-child {
+            border-right: none;
+        }
+
+        /* Interactive Grid Hover */
+        .interactive-grid .day-col {
+            cursor: crosshair;
+        }
+
+        /* Zebra Striping & Grid Lines */
+        .day-col {
+            background-image: repeating-linear-gradient(to bottom,
+                    transparent, transparent calc(var(--slot-height) * 4),
+                    #fafbfc calc(var(--slot-height) * 4), #fafbfc calc(var(--slot-height) * 8));
+        }
+
+        .day-col::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+            background-size: 100% var(--slot-height);
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .day-col::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
+            background-size: 100% calc(var(--slot-height) * 4);
+            pointer-events: none;
+        }
+
+        /* Time Labels */
+        .time-label {
+            position: absolute;
+            right: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #777;
+            transform: translateY(-50%);
+            background: white;
+            padding-left: 4px;
+            z-index: 2;
+        }
+
+        /* --- EVENT BLOCKS --- */
+        .event-block {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            border-radius: 4px;
+            padding: 1px 4px;
+            /* Reduced padding */
+            overflow: hidden;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s;
+        }
+
+        /* Interactive Shifts */
+        .shift-block {
+            background-color: var(--event-bg);
+            border: 1px solid var(--event-border);
+            border-left: 4px solid var(--event-border);
+            color: var(--event-text);
+            cursor: pointer;
+        }
+
+        .shift-block:hover {
+            transform: scale(1.02);
+            z-index: 11;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .shift-block.temp {
+            opacity: 0.6;
+            pointer-events: none;
+            border-style: dashed;
+        }
+
+        /* Read-Only Availability */
+        .avail-block {
+            background-color: var(--avail-bg);
+            border: 1px solid var(--avail-border);
+            border-left: 4px solid var(--avail-border);
+            color: var(--avail-text);
+            pointer-events: none;
+            /* No interaction */
+            opacity: 0.8;
+        }
+
+        .event-content {
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+            /* Tighter line height */
+            margin-top: 1px;
+        }
+
+        .event-title {
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .event-time {
+            font-size: 10px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .event-loc {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Delete X */
+        .delete-x {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            width: 20px;
+            height: 20px;
+            line-height: 18px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 50;
+            display: none;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 0 0 0 4px;
+        }
+
+        .delete-x:hover {
+            color: #ef4444;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .shift-block:hover .delete-x {
+            display: block;
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: white;
+            width: 350px;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: var(--nav-bg);
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #444;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        /* --- SYNC HIGHLIGHT --- */
+        .sync-highlight {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: var(--slot-height);
+            /* 15px */
+            background-color: rgba(37, 99, 235, 0.15);
+            /* Soft blue */
+            border: 1px solid rgba(37, 99, 235, 0.3);
+            pointer-events: none;
+            /* Passes clicks through to the grid */
+            z-index: 5;
+            /* Stays under the shift blocks */
+            display: none;
+        }
+
+        .sync-highlight.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="brand">Coorda</div>
+        <div class="nav-links">
+            <div class="user-profile">
+                <span>Supervisor Dashboard</span>
+                <i class="fa-regular fa-circle-user"></i>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+
+        <aside class="sidebar">
+            <div class="panel">
+                <h2 class="panel-title">Team Members</h2>
+                <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
+                    onkeyup="filterWorkers()">
+                <div class="worker-list" id="workerList">
+                    <div class="worker-item active" onclick="loadWorker('Jane Doe', this)"><span>Jane Doe</span></div>
+                    <div class="worker-item" onclick="loadWorker('John Smith', this)"><span>John Smith</span></div>
+                    <div class="worker-item" onclick="loadWorker('Mike Ross', this)"><span>Mike Ross</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="grids-area">
+
+            <div class="scheduler-card">
+                <div class="toolbar">
+                    <h3 id="viewingWorkerLabel">Jane Doe - Availability</h3>
+                    <div style="font-size: 13px; color: #666;">Read-Only View</div>
+                </div>
+                <div class="grid-header">
+                    <div class="header-cell">Time</div>
+                    <div class="header-cell">Sun</div>
+                    <div class="header-cell">Mon</div>
+                    <div class="header-cell">Tue</div>
+                    <div class="header-cell">Wed</div>
+                    <div class="header-cell">Thu</div>
+                    <div class="header-cell">Fri</div>
+                    <div class="header-cell">Sat</div>
+                </div>
+                <div class="scroll-area">
+                    <div class="grid-body" id="viewGrid">
+                        <div class="time-col" id="viewTimeCol"></div>
+                        <div class="day-col" data-day="0"></div>
+                        <div class="day-col" data-day="1"></div>
+                        <div class="day-col" data-day="2"></div>
+                        <div class="day-col" data-day="3"></div>
+                        <div class="day-col" data-day="4"></div>
+                        <div class="day-col" data-day="5"></div>
+                        <div class="day-col" data-day="6"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scheduler-card">
+                <div class="toolbar">
+                    <h3>Assign Shifts</h3>
+                    <div class="toolbar-actions">
+                        <span style="font-size: 13px; color: #888; margin-right: 15px;">Click & drag to add shift</span>
+                        <button class="btn btn-clear" onclick="clearInteractiveGrid()">Clear Shifts</button>
+                        <button class="btn btn-save" onclick="saveAllPreferences()">Save Schedule</button>
+                    </div>
+                </div>
+                <div class="grid-header">
+                    <div class="header-cell">Time</div>
+                    <div class="header-cell">Sun</div>
+                    <div class="header-cell">Mon</div>
+                    <div class="header-cell">Tue</div>
+                    <div class="header-cell">Wed</div>
+                    <div class="header-cell">Thu</div>
+                    <div class="header-cell">Fri</div>
+                    <div class="header-cell">Sat</div>
+                </div>
+                <div class="scroll-area">
+                    <div class="grid-body interactive-grid" id="interactiveGrid">
+                        <div class="time-col" id="interactiveTimeCol"></div>
+                        <div class="day-col" data-day="0"></div>
+                        <div class="day-col" data-day="1"></div>
+                        <div class="day-col" data-day="2"></div>
+                        <div class="day-col" data-day="3"></div>
+                        <div class="day-col" data-day="4"></div>
+                        <div class="day-col" data-day="5"></div>
+                        <div class="day-col" data-day="6"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal-box">
+            <div class="modal-header">Assign Shift</div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Worker Name</label>
+                    <input type="text" id="modalEventName" placeholder="e.g. Jane Doe">
+                </div>
+                <div class="input-group">
+                    <label>Location / Role</label>
+                    <input type="text" id="modalLocation" placeholder="e.g. Front Desk">
+                </div>
+                <div style="font-size: 13px; color: #666; font-weight: 500; margin-top: 15px;" id="modalTimeDisplay">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-clear" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-save" onclick="saveEvent()">Assign</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const START_HOUR = 8; // 8:00 AM
+        const END_HOUR = 18;  // 6:00 PM
+        const SLOT_HEIGHT = 15; // Matches --slot-height in CSS
+
+        let isDragging = false;
+        let startTop = 0;
+        let activeEvent = null;
+        let activeCol = null;
+        let currentStartMin = 0;
+        let currentEndMin = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            drawTimeLabels('viewTimeCol');
+            drawTimeLabels('interactiveTimeCol');
+            setupDragListeners();
+            setupSyncHover();
+            mockLoadAvailability(); // Load dummy green blocks into top grid
+        });
+
+
+        /* --- TIME LABELS --- */
+        function drawTimeLabels(containerId) {
+            const timeCol = document.getElementById(containerId);
+            const totalHours = END_HOUR - START_HOUR;
+
+            for (let h = START_HOUR; h <= END_HOUR; h++) {
+                if (h === END_HOUR) continue; // Skip bottom edge label
+
+                const label = document.createElement('div');
+                label.className = 'time-label';
+
+                const suffix = h >= 12 ? 'PM' : 'AM';
+                const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 ? 12 : h);
+                label.textContent = `${displayH} ${suffix}`;
+
+                const percentTop = ((h - START_HOUR) / totalHours) * 100;
+                label.style.top = `${percentTop}%`;
+                timeCol.appendChild(label);
+            }
+        }
+
+        /* --- DRAG & DROP LOGIC (Interactive Grid Only) --- */
+        function setupDragListeners() {
+            // ONLY select day columns inside the interactive grid
+            const interactiveCols = document.querySelectorAll('#interactiveGrid .day-col');
+
+            interactiveCols.forEach(col => {
+                col.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.event-block')) return;
+
+                    isDragging = true;
+                    activeCol = col;
+
+                    const rect = col.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+
+                    // Snap to grid (15 mins = 20px)
+                    startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+                    activeEvent = document.createElement('div');
+                    activeEvent.className = 'event-block shift-block temp';
+                    activeEvent.style.top = `${startTop}px`;
+                    activeEvent.style.height = `${SLOT_HEIGHT}px`;
+                    activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`;
+
+                    col.appendChild(activeEvent);
+                });
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging || !activeEvent || !activeCol) return;
+
+                const rect = activeCol.getBoundingClientRect();
+                const currentRelativeY = e.clientY - rect.top;
+
+                let newHeight = (Math.floor(currentRelativeY / SLOT_HEIGHT) * SLOT_HEIGHT) - startTop + SLOT_HEIGHT;
+                if (newHeight < SLOT_HEIGHT) newHeight = SLOT_HEIGHT;
+
+                activeEvent.style.height = `${newHeight}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    openModal();
+                }
+            });
+        }
+
+        /* --- MODAL LOGIC --- */
+        function openModal() {
+            const modal = document.getElementById('eventModal');
+            modal.classList.add('show');
+
+            // Auto-fill active worker name
+            const activeWorker = document.querySelector('.worker-item.active span').textContent;
+            document.getElementById('modalEventName').value = activeWorker;
+            document.getElementById('modalLocation').value = '';
+            document.getElementById('modalLocation').focus();
+
+            const topPx = parseFloat(activeEvent.style.top);
+            const heightPx = parseFloat(activeEvent.style.height);
+
+            const startSlotIndex = Math.round(topPx / SLOT_HEIGHT);
+            const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
+
+            currentStartMin = (startSlotIndex * 15) + (START_HOUR * 60);
+            currentEndMin = currentStartMin + (slotsCount * 15);
+
+            document.getElementById('modalTimeDisplay').textContent =
+                `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`;
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('show');
+            if (activeEvent && activeEvent.classList.contains('temp')) {
+                activeEvent.remove();
+            }
+            activeEvent = null;
+        }
+
+        function saveEvent() {
+            const name = document.getElementById('modalEventName').value || 'Shift';
+            const location = document.getElementById('modalLocation').value;
+            const timeString = `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)}`;
+
+            const heightPx = parseFloat(activeEvent.style.height);
+            const isSmall = heightPx < (SLOT_HEIGHT * 2.5);
+
+            if (activeEvent) {
+                activeEvent.classList.remove('temp');
+                let html = `
+                    <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+                    <div class="event-content">
+                        <div class="event-title">${name}</div>
+                        <div class="event-time">${timeString}</div>`;
+
+                if (!isSmall && location) html += `<div class="event-loc">${location}</div>`;
+                html += `</div>`;
+
+                activeEvent.innerHTML = html;
+            }
+
+            document.getElementById('eventModal').classList.remove('show');
+            activeEvent = null;
+        }
+
+        function removeEventBlock(e, xButton) {
+            e.stopPropagation(); // Don't trigger drag
+            if (confirm("Remove this shift?")) {
+                xButton.closest('.event-block').remove();
+            }
+        }
+
+        function clearInteractiveGrid() {
+            if (confirm("Clear all assigned shifts?")) {
+                document.querySelectorAll('#interactiveGrid .shift-block').forEach(el => el.remove());
+            }
+        }
+
+        function saveAllPreferences() {
+            const shifts = document.querySelectorAll('#interactiveGrid .shift-block:not(.temp)');
+            alert(`Saved ${shifts.length} shifts to the database!`);
+            // Your AJAX fetch call goes here
+        }
+
+        /* --- UI HELPERS --- */
+        function loadWorker(name, element) {
+            document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('viewingWorkerLabel').textContent = `${name} - Availability`;
+
+            // In a real app, you would clear #viewGrid and load new availability blocks here
+        }
+
+        function filterWorkers() {
+            const input = document.getElementById('workerSearch').value.toLowerCase();
+            document.querySelectorAll('.worker-item').forEach(item => {
+                const name = item.querySelector('span').textContent.toLowerCase();
+                item.style.display = name.includes(input) ? "flex" : "none";
+            });
+        }
+
+        function formatMin(totalMinutes) {
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            const suffix = h >= 12 ? 'PM' : 'AM';
+            const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 ? 12 : h);
+            const displayM = m < 10 ? '0' + m : m;
+            return `${displayH}:${displayM} ${suffix}`;
+        }
+
+        /* --- MOCK DATA --- */
+        function mockLoadAvailability() {
+            // Draw a fake availability block on Monday (data-day="1") from 9:00 AM to 12:00 PM
+            const dayCol = document.querySelector('#viewGrid .day-col[data-day="1"]');
+            const startMins = (9 * 60) - (START_HOUR * 60); // 9AM relative to 8AM
+            const endMins = (12 * 60) - (START_HOUR * 60);  // 12PM relative to 8AM
+
+            const topPx = (startMins / 15) * SLOT_HEIGHT;
+            const heightPx = ((endMins - startMins) / 15) * SLOT_HEIGHT;
+
+            const block = document.createElement('div');
+            block.className = 'event-block avail-block';
+            block.style.top = `${topPx}px`;
+            block.style.height = `${heightPx}px`;
+            block.innerHTML = `
+                <div class="event-content">
+                    <div class="event-title">Available</div>
+                    <div class="event-time">9:00 AM - 12:00 PM</div>
+                </div>`;
+            dayCol.appendChild(block);
+        }
+        /* --- SYNCHRONIZED HOVER EFFECT --- */
+        function setupSyncHover() {
+            // Create the highlight elements
+            const viewHighlight = document.createElement('div');
+            viewHighlight.className = 'sync-highlight';
+
+            const interactiveHighlight = document.createElement('div');
+            interactiveHighlight.className = 'sync-highlight';
+
+            // Get columns from both grids
+            const interactiveCols = document.querySelectorAll('#interactiveGrid .day-col');
+            const viewCols = document.querySelectorAll('#viewGrid .day-col');
+
+            interactiveCols.forEach((col, index) => {
+                col.addEventListener('mousemove', (e) => {
+                    // Get Y coordinate relative to the column
+                    const rect = col.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+
+                    // Snap to the nearest 15-minute block
+                    const snappedTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+                    // Append and position in the Assign grid
+                    col.appendChild(interactiveHighlight);
+                    interactiveHighlight.style.top = `${snappedTop}px`;
+                    interactiveHighlight.classList.add('active');
+
+                    // Append and position in the matching Availability grid column
+                    const targetViewCol = viewCols[index];
+                    targetViewCol.appendChild(viewHighlight);
+                    viewHighlight.style.top = `${snappedTop}px`;
+                    viewHighlight.classList.add('active');
+                });
+
+                // Hide highlights when mouse leaves the column
+                col.addEventListener('mouseleave', () => {
+                    interactiveHighlight.classList.remove('active');
+                    viewHighlight.classList.remove('active');
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>
