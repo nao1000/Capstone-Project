@@ -232,11 +232,14 @@ def scheduler_view(request, team_id):
     # Fetch roles so the scheduler can assign them to shifts
     roles = Role.objects.filter(team=team)
 
-    # THIS IS THE MISSING PIECE:
+    # FETCH ROOMS:
+    rooms = Room.objects.filter(team=team)
+
     return render(request, "core/scheduler.html", {
         "team": team,
         "workers": workers,
-        "roles": roles
+        "roles": roles,
+        "rooms": rooms  # Now the frontend can see the rooms!
     })
 
 @login_required
@@ -610,6 +613,39 @@ def add_room_availability(request, room_id):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+@login_required
+def save_room_availability(request, team_id):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            rooms_to_save = data.get('rooms', [])
+
+            for r_data in rooms_to_save:
+                # Use filter().first() so it doesn't crash the whole site if one ID is wrong
+                room = Room.objects.filter(id=r_data['id']).first()
+
+                if not room:
+                    # Look at your terminal! This will tell us if the ID is wrong.
+                    print(f"CRITICAL: Room ID {r_data['id']} not found in DB!")
+                    continue
+
+                RoomAvailability.objects.filter(room=room).delete()
+
+                for slot in r_data['schedule']:
+                    day_index, hour = slot.split('-')
+                    # Ensure time is HH:MM:SS format
+                    formatted_time = f"{int(hour):02d}:00:00"
+
+                    RoomAvailability.objects.create(
+                        room=room,
+                        day_of_week=int(day_index),
+                        start_time=formatted_time
+                    )
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            print(f"Error: {e}")
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 @login_required
 @require_http_methods(["POST"])

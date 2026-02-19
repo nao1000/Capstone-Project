@@ -66,7 +66,8 @@ urlpatterns = [
     path("api/team/<uuid:team_id>/events/add/", views.add_event, name="add_event"),
 
     # ROOMS API
-    path("api/team/<uuid:team_id>/rooms/", views.create_room, name="create_room"),
+    path('api/team/<uuid:team_id>/rooms/create/', views.create_room, name='create_room'),
+    path('api/team/<uuid:team_id>/rooms/save-availability/', views.save_room_availability, name='save_room_availability'),
     path("api/room/<int:room_id>/availability/", views.add_room_availability, name="add_room_availability"),
 
     # ROLES API
