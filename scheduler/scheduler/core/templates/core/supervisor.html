@@ -70,6 +70,17 @@
             padding: 40px;
         }
 
+        .time-range-text {
+            font-size: 10px;
+            color: #166534;
+            pointer-events: none;
+            /* Prevents text from interfering with drags */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 4px;
+        }
+
         h1 {
             font-weight: 400;
             margin-bottom: 20px;
@@ -295,7 +306,6 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
             display: none;
-            /* Hidden by default */
             justify-content: center;
             align-items: center;
             z-index: 1000;
@@ -362,69 +372,14 @@
             border-top: 1px solid #eee;
         }
 
-        .std-input {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            width: 200px;
-        }
-
-        /* MOCK GRID VISUALS FOR MODAL */
-        .mock-grid-container {
-            border: 1px solid #ddd;
-        }
-
-        .grid-header-row {
-            display: grid;
-            grid-template-columns: 80px repeat(5, 1fr);
-            background: #f1f1f1;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .grid-row {
-            display: grid;
-            grid-template-columns: 80px repeat(5, 1fr);
-            height: 40px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .g-cell {
-            padding: 10px;
-            font-size: 12px;
-            font-weight: bold;
-            text-align: center;
-            border-right: 1px solid #ddd;
-        }
-
-        .g-time {
-            padding: 10px;
-            font-size: 11px;
-            text-align: right;
-            color: #888;
-            border-right: 1px solid #ddd;
-        }
-
-        .g-slot {
-            border-right: 1px solid #eee;
-            position: relative;
-        }
-
-        .g-slot.taken {
-            background-color: #dbeafe;
-            border-left: 3px solid var(--primary-blue);
-            padding: 5px;
-        }
-
-        .g-slot.taken span {
-            font-size: 10px;
-            color: var(--dark-blue);
-            font-weight: bold;
-            display: block;
-        }
-
         /* ROOM SCHEDULER STYLES */
+        :root {
+            --slot-height: 10px;
+            /* Shrink 15 min slots to 10px */
+            --pixels-per-hour: 40px;
+            /* Shrink 1 hour to 40px */
+        }
 
-        /* Control Bar */
         .room-controls {
             display: flex;
             gap: 10px;
@@ -443,63 +398,133 @@
             border-radius: 4px;
         }
 
-        /* The Grid Container */
-        .scheduler-grid {
-            display: grid;
-            /* 1 column for time labels + 5 columns for Mon-Fri */
-            grid-template-columns: 60px repeat(5, 1fr);
-            border-top: 1px solid #ddd;
-            border-left: 1px solid #ddd;
-            user-select: none;
-            /* Prevents text highlighting while dragging */
+        .calendar-container {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fafafa;
         }
 
-        /* Header Cells (Days) */
-        .header-cell {
+        .calendar-header {
+            display: flex;
             background: #f1f1f1;
-            padding: 10px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 12px;
-            border-right: 1px solid #ddd;
             border-bottom: 1px solid #ddd;
         }
 
-        /* Time Label Cells (Left Column) */
-        .time-cell {
-            padding: 5px;
+        .time-spacer {
+            width: 60px;
+            border-right: 1px solid #ddd;
+        }
+
+        .day-header {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            font-size: 13px;
+            border-right: 1px solid #ddd;
+        }
+
+        .day-header:last-child {
+            border-right: none;
+        }
+
+        .calendar-body {
+            display: flex;
+            position: relative;
+            height: 400px;
+            /* 10 hours * 40px */
+            max-height: 50vh;
+            /* Keeps it contained on smaller screens */
+            overflow-y: auto;
+            /* Internal scrollbar */
+            background: white;
+            user-select: none;
+        }
+
+        .time-col {
+            width: 60px;
+            border-right: 1px solid #ddd;
+            position: relative;
+            background: #fafafa;
+        }
+
+        .time-label {
+            position: absolute;
+            right: 10px;
             font-size: 11px;
             color: #666;
-            text-align: right;
+            transform: translateY(-50%);
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 60px;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(to right, #eee 1px, transparent 1px),
+                linear-gradient(to bottom, #eee 1px, transparent 1px);
+            /* Changed from --pixels-per-hour to --slot-height */
+            background-size: 20% var(--slot-height);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .day-col {
+            flex: 1;
+            position: relative;
             border-right: 1px solid #ddd;
-            border-bottom: 1px solid #ddd;
-            background: #fafafa;
+            z-index: 2;
+            cursor: crosshair;
+        }
+
+        .day-col:last-child {
+            border-right: none;
+        }
+
+        .room-block {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            background-color: #dcfce7;
+            border-left: 4px solid #22c55e;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
+            font-size: 12px;
+            color: #166534;
+            font-weight: 600;
         }
 
-        /* The Interactive Slots */
-        .time-slot {
-            height: 30px;
-            /* Height of one hour block */
-            border-right: 1px solid #eee;
-            border-bottom: 1px solid #eee;
+        /* Floating, circular delete button so it doesn't get squished by 10px blocks */
+        .room-block .delete-btn {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #fff;
+            border: 1px solid #166534;
+            border-radius: 50%;
+            color: #166534;
             cursor: pointer;
-            background: white;
-            transition: background 0.1s;
+            font-size: 10px;
+            width: 16px;
+            height: 16px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 
-        .time-slot:hover {
-            background-color: #f0fdf4;
-            /* Very light green hover */
-        }
-
-        /* Selected State (Availability) */
-        .time-slot.selected {
-            background-color: #4ade80;
-            /* Green */
-            border-color: #22c55e;
+        .room-block:hover .delete-btn {
+            display: flex;
         }
 
         /* RESPONSIVE */
@@ -567,7 +592,6 @@
                             <td><button class="btn-icon"><i class="fa-solid fa-ellipsis"></i></button></td>
                         </tr>
                         {% endfor %}
-
                     </tbody>
                 </table>
             </div>
@@ -584,7 +608,7 @@
                 <div class="card action-card">
                     <h3>Schedule Room Availability</h3>
                     <p>Mark down specific times when your team has access to shared rooms.</p>
-                    <button class="btn btn-primary" onclick="openScheduler()">
+                    <button class="btn btn-primary" onclick="openScheduler()">Hello
                         <i class="fa-regular fa-calendar-plus"></i> Open Availability Grid
                     </button>
                 </div>
@@ -647,7 +671,25 @@
                     for teams.
                 </p>
 
-                <div id="schedulerGrid" class="scheduler-grid"></div>
+                <div id="schedulerGrid" class="calendar-container">
+                    <div class="calendar-header">
+                        <div class="time-spacer"></div>
+                        <div class="day-header">Mon</div>
+                        <div class="day-header">Tue</div>
+                        <div class="day-header">Wed</div>
+                        <div class="day-header">Thu</div>
+                        <div class="day-header">Fri</div>
+                    </div>
+                    <div class="calendar-body">
+                        <div class="time-col" id="roomTimeCol"></div>
+                        <div class="grid-lines"></div>
+                        <div class="day-col" data-day="0"></div>
+                        <div class="day-col" data-day="1"></div>
+                        <div class="day-col" data-day="2"></div>
+                        <div class="day-col" data-day="3"></div>
+                        <div class="day-col" data-day="4"></div>
+                    </div>
+                </div>
 
             </div>
 
@@ -666,106 +708,170 @@
     <script>
         window.TEAM_ID = "{{ team.id }}";  // Make team ID available in JS
 
+
         /* --- CONFIGURATION --- */
         const START_HOUR = 8;  // 8 AM
         const END_HOUR = 18;   // 6 PM
-        const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        const HOURS_TOTAL = END_HOUR - START_HOUR;
+
+        // Updated to match our new compact CSS
+        const SLOT_HEIGHT = 10;     // 10px = 15 mins
+        const PIXELS_PER_HOUR = 40; // 40px = 1 hour
 
         // Pull data from the hidden HTML elements
         const roomElements = document.querySelectorAll('.room-info');
         let roomData = Array.from(roomElements).map(el => ({
             id: parseInt(el.dataset.id),
             name: el.dataset.name,
-            schedule: []
+            schedule: [] // Will store objects: { day: 0, top: 0, height: 60 }
         }));
 
         // Set the first room as default
         let currentRoomId = roomData.length > 0 ? roomData[0].id : null;
-        let isDragging = false;
-        let isPainting = true; // true = adding, false = removing
 
         /* --- INITIALIZATION --- */
         document.addEventListener('DOMContentLoaded', () => {
             populateRoomSelect();
-            renderGrid();
-            loadRoomSchedule(currentRoomId);
+            setupRoomGrid();
+            setupDrawListeners();
+            if (currentRoomId) loadRoomSchedule(currentRoomId);
         });
 
         /* --- GRID GENERATION --- */
-        function renderGrid() {
-            const grid = document.getElementById('schedulerGrid');
-            grid.innerHTML = ''; // Clear previous
+        /* --- GRID GENERATION --- */
+        function setupRoomGrid() {
+            const timeCol = document.getElementById('roomTimeCol');
+            timeCol.innerHTML = '';
 
-            // 1. Create Headers (Empty top-left + Days)
-            grid.appendChild(createCell('header-cell', 'Time'));
-            DAYS.forEach(day => {
-                grid.appendChild(createCell('header-cell', day));
-            });
+            // Draw hourly labels
+            for (let i = 0; i <= HOURS_TOTAL; i++) {
+                const label = document.createElement('div');
+                label.className = 'time-label';
 
-            // 2. Create Rows (Time + 5 Day Slots)
-            for (let hour = START_HOUR; hour < END_HOUR; hour++) {
-                // Time Label (e.g., "8:00 AM")
-                const timeLabel = formatTime(hour);
-                grid.appendChild(createCell('time-cell', timeLabel));
+                // Use PIXELS_PER_HOUR here instead of hardcoding 60
+                label.style.top = `${i * PIXELS_PER_HOUR}px`;
 
-                // 5 Slots for this hour (Mon-Fri)
-                for (let d = 0; d < 5; d++) {
-                    const slot = document.createElement('div');
-                    slot.className = 'time-slot';
-                    slot.dataset.day = d;
-                    slot.dataset.hour = hour;
-
-                    // Drag Events
-                    slot.addEventListener('mousedown', handleMouseDown);
-                    slot.addEventListener('mouseenter', handleMouseEnter);
-
-                    grid.appendChild(slot);
-                }
+                const hour = START_HOUR + i;
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const h = hour % 12 || 12;
+                label.textContent = `${h}:00 ${ampm}`;
+                timeCol.appendChild(label);
             }
 
-            // Global mouseup to stop dragging even if mouse leaves grid
-            document.addEventListener('mouseup', () => isDragging = false);
-        }
-
-        function createCell(className, text) {
-            const div = document.createElement('div');
-            div.className = className;
-            div.textContent = text;
-            return div;
-        }
-
-        function formatTime(hour) {
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            const h = hour % 12 || 12;
-            return `${h}:00 ${ampm}`;
+            // Optional: Ensure all columns stretch to fit if you ever add more hours
+            const totalHeight = Math.max(400, HOURS_TOTAL * PIXELS_PER_HOUR);
+            document.querySelector('.grid-lines').style.height = `${totalHeight}px`;
+            document.querySelectorAll('.day-col').forEach(c => c.style.height = `${totalHeight}px`);
         }
 
         /* --- DRAG LOGIC --- */
-        function handleMouseDown(e) {
-            isDragging = true;
-            // If the slot is already selected, we are in "removing" mode.
-            // If it's empty, we are in "adding" mode.
-            isPainting = !e.target.classList.contains('selected');
-            toggleSlot(e.target);
+        let isDrawing = false;
+        let currentBlock = null;
+        let startY = 0;
+
+        function setupDrawListeners() {
+            const cols = document.querySelectorAll('#schedulerGrid .day-col');
+
+            cols.forEach((col) => {
+                const dayIndex = col.dataset.day;
+
+                col.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.delete-btn') || e.target.classList.contains('room-block')) return;
+
+                    isDrawing = true;
+                    const rect = col.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+
+                    // Snap starting point to 15 mins
+                    startY = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+                    currentBlock = createBlock(dayIndex, startY, SLOT_HEIGHT);
+                    col.appendChild(currentBlock);
+                });
+
+                col.addEventListener('mousemove', (e) => {
+                    if (!isDrawing || !currentBlock) return;
+
+                    const rect = col.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+                    const currentY = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+                    if (currentY >= startY) {
+                        currentBlock.style.top = `${startY}px`;
+                        currentBlock.style.height = `${currentY - startY + SLOT_HEIGHT}px`;
+                    } else {
+                        currentBlock.style.top = `${currentY}px`;
+                        currentBlock.style.height = `${startY - currentY + SLOT_HEIGHT}px`;
+                    }
+                });
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDrawing = false;
+                currentBlock = null;
+            });
         }
 
-        function handleMouseEnter(e) {
-            if (isDragging) {
-                toggleSlot(e.target);
-            }
+function createBlock(day, top, height) {
+            const block = document.createElement('div');
+            block.className = 'room-block';
+            block.style.top = `${top}px`;
+            block.style.height = `${height}px`;
+            block.dataset.day = day;
+
+            // NEW: Create a span to hold the time text
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'time-range-text';
+            timeSpan.textContent = `${formatTime(top)} - ${formatTime(top + height)}`;
+            block.appendChild(timeSpan);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            delBtn.onclick = function (ev) {
+                ev.stopPropagation();
+                block.remove();
+            };
+
+            block.appendChild(delBtn);
+            return block;
         }
 
-        function toggleSlot(slot) {
-            if (isPainting) {
-                slot.classList.add('selected');
-            } else {
-                slot.classList.remove('selected');
-            }
+        /* --- DATA HANDLING --- */
+        function saveCurrentRoomToMemory() {
+            const room = roomData.find(r => r.id === currentRoomId);
+            if (!room) return;
+
+            const blocks = document.querySelectorAll('#schedulerGrid .room-block');
+            const schedule = [];
+
+            blocks.forEach(block => {
+                schedule.push({
+                    day: parseInt(block.dataset.day),
+                    top: parseInt(block.style.top),
+                    height: parseInt(block.style.height)
+                });
+            });
+            room.schedule = schedule;
+        }
+
+        function loadRoomSchedule(id) {
+            document.querySelectorAll('#schedulerGrid .room-block').forEach(b => b.remove());
+
+            const room = roomData.find(r => r.id === id);
+            if (!room || !room.schedule) return;
+
+            const cols = document.querySelectorAll('#schedulerGrid .day-col');
+            room.schedule.forEach(data => {
+                const col = Array.from(cols).find(c => c.dataset.day == data.day);
+                if (col) {
+                    const block = createBlock(data.day, data.top, data.height);
+                    col.appendChild(block);
+                }
+            });
         }
 
         /* --- ROOM MANAGEMENT --- */
-
-        // 1. Populate Dropdown
         function populateRoomSelect() {
             const select = document.getElementById('roomSelect');
             select.innerHTML = '';
@@ -778,7 +884,6 @@
             });
         }
 
-        // 2. Switch Room (Save old -> Load new)
         function switchRoom() {
             saveCurrentRoomToMemory(); // Save visual state to JS object
 
@@ -788,7 +893,6 @@
             loadRoomSchedule(currentRoomId); // Update visuals from JS object
         }
 
-        // 3. Add New Room
         async function addNewRoom() {
             const name = prompt("Enter new room name:");
             if (!name) return;
@@ -800,14 +904,12 @@
                         "Content-Type": "application/json",
                         "X-CSRFToken": "{{ csrf_token }}"
                     },
-                    // Note: Sending capacity 1 as default to match your view's expectation
                     body: JSON.stringify({ name: name, capacity: 1 })
                 });
 
                 const data = await response.json();
 
                 if (response.ok && data.ok) {
-                    // MATCHING YOUR VIEW: using data.room_id and data.name (or the name variable)
                     const newRoomId = data.room_id;
 
                     roomData.push({
@@ -829,42 +931,6 @@
             }
         }
 
-        /* --- DATA HANDLING --- */
-
-        // Takes the visual grid and saves it to the roomData array
-        function saveCurrentRoomToMemory() {
-            const room = roomData.find(r => r.id === currentRoomId);
-            if (!room) return;
-
-            const selectedSlots = document.querySelectorAll('.time-slot.selected');
-            const schedule = [];
-
-            selectedSlots.forEach(slot => {
-                // Create a key like "1-9" (Tuesday 9am)
-                schedule.push(`${slot.dataset.day}-${slot.dataset.hour}`);
-            });
-
-            room.schedule = schedule;
-        }
-
-        // Takes the roomData array and paints the visual grid
-        function loadRoomSchedule(id) {
-            // 1. Clear Grid
-            document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
-
-            // 2. Find Room
-            const room = roomData.find(r => r.id === id);
-            if (!room) return;
-
-            // 3. Paint Slots
-            room.schedule.forEach(key => {
-                const [day, hour] = key.split('-');
-                const slot = document.querySelector(`.time-slot[data-day="${day}"][data-hour="${hour}"]`);
-                if (slot) slot.classList.add('selected');
-            });
-        }
-
-        // Final Save Button
         async function saveAllRooms() {
             saveCurrentRoomToMemory(); // Make sure the latest grid is in memory
 
@@ -872,7 +938,7 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-CSRFToken": "{{ csrf_token }}" // Crucial for Django security
+                    "X-CSRFToken": "{{ csrf_token }}"
                 },
                 body: JSON.stringify({ rooms: roomData })
             });
@@ -888,9 +954,11 @@
         function openScheduler() {
             document.getElementById('schedulerModal').classList.add('show');
         }
+
         function closeScheduler() {
             document.getElementById('schedulerModal').classList.remove('show');
         }
+
         async function addRole() {
             const roleName = document.getElementById('newRoleInput').value.trim();
             if (!roleName) {
@@ -908,7 +976,6 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    // Create new role tag
                     const newTag = document.createElement('span');
                     newTag.className = 'role-tag';
                     newTag.innerHTML = `${data.name} <i class="fa-solid fa-xmark"></i>`;
@@ -922,6 +989,47 @@
                 console.error("Error adding role:", error);
                 alert("An error occurred while adding the role.");
             }
+        }
+
+        function formatTime(pixels) {
+            // Calculate total minutes from the top of the grid
+            const totalMinutes = (pixels / PIXELS_PER_HOUR) * 60;
+
+            // Add to START_HOUR
+            let hours = START_HOUR + Math.floor(totalMinutes / 60);
+            let mins = Math.floor(totalMinutes % 60);
+
+            // Format as 12-hour AM/PM
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12; // Convert 0 to 12
+            mins = mins < 10 ? '0' + mins : mins;
+
+            return `${hours}:${mins} ${ampm}`;
+        }
+
+        function createBlock(day, top, height) {
+            const block = document.createElement('div');
+            block.className = 'room-block';
+            block.style.top = `${top}px`;
+            block.style.height = `${height}px`;
+            block.dataset.day = day;
+
+            // NEW: Create a span to hold the time text
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'time-range-text';
+            timeSpan.textContent = `${formatTime(top)} - ${formatTime(top + height)}`;
+            block.appendChild(timeSpan);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            delBtn.onclick = function (ev) {
+                ev.stopPropagation();
+                block.remove();
+            };
+
+            block.appendChild(delBtn);
+            return block;
         }
     </script>
 </body>
