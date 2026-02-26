@@ -76,7 +76,7 @@
             pointer-events: none;
             /* Prevents text from interfering with drags */
             white-space: nowrap;
-            overflow: hidden;
+            overflow: wrap;
             text-overflow: ellipsis;
             padding: 0 4px;
         }
@@ -360,7 +360,7 @@
         }
 
         .modal-body {
-            padding: 25px;
+            padding: 20px 25px 10px 25px;
         }
 
         .modal-footer {
@@ -434,27 +434,31 @@
         .calendar-body {
             display: flex;
             position: relative;
+            /* Height calculation: (18 - 8) hours * 40px = 400px */
             height: 400px;
-            /* 10 hours * 40px */
-            max-height: 50vh;
-            /* Keeps it contained on smaller screens */
-            overflow-y: auto;
-            /* Internal scrollbar */
+            max-height: 400px;
+            /* Forces the container to stop at the last line */
+            overflow-y: hidden;
+            /* Removes the scrollbar if you want a fixed, cropped look */
             background: white;
             user-select: none;
+            align-items: stretch;
         }
+
 
         .time-col {
             width: 60px;
             border-right: 1px solid #ddd;
             position: relative;
-            background: #fafafa;
+            /* Change background to grey for the whole column */
+            background: #f1f1f1;
         }
+
 
         .time-label {
             position: absolute;
             right: 10px;
-            font-size: 11px;
+            font-size: 8px;
             color: #666;
             transform: translateY(-50%);
         }
@@ -469,9 +473,9 @@
                 linear-gradient(to right, #eee 1px, transparent 1px),
                 linear-gradient(to bottom, #eee 1px, transparent 1px);
             /* Changed from --pixels-per-hour to --slot-height */
-            background-size: 20% var(--slot-height);
             pointer-events: none;
             z-index: 1;
+            background-size: calc(100% / 7) var(--slot-height);
         }
 
         .day-col {
@@ -654,7 +658,7 @@
             <div class="modal-body">
 
                 <div class="room-controls">
-                    <select id="roomSelect" onchange="switchRoom()">
+                    <select id="roomSelect">
                         {% for room in rooms %}
                         <option value="{{ room.id }}" data-capacity="{{ room.capacity }}">
                             {{ room.name }} (Cap: {{ room.capacity }})
@@ -679,7 +683,10 @@
                         <div class="day-header">Wed</div>
                         <div class="day-header">Thu</div>
                         <div class="day-header">Fri</div>
+                        <div class="day-header">Sat</div>
+                        <div class="day-header">Sun</div>
                     </div>
+
                     <div class="calendar-body">
                         <div class="time-col" id="roomTimeCol"></div>
                         <div class="grid-lines"></div>
@@ -688,6 +695,8 @@
                         <div class="day-col" data-day="2"></div>
                         <div class="day-col" data-day="3"></div>
                         <div class="day-col" data-day="4"></div>
+                        <div class="day-col" data-day="5"></div>
+                        <div class="day-col" data-day="6"></div>
                     </div>
                 </div>
 
@@ -695,23 +704,23 @@
 
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeScheduler()">Close</button>
-                <button class="btn btn-primary" onclick="saveAllRooms()">Save Changes</button>
+                <button class="btn btn-primary" onclick="deleteRoom()">Delete Room</button>
+                <button class="btn btn-primary" onclick="saveCurrentRoom()">Save Changes</button>
             </div>
         </div>
     </div>
-    <div id="room-data-source" style="display:none;">
+    <!-- <div id="room-data-source" style="display:none;">
         {% for room in rooms %}
         <span class="room-info" data-id="{{ room.id }}" data-name="{{ room.name|escapejs }}"></span>
         {% endfor %}
-    </div>
+    </div> -->
 
     <script>
         window.TEAM_ID = "{{ team.id }}";  // Make team ID available in JS
 
-
         /* --- CONFIGURATION --- */
         const START_HOUR = 8;  // 8 AM
-        const END_HOUR = 18;   // 6 PM
+        const END_HOUR = 19;   // 6 PM (7pm not included)
         const HOURS_TOTAL = END_HOUR - START_HOUR;
 
         // Updated to match our new compact CSS
@@ -721,20 +730,20 @@
         // Pull data from the hidden HTML elements
         const roomElements = document.querySelectorAll('.room-info');
         let roomData = Array.from(roomElements).map(el => ({
-            id: parseInt(el.dataset.id),
+            id: el.dataset.id,
             name: el.dataset.name,
             schedule: [] // Will store objects: { day: 0, top: 0, height: 60 }
         }));
 
         // Set the first room as default
         let currentRoomId = roomData.length > 0 ? roomData[0].id : null;
-
+        document.getElementById('roomSelect').addEventListener('change', function () {
+            loadSavedTimes();
+        });
         /* --- INITIALIZATION --- */
         document.addEventListener('DOMContentLoaded', () => {
-            populateRoomSelect();
             setupRoomGrid();
             setupDrawListeners();
-            if (currentRoomId) loadRoomSchedule(currentRoomId);
         });
 
         /* --- GRID GENERATION --- */
@@ -743,23 +752,32 @@
             const timeCol = document.getElementById('roomTimeCol');
             timeCol.innerHTML = '';
 
-            // Draw hourly labels
-            for (let i = 0; i <= HOURS_TOTAL; i++) {
+            // Calculate a small offset to center labels in the 30-min block
+            const halfBlockOffset = (0.5 * PIXELS_PER_HOUR) / 2;
+
+            for (let i = 0; i < HOURS_TOTAL; i += 0.5) {
                 const label = document.createElement('div');
                 label.className = 'time-label';
 
-                // Use PIXELS_PER_HOUR here instead of hardcoding 60
-                label.style.top = `${i * PIXELS_PER_HOUR}px`;
+                // Push the label down slightly so it's centered in the row
+                const topPosition = (i * PIXELS_PER_HOUR) + (halfBlockOffset / 2);
+                label.style.top = `${topPosition}px`;
 
-                const hour = START_HOUR + i;
+                const totalHours = START_HOUR + i;
+                const hour = Math.floor(totalHours);
+                const minutes = (totalHours % 1) * 60;
+
                 const ampm = hour >= 12 ? 'PM' : 'AM';
-                const h = hour % 12 || 12;
-                label.textContent = `${h}:00 ${ampm}`;
+                const displayHour = hour % 12 || 12;
+                const displayMinutes = minutes === 0 ? '00' : '30';
+
+                label.textContent = `${displayHour}:${displayMinutes} ${ampm}`;
                 timeCol.appendChild(label);
             }
 
-            // Optional: Ensure all columns stretch to fit if you ever add more hours
-            const totalHeight = Math.max(400, HOURS_TOTAL * PIXELS_PER_HOUR);
+            // Ensure the grey time column and grid lines stretch to the bottom
+            const totalHeight = HOURS_TOTAL * PIXELS_PER_HOUR;
+            document.getElementById('roomTimeCol').style.height = `${totalHeight}px`;
             document.querySelector('.grid-lines').style.height = `${totalHeight}px`;
             document.querySelectorAll('.day-col').forEach(c => c.style.height = `${totalHeight}px`);
         }
@@ -782,7 +800,6 @@
                     const rect = col.getBoundingClientRect();
                     const relativeY = e.clientY - rect.top;
 
-                    // Snap starting point to 15 mins
                     startY = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
 
                     currentBlock = createBlock(dayIndex, startY, SLOT_HEIGHT);
@@ -796,12 +813,24 @@
                     const relativeY = e.clientY - rect.top;
                     const currentY = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
 
+                    let finalTop, finalHeight;
+
                     if (currentY >= startY) {
-                        currentBlock.style.top = `${startY}px`;
-                        currentBlock.style.height = `${currentY - startY + SLOT_HEIGHT}px`;
+                        finalTop = startY;
+                        finalHeight = currentY - startY + SLOT_HEIGHT;
                     } else {
-                        currentBlock.style.top = `${currentY}px`;
-                        currentBlock.style.height = `${startY - currentY + SLOT_HEIGHT}px`;
+                        finalTop = currentY;
+                        finalHeight = startY - currentY + SLOT_HEIGHT;
+                    }
+
+                    // Update the block's visual position
+                    currentBlock.style.top = `${finalTop}px`;
+                    currentBlock.style.height = `${finalHeight}px`;
+
+                    // UPDATE: Find the text span and update the label while dragging
+                    const timeText = currentBlock.querySelector('.time-range-text');
+                    if (timeText) {
+                        timeText.textContent = `${formatTime(finalTop)} - ${formatTime(finalTop + finalHeight)}`;
                     }
                 });
             });
@@ -812,147 +841,9 @@
             });
         }
 
-function createBlock(day, top, height) {
-            const block = document.createElement('div');
-            block.className = 'room-block';
-            block.style.top = `${top}px`;
-            block.style.height = `${height}px`;
-            block.dataset.day = day;
-
-            // NEW: Create a span to hold the time text
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'time-range-text';
-            timeSpan.textContent = `${formatTime(top)} - ${formatTime(top + height)}`;
-            block.appendChild(timeSpan);
-
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-btn';
-            delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-            delBtn.onclick = function (ev) {
-                ev.stopPropagation();
-                block.remove();
-            };
-
-            block.appendChild(delBtn);
-            return block;
-        }
-
-        /* --- DATA HANDLING --- */
-        function saveCurrentRoomToMemory() {
-            const room = roomData.find(r => r.id === currentRoomId);
-            if (!room) return;
-
-            const blocks = document.querySelectorAll('#schedulerGrid .room-block');
-            const schedule = [];
-
-            blocks.forEach(block => {
-                schedule.push({
-                    day: parseInt(block.dataset.day),
-                    top: parseInt(block.style.top),
-                    height: parseInt(block.style.height)
-                });
-            });
-            room.schedule = schedule;
-        }
-
-        function loadRoomSchedule(id) {
-            document.querySelectorAll('#schedulerGrid .room-block').forEach(b => b.remove());
-
-            const room = roomData.find(r => r.id === id);
-            if (!room || !room.schedule) return;
-
-            const cols = document.querySelectorAll('#schedulerGrid .day-col');
-            room.schedule.forEach(data => {
-                const col = Array.from(cols).find(c => c.dataset.day == data.day);
-                if (col) {
-                    const block = createBlock(data.day, data.top, data.height);
-                    col.appendChild(block);
-                }
-            });
-        }
-
-        /* --- ROOM MANAGEMENT --- */
-        function populateRoomSelect() {
-            const select = document.getElementById('roomSelect');
-            select.innerHTML = '';
-            roomData.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.id;
-                option.textContent = room.name;
-                if (room.id === currentRoomId) option.selected = true;
-                select.appendChild(option);
-            });
-        }
-
-        function switchRoom() {
-            saveCurrentRoomToMemory(); // Save visual state to JS object
-
-            const select = document.getElementById('roomSelect');
-            currentRoomId = parseInt(select.value);
-
-            loadRoomSchedule(currentRoomId); // Update visuals from JS object
-        }
-
-        async function addNewRoom() {
-            const name = prompt("Enter new room name:");
-            if (!name) return;
-
-            try {
-                const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/create/`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": "{{ csrf_token }}"
-                    },
-                    body: JSON.stringify({ name: name, capacity: 1 })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.ok) {
-                    const newRoomId = data.room_id;
-
-                    roomData.push({
-                        id: newRoomId,
-                        name: name,
-                        schedule: []
-                    });
-
-                    saveCurrentRoomToMemory();
-                    currentRoomId = newRoomId;
-
-                    populateRoomSelect();
-                    loadRoomSchedule(newRoomId);
-                } else {
-                    alert("Failed to create room: " + (data.error || "Unknown error"));
-                }
-            } catch (error) {
-                console.error("Error creating room:", error);
-            }
-        }
-
-        async function saveAllRooms() {
-            saveCurrentRoomToMemory(); // Make sure the latest grid is in memory
-
-            const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/save-availability/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": "{{ csrf_token }}"
-                },
-                body: JSON.stringify({ rooms: roomData })
-            });
-
-            if (response.ok) {
-                alert("Availability saved to the database!");
-                closeScheduler();
-            } else {
-                alert("Error saving availability.");
-            }
-        }
-
         function openScheduler() {
             document.getElementById('schedulerModal').classList.add('show');
+            loadSavedTimes();
         }
 
         function closeScheduler() {
@@ -1030,6 +921,220 @@ function createBlock(day, top, height) {
 
             block.appendChild(delBtn);
             return block;
+        }
+
+        async function addNewRoom() {
+            const roomName = prompt("Enter new room name:");
+            const roomCapacity = prompt("Enter room capacity:");
+
+            // 1. Basic validation
+            if (!roomName) return;
+
+            try {
+                // 2. Talk to the server first
+                const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/create/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({
+                        name: roomName,
+                        capacity: parseInt(roomCapacity) || 0
+                    })
+                });
+
+                const data = await response.json();
+
+                // 3. Only if the server accepts, update the UI and Memory
+                if (response.ok) {
+                    // Add to roomData array
+                    const newRoom = {
+                        name: roomName,
+                        capacity: parseInt(roomCapacity) || 0,
+                        schedule: []
+                    };
+                    roomData.push(newRoom);
+
+                    // Add to the dropdown
+                    const roomSelect = document.getElementById('roomSelect');
+                    const option = document.createElement('option');
+                    option.value = data.room_id;
+                    option.textContent = `${roomName} (Cap: ${newRoom.capacity})`;
+                    roomSelect.appendChild(option);
+
+
+                    // Clear the grid to show the new empty schedule
+                    // loadRoomSchedule(currentRoomId);
+
+                    console.log("Room successfully created and added to UI with ID:", data);
+                } else {
+                    // If server returns an error (like a duplicate name), show it here
+                    alert(data.error || "Failed to add room.");
+                }
+            } catch (error) {
+                console.error("Network/Server error:", error);
+                alert("An error occurred. Check your connection or login status.");
+            }
+        }
+
+        async function loadSavedTimes() {
+            const roomSelect = document.getElementById('roomSelect');
+            const selectedRoomId = roomSelect.value;
+            console.log(selectedRoomId)
+
+            if (!selectedRoomId || selectedRoomId === "undefined") return;
+
+            // 1. Clear current visual blocks
+            document.querySelectorAll('.room-block').forEach(block => block.remove());
+
+            // 2. Map string days (if your DB returns 'mon', 'tue') to indices
+            // If your DB already returns 0, 1, 2, you can skip this mapping
+            const dayStringToInt = {
+                'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6
+            };
+
+            try {
+                const response = await fetch(`/api/room/${selectedRoomId}/availability/`);
+                console.log(response)
+                if (!response.ok) throw new Error("Failed to fetch room availability");
+
+                const data = await response.json();
+                // Extract the list from the "savedTimes" key in your JsonResponse
+                const times = data.savedTimes || [];
+
+                times.forEach(item => {
+                    // 3. Find the correct column
+                    // Handle both integer days and string days
+                    let dayIndex;
+                    if (typeof item.day === 'string') {
+                        dayIndex = dayStringToInt[item.day.toLowerCase()];
+                    } else {
+                        dayIndex = item.day;
+                    }
+
+                    if (dayIndex === undefined) return;
+                    const dayCol = document.querySelector(`.day-col[data-day="${dayIndex}"]`);
+                    if (!dayCol) return;
+
+                    // 4. Calculate Time & Pixels (Matching your 15-min SLOT_HEIGHT logic)
+                    // If your API returns start_min (integers), use them directly. 
+                    // If it returns "HH:MM" strings, use the split logic from your 2nd function.
+                    let startMin, endMin;
+
+                    if (item.start_min !== undefined) {
+                        startMin = item.start_min;
+                        endMin = item.end_min;
+                    } else {
+                        const startParts = item.start.split(':');
+                        const endParts = item.end.split(':');
+                        startMin = (parseInt(startParts[0]) * 60) + parseInt(startParts[1]);
+                        endMin = (parseInt(endParts[0]) * 60) + parseInt(endParts[1]);
+                    }
+
+                    // Adjust relative to calendar start (e.g. 8:00 AM)
+                    const totalStartMin = startMin - (START_HOUR * 60);
+                    const totalEndMin = endMin - (START_HOUR * 60);
+
+                    if (totalStartMin < 0) return;
+
+                    // Calculate Pixel Position using SLOT_HEIGHT (15-min increments)
+                    const topPx = (totalStartMin / 15) * SLOT_HEIGHT;
+                    const heightPx = ((totalEndMin - totalStartMin) / 15) * SLOT_HEIGHT;
+
+                    // 5. Create the Element (Matching room-block style)
+                    const block = createBlock(dayIndex, topPx, heightPx);
+
+                    // Optional: If you want the specific text/loc from the 2nd function:
+                    // block.querySelector('.time-range-text').textContent = `${item.start} - ${item.end}`;
+
+                    dayCol.appendChild(block);
+                });
+
+            } catch (error) {
+                console.error("Error loading saved times:", error);
+            }
+        }
+
+        async function saveCurrentRoom() {
+            const openTime = document.querySelectorAll('.room-block')
+            const roomTimeData = [];
+            const roomSelect = document.getElementById('roomSelect');
+            const selectedRoomId = roomSelect.value;
+            console.log(selectedRoomId)
+            console.log(openTime)
+            openTime.forEach(ev => {
+                const day = ev.parentElement.dataset.day
+                const topPx = parseFloat(ev.style.top)
+                const heightPx = parseFloat(ev.style.height)
+
+                const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
+                const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
+
+                const startMin = (startSlotIndex * 15) + (START_HOUR * 60);
+                const endMin = startMin + (slotsCount * 15);
+
+
+                roomTimeData.push({
+                    day: parseInt(day),
+                    start_min: startMin,
+                    end_min: endMin,
+                    room: selectedRoomId
+                });
+            })
+
+            try {
+                const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/save-availability/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ times: roomTimeData, room_id: selectedRoomId })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error("Error saving events:", error);
+            }
+            console.log("Saving Events:", roomTimeData);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function deleteRoom() {
+            const roomSelect = document.getElementById('roomSelect');
+            const selectedRoomId = roomSelect.value;
+            let optionToRemove = roomSelect.querySelector(`option[value="${selectedRoomId}"]`);
+            try {
+                const response = await fetch(`/api/room/${window.TEAM_ID}/rooms/delete-room/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ room_id: selectedRoomId })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                if (optionToRemove) {
+                    optionToRemove.remove();
+                    loadSavedTimes();
+                }
+
+            } catch (error) {
+                console.error("Error saving events:", error);
+            }
         }
     </script>
 </body>
