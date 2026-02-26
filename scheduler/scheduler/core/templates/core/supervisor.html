@@ -892,13 +892,31 @@
                     },
                     body: JSON.stringify({ name: roleName, cap: 0, current: 0 })
                 });
+
                 const data = await response.json();
+
                 if (response.ok) {
+                    // 1. Create the visual tag
                     const newTag = document.createElement('span');
                     newTag.className = 'role-tag';
                     newTag.innerHTML = `${data.name} <i class="fa-solid fa-xmark"></i>`;
                     document.querySelector('.tags-container').appendChild(newTag);
                     document.getElementById('newRoleInput').value = '';
+
+                    // 2. UPDATE DROPDOWNS dynamically using data.role_id
+                    if (data.role_id) {
+                        // Grab all worker dropdowns
+                        // (Make sure this selector matches your actual dropdowns, e.g., 'select.role-selector')
+                        const allDropdowns = document.querySelectorAll('select[data-member-id]');
+
+                        allDropdowns.forEach(dropdown => {
+                            const newOption = document.createElement('option');
+                            newOption.value = data.role_id;    // MATCHES YOUR PYTHON VIEW
+                            newOption.textContent = data.name; // MATCHES YOUR PYTHON VIEW
+                            dropdown.appendChild(newOption);
+                        });
+                    }
+
                 } else {
                     alert(data.error || "Failed to add role.");
                 }
@@ -908,6 +926,7 @@
                 alert("An error occurred while adding the role.");
             }
         }
+
 
         function formatTime(pixels) {
             // Calculate total minutes from the top of the grid
