@@ -184,7 +184,7 @@
             border-right: none;
         }
 
-        /* VISUAL TRICK: Zebra Striping 
+        /* VISUAL TRICK: Zebra Striping
            We use a repeating gradient to color every other hour slightly grey.
            This helps the eye track across the screen without heavy lines.
         */
@@ -620,7 +620,7 @@
                 const startParts = item.start.split(':');
                 const endParts = item.end.split(':');
 
-                // Convert "09:30" to total minutes (e.g. 570)
+                // Convert "09:30" or "19:45" to total minutes from midnight
                 const startMin = (parseInt(startParts[0]) * 60) + parseInt(startParts[1]);
                 const endMin = (parseInt(endParts[0]) * 60) + parseInt(endParts[1]);
 
@@ -643,19 +643,18 @@
                 const loc = item.building || item.location || '';
 
                 // 5. Set HTML (Including the Delete 'X' button)
-                // Note: We use onclick="removeEventBlock(event, this)"
+                // 🔥 THE FIX IS HERE: We swapped ${item.start} for ${formatMin(startMin)}
                 eventBlock.innerHTML = `
             <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
             <div class="event-content">
-                <div class="event-title">${item.eventName || 'Busy'}</div>
-                <div class="event-time">${item.start} - ${item.end}</div>
+                <div class="event-title">${item.name || 'Busy'}</div>
+                <div class="event-time">${formatMin(startMin)} - ${formatMin(endMin)}</div>
                 ${loc ? `<div class="event-loc">${loc}</div>` : ''}
             </div>`;
 
                 dayCol.appendChild(eventBlock);
             });
         }
-
         // 1. CALCULATE PERFECT FIT
         function fitGridToContainer() {
             const container = document.getElementById('scrollContainer');
