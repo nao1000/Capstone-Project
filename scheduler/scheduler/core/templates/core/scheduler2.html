@@ -571,9 +571,9 @@
                 <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
                     onkeyup="filterWorkers()">
                 <div class="worker-list" id="workerList">
-                    <div class="worker-item active" onclick="loadWorker('Jane Doe', this)"><span>Jane Doe</span></div>
-                    <div class="worker-item" onclick="loadWorker('John Smith', this)"><span>John Smith</span></div>
-                    <div class="worker-item" onclick="loadWorker('Mike Ross', this)"><span>Mike Ross</span></div>
+                    {% for entry in member_list %}
+                        <div class="worker-item active" onclick="loadWorker('{{ entry.id }}')">{{ entry.user.get_full_name }}</div>
+                    {% endfor %}
                 </div>
             </div>
         </aside>
