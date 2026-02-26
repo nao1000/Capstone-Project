@@ -370,56 +370,51 @@ def add_event(request, team_id):
 @login_required
 def supervisor_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
-    members = team.members.all()
+
+    # PREFETCH MAGIC: Get members, their role assignments, and availability in 1-2 queries total
+    members = team.members.all().prefetch_related(
+        Prefetch(
+            'team_role_assignments',
+            queryset=TeamRoleAssignment.objects.filter(team=team),
+            to_attr='current_team_assignment'
+        ),
+        Prefetch(
+            'availabilityrange_set',
+            queryset=AvailabilityRange.objects.filter(team=team),
+            to_attr='team_availabilities'
+        )
+    )
+
     roles = Role.objects.filter(team=team)
     rooms = Room.objects.filter(team=team)
-    for room in rooms:
-        print(room.id)
 
     member_list = []
     for member in members:
-        # Check if they have drawn any time blocks
-        has_availability = AvailabilityRange.objects.filter(
-            user=member, team=team
-        ).exists()
+        # Instead of a DB query, we check the list we already fetched ('to_attr')
+        assignment = member.current_team_assignment[0] if member.current_team_assignment else None
 
-        # Check if they have selected any roles (Path B)
+        # Check if they have availability ranges in the prefetched list
+        has_availability = len(member.team_availabilities) > 0
+
+        # Note: You can also prefetch UserRolePreference similarly to remove those queries!
         role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
+        preferred_roles = list(role_prefs.roles.all()) if role_prefs else []
 
-        # Explicitly get the list of Role objects
-        preferred_roles = []
-        if role_prefs:
-            preferred_roles = list(role_prefs.roles.all())
-
-        # Logic: If they did either, they are "Submitted"
         status = "Submitted" if (has_availability or preferred_roles) else "Pending"
 
-        # Get the manager's current assignment for this worker
-        current_assignment = TeamRoleAssignment.objects.filter(
-            user=member, team=team
-        ).first()
+        member_list.append({
+            "user": member,
+            "status": status,
+            "preferred_roles": preferred_roles,
+            "current_role_id": assignment.role_id if assignment else None,
+        })
 
-        member_list.append(
-            {
-                "user": member,
-                "status": status,
-                "preferred_roles": preferred_roles,  # The HTML loop uses this
-                "current_role_id": (
-                    current_assignment.role_id if current_assignment else None
-                ),
-            }
-        )
-
-    return render(
-        request,
-        "core/supervisor.html",
-        {
-            "team": team,
-            "member_list": member_list,
-            "roles": roles,
-            "rooms": rooms,
-        },
-    )
+    return render(request, "core/supervisor.html", {
+        "team": team,
+        "member_list": member_list,
+        "roles": roles,
+        "rooms": rooms,
+    })
 
 
 @login_required
@@ -545,6 +540,41 @@ def create_role(request, team_id):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
+@login_required
+@require_http_methods(["POST"])
+def update_member_role(request, team_id):
+    try:
+        data = json.loads(request.body)
+        worker_id = data.get("member_id") # The template sends entry.id, ensure this matches
+        role_id = data.get("role_id")
+
+        team = get_object_or_404(Team, id=team_id)
+
+        # Ensure only the owner can change roles
+        if team.owner != request.user:
+            return HttpResponseForbidden("Unauthorized")
+
+        if not role_id:
+            # Handle "No Role" selection by removing the assignment
+            TeamRoleAssignment.objects.filter(team=team, user_id=worker_id).delete()
+            return JsonResponse({"status": "success", "message": "Role cleared"})
+
+        # Update the assignment or create a new one if it doesn't exist
+        role = get_object_or_404(Role, id=role_id, team=team)
+        assignment, created = TeamRoleAssignment.objects.update_or_create(
+            team=team,
+            user_id=worker_id,
+            defaults={"role": role}
+        )
+
+        return JsonResponse({
+            "status": "success",
+            "role_name": role.name,
+            "created": created
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 @login_required
 @require_http_methods(["DELETE"])

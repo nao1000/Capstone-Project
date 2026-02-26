@@ -112,7 +112,7 @@ class TeamRoleAssignment(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["team", "user", "role"], name="uniq_role_assignment")
+            models.UniqueConstraint(fields=["team", "user"], name="uniq_role_assignment")
         ]
 
     def __str__(self):
