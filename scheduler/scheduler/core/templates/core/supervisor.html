@@ -277,6 +277,20 @@
             color: #d32f2f;
         }
 
+        .role-selector {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: #f9f9f9;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .role-selector:focus {
+            border-color: var(--primary-blue);
+        }
+
         /* Placeholder Box */
         .placeholder-box {
             height: 300px;
@@ -592,7 +606,20 @@
                             <td>{{ entry.user.email }}</td>
                             <td>{{ entry.user.username }}</td>
                             <td><span class="status-badge active">Active</span></td>
-                            <td>Supervisor</td>
+
+                            <td>
+                                <select class="role-selector" data-member-id="{{ entry.user.id }}"
+                                    onchange="updateMemberRole(this)">
+                                    <option value="">Choose Role...</option>
+                                    {% for role in roles %}
+                                    {% if entry.current_role_id == role.id %}
+                                    <option value="{{ role.id }}" selected>{{ role.name }}</option>
+                                    {% else %}
+                                    <option value="{{ role.id }}">{{ role.name }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </td>
                             <td><button class="btn-icon"><i class="fa-solid fa-ellipsis"></i></button></td>
                         </tr>
                         {% endfor %}
@@ -1172,6 +1199,45 @@
                 placeholder.value = "";
                 placeholder.disabled = true;
                 roomSelect.appendChild(placeholder);
+            }
+        }
+
+        async function updateMemberRole(selectElement) {
+            const workerId = selectElement.dataset.memberId; // Now maps to entry.user.id
+            const roleId = selectElement.value;
+
+            // UI Feedback: Disable and dim while saving
+            selectElement.disabled = true;
+            selectElement.style.opacity = "0.5";
+
+            try {
+                const response = await fetch(`/api/team/${window.TEAM_ID}/roles/assign/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({
+                        worker_id: workerId, // Ensure this is the User ID
+                        role_id: roleId      // The ID from the <option> value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log("Success:", data.status);
+                    // Optional: You could add a green border briefly to show success
+                } else {
+                    alert(data.error || "Failed to update role.");
+                }
+            } catch (error) {
+                console.error("Network Error:", error);
+                alert("An error occurred. Check your connection.");
+            } finally {
+                // Restore the element
+                selectElement.disabled = false;
+                selectElement.style.opacity = "1";
             }
         }
     </script>
