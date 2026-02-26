@@ -139,6 +139,7 @@ def availability_view(request, team_id):
                 "start": a.start_time.strftime("%H:%M"),
                 "end": a.end_time.strftime("%H:%M"),
                 "building": a.building,
+                "name": a.eventName,    
                 # We no longer send roles per-block, just the block itself
                 "color": "#4a90e2",
             }
@@ -701,7 +702,6 @@ def create_room(request, team_id):
 
 @login_required
 def retrieve_room_availability(request, room_id):
-    print("FUCK")
     room = get_object_or_404(Room, id=room_id)
     if room.team.owner != request.user:
         return HttpResponseForbidden("Unauthorized")
