@@ -1,0 +1,39 @@
+@login_required
+@never_cache
+def availability_view(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+
+    # 1. Fetch time ranges (removed .prefetch_related('preferred_roles'))
+    availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
+
+    # 2. Fetch the user's global roles for this team (Path B)
+    role_prefs = UserRolePreference.objects.filter(user=request.user, team=team).first()
+    # Get a list of IDs so the JS knows which checkboxes to tick on load
+    selected_role_ids = (
+        list(role_prefs.roles.values_list("id", flat=True)) if role_prefs else []
+    )
+
+    # 3. Format ranges for the JS Grid
+    avail_list = []
+    for a in availabilities:
+        avail_list.append(
+            {
+                "day": a.day,
+                "start": a.start_time.strftime("%H:%M"),
+                "end": a.end_time.strftime("%H:%M"),
+                "building": a.building,
+                # We no longer send roles per-block, just the block itself
+                "color": "#4a90e2",
+            }
+        )
+
+    # 4. Get all possible roles for the sidebar checkboxes
+    all_roles = Role.objects.filter(team=team)
+
+    context = {
+        "team": team,
+        "roles": all_roles,  # For the sidebar
+        "selected_role_ids": selected_role_ids,  # To check the boxes on load
+        "existing_availabilities_json": avail_list,
+    }
+    return render(request, "core/availability2.html", context)

@@ -23,6 +23,7 @@ class Team(models.Model):
         return self.name
 
 class Room(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="rooms")
     capacity = models.PositiveIntegerField(default=1)
