@@ -1,0 +1,19 @@
+@echo off
+
+echo Deleting database...
+del db.sqlite3
+
+echo Deleting migration files...
+forfiles /p scheduler\core\migrations /m 0*.py /c "cmd /c del @path"
+
+echo Running makemigrations...
+python manage.py makemigrations core
+
+echo Running migrate...
+python manage.py migrate
+
+echo Creating superuser...
+python manage.py createsuperuser
+
+echo Creating test users...
+python create_test_users.py
