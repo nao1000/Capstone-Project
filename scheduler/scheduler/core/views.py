@@ -742,21 +742,30 @@ def save_room_availability(request, team_id):
 @login_required
 @require_http_methods(["POST"])
 def delete_room(request, team_id):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            with transaction.atomic():
-                RoomAvailability.objects.filter(room_id=data.get("room_id")).delete()
-                Room.objects.get(id=data.get("room_id")).delete()
-            return JsonResponse({"status": "success"})
-        except Exception as e:
-            # Print error to terminal for debugging
-            print(f"CRITICAL SAVE ERROR: {str(e)}")
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    try:
+        data = json.loads(request.body)
+        room_id = data.get("room_id")
 
-    return JsonResponse(
-        {"status": "error", "message": "Method not allowed"}, status=405
-    )
+        if not room_id:
+            return JsonResponse({"status": "error", "message": "No room_id provided"}, status=400)
+
+        with transaction.atomic():
+            # filter().delete() is "idempotent" (won't crash if already deleted)
+            RoomAvailability.objects.filter(room_id=room_id).delete()
+
+            # Use filter instead of get to avoid DoesNotExist exceptions
+            deleted_count, _ = Room.objects.filter(id=room_id, team_id=team_id).delete()
+
+            if deleted_count == 0:
+                return JsonResponse({"status": "error", "message": "Room not found or already deleted"}, status=404)
+
+        return JsonResponse({"status": "success"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+    except Exception as e:
+        print(f"CRITICAL DELETE ERROR: {str(e)}")
+        return JsonResponse({"status": "error", "message": "Internal server error"}, status=500)
 
 
 @login_required

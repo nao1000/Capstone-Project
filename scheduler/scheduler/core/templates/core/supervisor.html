@@ -1018,7 +1018,7 @@
                     if (!dayCol) return;
 
                     // 4. Calculate Time & Pixels (Matching your 15-min SLOT_HEIGHT logic)
-                    // If your API returns start_min (integers), use them directly. 
+                    // If your API returns start_min (integers), use them directly.
                     // If it returns "HH:MM" strings, use the split logic from your 2nd function.
                     let startMin, endMin;
 
@@ -1116,24 +1116,62 @@
         async function deleteRoom() {
             const roomSelect = document.getElementById('roomSelect');
             const selectedRoomId = roomSelect.value;
-            let optionToRemove = roomSelect.querySelector(`option[value="${selectedRoomId}"]`);
+
+            if (!selectedRoomId) {
+                alert("No room selected to delete.");
+                return;
+            }
+
+            if (!confirm("Are you sure you want to delete this room and all its availability?")) return;
+
             try {
                 const response = await fetch(`/api/room/${window.TEAM_ID}/rooms/delete-room/`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}' // Using Django template tag for safety
+                    },
                     body: JSON.stringify({ room_id: selectedRoomId })
                 });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
 
-                if (optionToRemove) {
-                    optionToRemove.remove();
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                // 1. Remove the option from the dropdown
+                const optionToRemove = roomSelect.querySelector(`option[value="${selectedRoomId}"]`);
+                if (optionToRemove) optionToRemove.remove();
+
+                // 2. Decide what to show next
+                if (roomSelect.options.length > 0) {
+                    // There are still rooms left, jump to the first one
+                    roomSelect.selectedIndex = 0;
                     loadSavedTimes();
+                } else {
+                    // NO ROOMS LEFT: Wipe everything
+                    clearGrid();
                 }
 
             } catch (error) {
-                console.error("Error saving events:", error);
+                console.error("Error deleting room:", error);
+                alert("Failed to delete room.");
+            }
+        }
+
+        function clearGrid() {
+            // 1. Remove all green room-blocks from the columns
+            const blocks = document.querySelectorAll('.room-block');
+            blocks.forEach(block => block.remove());
+
+            // 2. Reset the dropdown to a blank state
+            const roomSelect = document.getElementById('roomSelect');
+            roomSelect.value = "";
+
+            // 3. Optional: Add a placeholder option if the list is empty
+            if (roomSelect.options.length === 0) {
+                const placeholder = document.createElement('option');
+                placeholder.textContent = "-- No Rooms Available --";
+                placeholder.value = "";
+                placeholder.disabled = true;
+                roomSelect.appendChild(placeholder);
             }
         }
     </script>
