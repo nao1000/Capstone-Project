@@ -1,0 +1,85 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/scheduler.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container supervisor">
+    <h2>Supervisor Dashboard: {{ team.name }}</h2>
+
+    <div class="main-layout">
+        <aside class="sidebar">
+            <div class="panel">
+                <label>Team Members</label>
+                <input type="text" id="workerSearch" placeholder="Search..." onkeyup="filterWorkers()">
+                <div class="worker-list" id="workerList">
+                    {% for worker in workers %}
+                    <div class="worker-item" onclick="loadWorkerData('{{ worker.id }}', '{{ team.id }}')"
+                        data-name="{{ worker.username|lower }}">
+                        <span class="worker-name">
+                            {{ worker.first_name|default:worker.username }} {{ worker.last_name }}
+                        </span>
+                        <span class="status-icon">{% if worker.availabilityrange_set.exists %}✅{% endif %}</span>
+                    </div>
+                    {% empty %}
+                    <div class="p-2">No members found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="panel event-manager">
+                <label>Manage Events</label>
+                <form>
+                    <input type="text" id="eventName" placeholder="Event Name" required>
+                    <div class="input-group">
+                        <label for="dayOfWeek">Select Day:</label>
+                        <select id="dayOfWeek" required>
+                            <option value="" disabled selected>Choose a day...</option>
+                            <option value="sun">Sunday</option>
+                            <option value="mon">Monday</option>
+                            <option value="tues">Tuesday</option>
+                            <option value="wed">Wednesday</option>
+                            <option value="thur">Thursday</option>
+                            <option value="fri">Friday</option>
+                            <option value="sat">Saturday</option>
+                        </select>
+                        <input type="time" id="startTime" required>
+                        <span>to</span>
+                        <input type="time" id="endTime" required>
+                    </div>
+                    <button type="button" class="btn-primary" onclick="addEvent()">Add Event</button>
+                </form>
+            </div>
+        </aside>
+
+        <section class="grid-area">
+            <p><strong>Worker Availability (Read-Only)</strong></p>
+            <div class="grid-container view-only">
+                <div id="viewGrid" class="grid"></div>
+            </div>
+
+            <hr style="margin: 30px 0; border: 1px solid #ddd;">
+
+            <p><strong>Assign Shifts (Click/Drag)</strong></p>
+            <div class="grid-container">
+                <div id="grid" class="grid"></div>
+            </div>
+
+            <div class="actions" style="margin-top: 20px;">
+                <button id="saveBtn" class="btn-primary" onclick="saveSchedule()" disabled style="width: 200px;">Save
+                    Schedule</button>
+            </div>
+        </section>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/scheduler-logic.js' %}"></script>
+<script>
+    initSupervisorGrids("{{ team.id }}");
+</script>
+{% endblock %}
