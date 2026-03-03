@@ -41,7 +41,7 @@
         .nav-links {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
 
         .nav-links a {
@@ -51,6 +51,12 @@
             font-weight: 400;
         }
 
+        /* Home icon link */
+        .nav-links a[aria-label="Home"] i {
+            font-size: 20px;
+            line-height: 1;
+        }
+
         .user-profile {
             display: flex;
             align-items: center;
@@ -58,8 +64,69 @@
             font-size: 18px;
         }
 
+        .user-profile i {
+            font-size: 26px;
+            font-weight: 90; /* Makes the icon lines thinner */
+        }
+
+        .user-profile-container {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .profile-dropdown {
+            display: none;
+            position: absolute;
+            top: 120%;
+            /* A little space from the navbar */
+            right: 0;
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 180px;
+            z-index: 100;
+            padding: 8px;
+            color: var(--text-main);
+        }
+
+        .user-profile-container:hover .profile-dropdown,
+        .user-profile-container.active .profile-dropdown {
+            display: block;
+        }
+
+        .profile-dropdown a,
+        .profile-dropdown button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-size: 15px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .profile-dropdown a:hover,
+        .profile-dropdown button:hover {
+            background-color: #f0f4f8;
+        }
+
+        .logout-form {
+            margin: 0;
+        }
+
+        .profile-dropdown button span {
+            flex-grow: 1;
+        }
+
         .icon-group {
-            font-size: 18px;
+            font-size: 22px;
             cursor: pointer;
         }
 
@@ -564,13 +631,27 @@
     <nav class="navbar">
         <div class="brand">Coorda</div>
         <div class="nav-links">
-            <a href="{% url 'dashboard2' %}">Home</a>
+            <a href="{% url 'dashboard2' %}" aria-label="Home" title="Home">
+                <i class="fa-solid fa-house"></i>
+            </a>
             <div class="icon-group">
                 <i class="fa-regular fa-bell"></i>
             </div>
-            <div class="user-profile">
-                <span>{{ user.first_name|default:user.username }}</span>
-                <i class="fa-regular fa-circle-user"></i>
+            <div class="user-profile-container">
+                <div class="user-profile">
+                    <span>{{ user.first_name|default:user.username }}</span>
+                    <i class="fa-regular fa-circle-user"></i>
+                </div>
+                <div class="profile-dropdown">
+                    <a href="#">Account Details</a>
+                    <form method="post" action="{% url 'logout' %}" class="logout-form">
+                        {% csrf_token %}
+                        <button type="submit">
+                            <span>Logout</span>
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </nav>
@@ -774,6 +855,22 @@
         document.addEventListener('DOMContentLoaded', () => {
             setupRoomGrid();
             setupDrawListeners();
+
+            // --- Profile Dropdown Logic ---
+            const profileContainer = document.querySelector('.user-profile-container');
+            if (profileContainer) {
+                profileContainer.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    profileContainer.classList.toggle('active');
+                });
+
+                document.addEventListener('click', (event) => {
+                    // Close if clicked outside the container
+                    if (!profileContainer.contains(event.target)) {
+                        profileContainer.classList.remove('active');
+                    }
+                });
+            }
         });
 
         /* --- GRID GENERATION --- */
