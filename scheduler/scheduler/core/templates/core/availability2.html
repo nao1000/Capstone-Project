@@ -449,7 +449,10 @@
 
         <div class="toolbar">
             <h3>Team Schedule</h3>
-            <div class="hint">Click & Drag to add shift</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="hint">Click & Drag to add shift</div>
+                <button class="btn btn-save" onclick="saveAllPreferences()">Save Schedule</button>
+            </div>
         </div>
 
         <div class="grid-header">
@@ -476,7 +479,19 @@
                 <div class="day-col" data-day="6"></div>
             </div>
         </div>
-
+        <div class="modal-overlay" id="savePopupModal">
+            <div class="modal-box" style="width: 300px; text-align: center;">
+                <div class="modal-header" style="background: #4caf50;">Success</div>
+                <div class="modal-body" style="padding: 30px 20px;">
+                    <p style="margin: 0; font-size: 15px; color: #333; font-weight: 500;">Schedule saved successfully!
+                    </p>
+                </div>
+                <div class="modal-footer" style="justify-content: center;">
+                    <button class="btn btn-save" style="background: #4caf50; width: 100%;"
+                        onclick="closeSavePopup()">Ok</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="modal-overlay" id="eventModal">
@@ -500,7 +515,6 @@
         </div>
     </div>
 
-    <button class="btn btn-success px-4" onclick="saveAllPreferences()">Save Schedule</button>
 
     </form>
 
@@ -541,7 +555,6 @@
         });
 
         async function saveAllPreferences() {
-            // read through all event blocks, extract their data, and send to server via AJAX
             const events = document.querySelectorAll('.event-block:not(.temp)');
             const eventData = [];
             events.forEach(ev => {
@@ -549,10 +562,10 @@
                 const topPx = parseFloat(ev.style.top);
                 const heightPx = parseFloat(ev.style.height);
 
-                const startSlotIndex = Math.round(topPx / SLOT_HEIGHT);
-                const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
+                const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT);
+                const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT);
 
-                const startMin = (startSlotIndex * 15) + (START_HOUR * 60);
+                const startMin = (startSlotIndex * 15) + (window.START_HOUR * 60);
                 const endMin = startMin + (slotsCount * 15);
 
                 eventData.push({
@@ -573,10 +586,19 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
+                // SHOW THE POPUP ON SUCCESS
+                document.getElementById('savePopupModal').classList.add('show');
+
             } catch (error) {
                 console.error("Error saving events:", error);
+                alert("There was an error saving the schedule. Please try again.");
             }
-            console.log("Saving Events:", eventData);
+        }
+
+        // Function to close the success popup
+        function closeSavePopup() {
+            document.getElementById('savePopupModal').classList.remove('show');
         }
 
         function getCookie(name) {
