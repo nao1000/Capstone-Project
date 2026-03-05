@@ -73,6 +73,8 @@ urlpatterns = [
 
     # ROLES API
     path("api/team/<uuid:team_id>/roles/", views.list_roles, name="list_roles"),
+    path("api/team/<uuid:team_id>/roles/<int:role_id>", views.filter_view, name="filter_view"),
+    path("api/team/<uuid:team_id>/roles/get", views.get_team_roles, name="get_team_roles"),
     path("api/team/<uuid:team_id>/roles/create/", views.create_role, name="create_role"),
     path("api/team/<uuid:team_id>/roles/assign/", views.assign_role, name="assign_role"),
     path("api/team/<uuid:team_id>/roles/unassign/", views.unassign_role, name="unassign_role"),

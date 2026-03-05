@@ -548,6 +548,32 @@
         .sync-highlight.active {
             display: block;
         }
+
+        /* Add this to your <style> block */
+        .day-col {
+            display: flex;
+            /* Allow worker columns to sit side-by-side */
+            flex-direction: row;
+        }
+
+        .worker-column-inner {
+            flex: 1;
+            /* Each worker gets equal width */
+            height: 100%;
+            position: relative;
+            border-right: 1px solid rgba(0, 0, 0, 0.05);
+            /* Light divider between workers */
+        }
+
+        .worker-column-inner:last-child {
+            border-right: none;
+        }
+
+        /* Ensure blocks take up full width of the sub-column */
+        .worker-column-inner .avail-block {
+            left: 2px;
+            right: 2px;
+        }
     </style>
 </head>
 
@@ -578,6 +604,8 @@
                     </div>
                     {% endfor %}
                 </div>
+                <h2 class="panel-title">Filters</h2>
+                <div class="filter-options" onload="initFilters('{{team.id }}')"></div>
             </div>
         </aside>
 
@@ -687,10 +715,73 @@
             drawTimeLabels('interactiveTimeCol');
             setupDragListeners();
             setupSyncHover();
-            mockLoadAvailability(); // Load dummy green blocks into top grid
+            console.log('{{ team.id}}')
+            initFilters('{{ team.id }}')
         });
 
+        async function loadRoleView(roleId, teamId) {
+            // 1. Fetch all workers belonging to this role
+            // You'll need an endpoint like /api/team/1/role/CHEM-SI/
+            console.log(roleId)
+            console.log(teamId)
+            const response = await fetch(`/api/team/${teamId}/roles/${roleId}`);
+            const data = await response.json();
+            // Expecting: { workers: [{id: 1, name: "Alice", availability: [...]}, {id: 2, name: "Bob", ...}] }
 
+            // 2. Clear the existing grid
+            document.querySelectorAll('#viewGrid .day-col').forEach(col => col.innerHTML = '');
+
+            const workers = data.workers;
+
+            // 3. For each day of the week
+            for (let dayNum = 0; dayNum <= 6; dayNum++) {
+                const dayCol = document.querySelector(`#viewGrid .day-col[data-day="${dayNum}"]`);
+
+                // 4. Create a sub-column for every worker in this role
+                workers.forEach(worker => {
+                    const workerCol = document.createElement('div');
+                    workerCol.className = 'worker-column-inner';
+                    workerCol.setAttribute('data-worker-id', worker.id);
+                    dayCol.appendChild(workerCol);
+
+                    // 5. Filter this worker's availability for THIS specific day
+                    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                    const todayKey = dayKeys[dayNum];
+
+                    const shifts = worker.availability.filter(a => a.day.toLowerCase() === todayKey);
+
+                    shifts.forEach(range => {
+                        const startOffset = range.start_min - (START_HOUR * 60);
+                        const top = (startOffset / 15) * SLOT_HEIGHT;
+                        const height = ((range.end_min - range.start_min) / 15) * SLOT_HEIGHT;
+
+                        const block = document.createElement('div');
+                        block.className = 'event-block avail-block unavailable';
+                        block.style.top = `${top}px`;
+                        block.style.height = `${height}px`;
+                        block.innerHTML = `<div class="event-title" style="font-size:9px;">${worker.name}</div>`;
+
+                        workerCol.appendChild(block);
+                    });
+                });
+            }
+        }
+
+        async function initFilters(teamId) {
+            console.log(teamId)
+            const res = await fetch(`/api/team/${teamId}/roles/get`);
+            const data = await res.json();
+            const container = document.querySelector('.filter-options');
+
+            data.roles.forEach(role => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-clear';
+                btn.style.margin = '5px';
+                btn.textContent = role.name;
+                btn.onclick = () => loadRoleView(role.id, teamId);
+                container.appendChild(btn);
+            });
+        }
         /* --- TIME LABELS --- */
         function drawTimeLabels(containerId) {
             const timeCol = document.getElementById(containerId);
@@ -854,38 +945,48 @@
             // 2. UI: Update the header label
             document.getElementById('viewingWorkerLabel').textContent = `${name} - Availability`;
 
-            // 3. Logic: Clear existing availability blocks from the grid
-            // Ensure you target blocks in the #viewGrid only so you don't delete shifts
+            // 3. Logic: Clear existing availability blocks
             document.querySelectorAll('#viewGrid .avail-block').forEach(block => block.remove());
 
+            // Mapping to match your HTML data-day attributes (0-6)
+            const dayMap = {
+                'sun': '0', 'mon': '1', 'tue': '2', 'wed': '3', 'thu': '4', 'fri': '5', 'sat': '6'
+            };
+
             try {
-                // 4. API: Fetch this worker's availability for this team
                 const response = await fetch(`/api/team/${teamId}/get-availability/${workerId}/`);
                 if (!response.ok) throw new Error("Failed to fetch worker availability");
 
-                const availabilityData = await response.json();
+                const data = await response.json();
 
-                // 5. Render: Loop through ranges and add to grid
-                availabilityData.forEach(range => {
-                    // Calculate top and height based on your SLOT_HEIGHT (15 min)
-                    const startOffset = range.start_min - (START_HOUR * 60);
-                    const top = (startOffset / 15) * SLOT_HEIGHT;
-                    const duration = range.end_min - range.start_min;
-                    const height = (duration / 15) * SLOT_HEIGHT;
-
-                    // Find the column in the #viewGrid
-                    const dayCol = document.querySelector(`#viewGrid .day-col[data-day="${range.day}"]`);
+                data.availabilityData.forEach(range => {
+                    // Translate string (e.g. "mon") to index (e.g. "1")
+                    const dayIndex = dayMap[range.day];
+                    const dayCol = document.querySelector(`#viewGrid .day-col[data-day="${dayIndex}"]`);
 
                     if (dayCol) {
+                        const startOffset = range.start_min - (START_HOUR * 60);
+                        const top = (startOffset / 15) * SLOT_HEIGHT;
+
+                        const duration = range.end_min - range.start_min;
+                        const height = (duration / 15) * SLOT_HEIGHT;
+
                         const block = document.createElement('div');
-                        block.className = 'avail-block'; // Use a distinct class for these
+                        // Note: using event-block class to inherit basic styling, 
+                        // plus avail-block and unavailable for color
+                        block.className = 'event-block avail-block unavailable';
                         block.style.top = `${top}px`;
                         block.style.height = `${height}px`;
 
-                        // Add time text for clarity
-                        block.innerHTML = `<span class="avail-time">${formatTime(top)}</span>`;
+                        block.innerHTML = `
+                    <div class="event-content">
+                        <div class="event-title">Available</div>
+                        <div class="event-time">${range.label}</div>
+                    </div>`;
 
                         dayCol.appendChild(block);
+                    } else {
+                        console.warn("Could not find column for day:", range.day);
                     }
                 });
             } catch (error) {
