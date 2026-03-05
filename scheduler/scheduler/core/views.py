@@ -1,4 +1,5 @@
 import json
+from django.db import models
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.db import transaction
 from django.db.models import Prefetch, Q
@@ -139,7 +140,7 @@ def availability_view(request, team_id):
                 "start": a.start_time.strftime("%H:%M"),
                 "end": a.end_time.strftime("%H:%M"),
                 "building": a.building,
-                "name": a.eventName,    
+                "name": a.eventName,
                 # We no longer send roles per-block, just the block itself
                 "color": "#4a90e2",
             }
@@ -375,15 +376,15 @@ def supervisor_view(request, team_id):
     # PREFETCH MAGIC: Get members, their role assignments, and availability in 1-2 queries total
     members = team.members.all().prefetch_related(
         Prefetch(
-            'team_role_assignments',
+            "team_role_assignments",
             queryset=TeamRoleAssignment.objects.filter(team=team),
-            to_attr='current_team_assignment'
+            to_attr="current_team_assignment",
         ),
         Prefetch(
-            'availabilityrange_set',
+            "availabilityrange_set",
             queryset=AvailabilityRange.objects.filter(team=team),
-            to_attr='team_availabilities'
-        )
+            to_attr="team_availabilities",
+        ),
     )
 
     roles = Role.objects.filter(team=team)
@@ -392,7 +393,11 @@ def supervisor_view(request, team_id):
     member_list = []
     for member in members:
         # Instead of a DB query, we check the list we already fetched ('to_attr')
-        assignment = member.current_team_assignment[0] if member.current_team_assignment else None
+        assignment = (
+            member.current_team_assignment[0]
+            if member.current_team_assignment
+            else None
+        )
 
         # Check if they have availability ranges in the prefetched list
         has_availability = len(member.team_availabilities) > 0
@@ -403,55 +408,70 @@ def supervisor_view(request, team_id):
 
         status = "Submitted" if (has_availability or preferred_roles) else "Pending"
 
-        member_list.append({
-            "user": member,
-            "status": status,
-            "preferred_roles": preferred_roles,
-            "current_role_id": assignment.role_id if assignment else None,
-        })
+        member_list.append(
+            {
+                "user": member,
+                "status": status,
+                "preferred_roles": preferred_roles,
+                "current_role_id": assignment.role_id if assignment else None,
+            }
+        )
 
-    return render(request, "core/supervisor.html", {
-        "team": team,
-        "member_list": member_list,
-        "roles": roles,
-        "rooms": rooms,
-    })
+    return render(
+        request,
+        "core/supervisor.html",
+        {
+            "team": team,
+            "member_list": member_list,
+            "roles": roles,
+            "rooms": rooms,
+        },
+    )
+
+
+@login_required
+def get_team_roles(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    # Get unique roles from your WorkerProfile or Membership model
+    roles = Role.objects.filter(team=team).values()
+    print("FIND ME")
+    print(roles)
+    return JsonResponse({"roles": list(roles)})
 
 
 @login_required
 def get_worker_availability(request, team_id, worker_id):
     team = get_object_or_404(Team, id=team_id)
-    # allow supervisor only
     if team.owner != request.user:
         return HttpResponseForbidden("Supervisor only")
 
     target_user = get_object_or_404(User, id=worker_id)
 
-    # Must be relevant to this team
-    if target_user != team.owner and target_user not in team.members.all():
-        return HttpResponseBadRequest("Worker is not on this team.")
-
-    # Who is allowed to view?
-    is_supervisor = team.owner == request.user
-    is_self = request.user.id == worker_id
-
-    if not (is_supervisor or is_self):
+    # Simplified authorization check
+    if not (team.owner == request.user or request.user.id == int(worker_id)):
         return HttpResponseForbidden("Unauthorized")
 
     ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
-    print(len(ranges))
-    data = {}
+
+    # We want a flat list for the availabilityData.forEach loop
+    availability_list = []
+
     for r in ranges:
-        day_key = r.day.lower()
-        data.setdefault(day_key, []).append(
-            [
-                r.start_time.strftime("%H:%M"),
-                r.end_time.strftime("%H:%M"),
-            ]
+        # Calculate minutes from midnight for the frontend math
+        start_min = (r.start_time.hour * 60) + r.start_time.minute
+        end_min = (r.end_time.hour * 60) + r.end_time.minute
+
+        availability_list.append(
+            {
+                "day": r.day.lower(),  # 'mon', 'tue', etc.
+                "start_min": start_min,
+                "end_min": end_min,
+                "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
+            }
         )
 
-    print(len(data))
-    return JsonResponse({"unavailable": data})
+    # Return the flat list directly
+    return JsonResponse({"availabilityData": availability_list})
 
 
 # @login_required
@@ -541,12 +561,15 @@ def create_role(request, team_id):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
+
 @login_required
 @require_http_methods(["POST"])
 def update_member_role(request, team_id):
     try:
         data = json.loads(request.body)
-        worker_id = data.get("member_id") # The template sends entry.id, ensure this matches
+        worker_id = data.get(
+            "member_id"
+        )  # The template sends entry.id, ensure this matches
         role_id = data.get("role_id")
 
         team = get_object_or_404(Team, id=team_id)
@@ -563,19 +586,16 @@ def update_member_role(request, team_id):
         # Update the assignment or create a new one if it doesn't exist
         role = get_object_or_404(Role, id=role_id, team=team)
         assignment, created = TeamRoleAssignment.objects.update_or_create(
-            team=team,
-            user_id=worker_id,
-            defaults={"role": role}
+            team=team, user_id=worker_id, defaults={"role": role}
         )
 
-        return JsonResponse({
-            "status": "success",
-            "role_name": role.name,
-            "created": created
-        })
+        return JsonResponse(
+            {"status": "success", "role_name": role.name, "created": created}
+        )
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
+
 
 @login_required
 @require_http_methods(["DELETE"])
@@ -599,6 +619,58 @@ def list_roles(request, team_id):
 
     roles = Role.objects.filter(team=team).order_by("name")
     return JsonResponse({"roles": [{"id": r.id, "name": r.name} for r in roles]})
+
+
+@login_required
+def filter_view(request, team_id, role_id):
+    # Now it will reach these print statements
+    print(f"DEBUG: team_id={team_id}, role_id={role_id}")
+
+    # 1. Get the list of user IDs assigned to this role in this team
+    # Note: Ensure your model field names are team_id/role_id or team/role
+    # based on your specific TeamRoleAssignment model definition
+    user_ids = TeamRoleAssignment.objects.filter(
+        team_id=team_id, role_id=role_id
+    ).values_list("user", flat=True)
+
+    relevant_users = User.objects.filter(id__in=user_ids).prefetch_related(
+        models.Prefetch(
+            "availabilityrange_set",  # or whatever the related_name is
+            queryset=AvailabilityRange.objects.filter(team_id=team_id),
+            to_attr="team_avail",
+        )
+    )
+
+    print(f"DEBUG: Found User IDs: {list(user_ids)}")
+
+
+    workers_data = []
+
+    for user in relevant_users:
+        # ACCESS THE PREFETCHED LIST HERE
+        # Note: We use the name defined in 'to_attr'
+        prefetched_ranges = user.team_avail
+
+        avail_list = []
+        for r in prefetched_ranges:
+            avail_list.append(
+                {
+                    "day": r.day.lower(),
+                    "start_min": (r.start_time.hour * 60) + r.start_time.minute,
+                    "end_min": (r.end_time.hour * 60) + r.end_time.minute,
+                    "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
+                }
+            )
+
+        workers_data.append(
+            {
+                "id": user.id,
+                "name": user.get_full_name() or user.username,
+                "availability": avail_list,
+            }
+        )
+
+    return JsonResponse({"workers": workers_data})
 
 
 @login_required
@@ -777,7 +849,9 @@ def delete_room(request, team_id):
         room_id = data.get("room_id")
 
         if not room_id:
-            return JsonResponse({"status": "error", "message": "No room_id provided"}, status=400)
+            return JsonResponse(
+                {"status": "error", "message": "No room_id provided"}, status=400
+            )
 
         with transaction.atomic():
             # filter().delete() is "idempotent" (won't crash if already deleted)
@@ -787,7 +861,10 @@ def delete_room(request, team_id):
             deleted_count, _ = Room.objects.filter(id=room_id, team_id=team_id).delete()
 
             if deleted_count == 0:
-                return JsonResponse({"status": "error", "message": "Room not found or already deleted"}, status=404)
+                return JsonResponse(
+                    {"status": "error", "message": "Room not found or already deleted"},
+                    status=404,
+                )
 
         return JsonResponse({"status": "success"})
 
@@ -795,7 +872,9 @@ def delete_room(request, team_id):
         return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
     except Exception as e:
         print(f"CRITICAL DELETE ERROR: {str(e)}")
-        return JsonResponse({"status": "error", "message": "Internal server error"}, status=500)
+        return JsonResponse(
+            {"status": "error", "message": "Internal server error"}, status=500
+        )
 
 
 @login_required
