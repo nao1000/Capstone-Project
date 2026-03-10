@@ -1,656 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coorda - Supervisor Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
-    <style>
-        /* --- GLOBAL VARIABLES & RESET --- */
-        :root {
-            --nav-bg: #7a92ac;
-            --bg-color: #eef2f6;
-            --card-bg: #ffffff;
-            --text-main: #333333;
-            --grid-line: #e0e0e0;
-            --grid-line-hour: #c0c0c0;
-            --primary-blue: #7393B3;
-
-            /* Shift Colors */
-            --event-bg: #dbeafe;
-            --event-border: #2563eb;
-            --event-text: #1e3a8a;
-
-            /* Availability Colors (Top Grid) */
-            --avail-bg: #e6f4ea;
-            --avail-border: #34a853;
-            --avail-text: #0d652d;
-
-            --font-headers: 'Oswald', sans-serif;
-            --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
-            /* Fixed height for 15-min intervals */
-            --slot-height: 15px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: var(--font-body);
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            user-select: none;
-            /* Prevent text selection while dragging */
-        }
-
-        /* --- NAVBAR --- */
-        .navbar {
-            background-color: var(--nav-bg);
-            height: 60px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 40px;
-            color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .brand {
-            font-family: var(--font-headers);
-            font-size: 32px;
-            font-weight: 400;
-            letter-spacing: 1px;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-family: var(--font-headers);
-            font-size: 24px;
-            font-weight: 300;
-        }
-
-        .main-container {
-            display: flex;
-            padding: 20px 30px;
-            /* Reduced padding slightly */
-            gap: 20px;
-            /* Tighter gap */
-            max-width: 100%;
-            /* Allow it to use full monitor width */
-            margin: 0 auto;
-        }
-
-        /* --- SIDEBAR --- */
-        .sidebar {
-            width: 220px;
-            /* Shrunk from 300px */
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .panel {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        }
-
-        .panel-title {
-            font-family: var(--font-headers);
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-            outline: none;
-            margin-bottom: 10px;
-        }
-
-        .worker-list {
-            border: 1px solid var(--grid-line);
-            border-radius: 4px;
-            max-height: 250px;
-            overflow-y: auto;
-        }
-
-        .worker-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--grid-line);
-            display: flex;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .worker-item:hover,
-        .worker-item.active {
-            background-color: #f5f5f5;
-        }
-
-        /* --- GRIDS AREA --- */
-        .grids-area {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: row;
-            /* Changed from column to row */
-            gap: 20px;
-            min-width: 0;
-            /* Prevents flex children from overflowing */
-        }
-
-        /* --- THE COMPACT CALENDAR CARD --- */
-        .scheduler-card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-            flex: 1;
-            /* Makes both cards take up exactly 50% of the space */
-            min-width: 0;
-        }
-
-        .toolbar {
-            padding: 0 25px;
-            height: 55px;
-            border-bottom: 1px solid var(--grid-line);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #fcfcfc;
-            flex-shrink: 0;
-        }
-
-        .toolbar h3 {
-            margin: 0;
-            font-family: var(--font-headers);
-            font-size: 24px;
-            font-weight: 400;
-        }
-
-        .toolbar-actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 6px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            border: none;
-            transition: 0.2s;
-        }
-
-        .btn-clear {
-            background: #e9ecef;
-            color: #495057;
-        }
-
-        .btn-clear:hover {
-            background: #dee2e6;
-        }
-
-        .btn-save {
-            background-color: #cdd2de;
-            color: #333;
-            padding: 8px 20px;
-        }
-
-        .btn-save:hover {
-            background-color: #bec3cf;
-        }
-
-        /* --- CSS GRID ARCHITECTURE --- */
-        .grid-header {
-            display: grid;
-            grid-template-columns: 60px repeat(7, 1fr);
-            border-bottom: 1px solid var(--grid-line);
-            height: 40px;
-            background: #f8f9fa;
-            flex-shrink: 0;
-        }
-
-        .header-cell {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 600;
-            color: #555;
-            border-right: 1px solid var(--grid-line);
-            text-transform: uppercase;
-        }
-
-        .header-cell:last-child {
-            border-right: none;
-        }
-
-        .scroll-area {
-            /* Removed max-height and overflow-y to disable scrolling */
-            background: white;
-            position: relative;
-        }
-
-        .grid-body {
-            display: grid;
-            grid-template-columns: 60px repeat(7, 1fr);
-            height: calc(10 * 4 * var(--slot-height));
-            /* 10 hours, 4 slots/hr */
-            position: relative;
-        }
-
-        /* Columns */
-        .time-col {
-            border-right: 1px solid var(--grid-line);
-            background: #ffffff;
-            position: relative;
-        }
-
-        .day-col {
-            border-right: 1px solid var(--grid-line);
-            position: relative;
-        }
-
-        .day-col:last-child {
-            border-right: none;
-        }
-
-        /* Interactive Grid Hover */
-        .interactive-grid .day-col {
-            cursor: crosshair;
-        }
-
-        /* Zebra Striping & Grid Lines */
-        .day-col {
-            background-image: repeating-linear-gradient(to bottom,
-                    transparent, transparent calc(var(--slot-height) * 4),
-                    #fafbfc calc(var(--slot-height) * 4), #fafbfc calc(var(--slot-height) * 8));
-        }
-
-        .day-col::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-            background-size: 100% var(--slot-height);
-            opacity: 0.4;
-            pointer-events: none;
-        }
-
-        .day-col::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
-            background-size: 100% calc(var(--slot-height) * 4);
-            pointer-events: none;
-        }
-
-        /* Time Labels */
-        .time-label {
-            position: absolute;
-            right: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #777;
-            transform: translateY(-50%);
-            background: white;
-            padding-left: 4px;
-            z-index: 2;
-        }
-
-        /* --- EVENT BLOCKS --- */
-        .event-block {
-            position: absolute;
-            left: 2px;
-            right: 2px;
-            border-radius: 4px;
-            padding: 1px 4px;
-            /* Reduced padding */
-            overflow: hidden;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            transition: transform 0.1s;
-        }
-
-        /* Interactive Shifts */
-        .shift-block {
-            background-color: var(--event-bg);
-            border: 1px solid var(--event-border);
-            border-left: 4px solid var(--event-border);
-            color: var(--event-text);
-            cursor: pointer;
-        }
-
-        .shift-block:hover {
-            transform: scale(1.02);
-            z-index: 11;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .shift-block.temp {
-            opacity: 0.6;
-            pointer-events: none;
-            border-style: dashed;
-        }
-
-        /* Read-Only Availability */
-        .avail-block {
-            background-color: var(--avail-bg);
-            border: 1px solid var(--avail-border);
-            border-left: 4px solid var(--avail-border);
-            color: var(--avail-text);
-            pointer-events: none;
-            /* No interaction */
-            opacity: 0.8;
-        }
-
-        .event-content {
-            display: flex;
-            flex-direction: column;
-            line-height: 1;
-            /* Tighter line height */
-            margin-top: 1px;
-        }
-
-        .event-title {
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .event-time {
-            font-size: 10px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .event-loc {
-            font-size: 10px;
-            opacity: 0.9;
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Delete X */
-        .delete-x {
-            position: absolute;
-            top: 0px;
-            right: 0px;
-            width: 20px;
-            height: 20px;
-            line-height: 18px;
-            text-align: center;
-            font-weight: bold;
-            color: #666;
-            cursor: pointer;
-            font-size: 16px;
-            z-index: 50;
-            display: none;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 0 0 0 4px;
-        }
-
-        .delete-x:hover {
-            color: #ef4444;
-            background: rgba(255, 255, 255, 0.9);
-        }
-
-        .shift-block:hover .delete-x {
-            display: block;
-        }
-
-        /* --- MODAL --- */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(2px);
-        }
-
-        .modal-overlay.show {
-            display: flex;
-        }
-
-        .modal-box {
-            background: white;
-            width: 350px;
-            border-radius: 8px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        @keyframes popIn {
-            from {
-                transform: scale(0.9);
-                opacity: 0;
-            }
-
-            to {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
-        .modal-header {
-            background: var(--nav-bg);
-            color: white;
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .modal-body {
-            padding: 20px;
-        }
-
-        .input-group {
-            margin-bottom: 12px;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 4px;
-            font-weight: 600;
-            font-size: 13px;
-            color: #444;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .input-group input:focus {
-            border-color: var(--primary-blue);
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
-        }
-
-        .modal-footer {
-            padding: 12px 20px;
-            background: #f8f9fa;
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            border-top: 1px solid #eee;
-        }
-
-        /* --- SYNC HIGHLIGHT --- */
-        .sync-highlight {
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: var(--slot-height);
-            /* 15px */
-            background-color: rgba(37, 99, 235, 0.15);
-            /* Soft blue */
-            border: 1px solid rgba(37, 99, 235, 0.3);
-            pointer-events: none;
-            /* Passes clicks through to the grid */
-            z-index: 5;
-            /* Stays under the shift blocks */
-            display: none;
-        }
-
-        .sync-highlight.active {
-            display: block;
-        }
-
-        /* Add this to your <style> block */
-        .day-col {
-            display: flex;
-            /* Allow worker columns to sit side-by-side */
-            flex-direction: row;
-        }
-
-        .worker-column-inner {
-            flex: 1;
-            /* Each worker gets equal width */
-            height: 100%;
-            position: relative;
-            border-right: 1px solid rgba(0, 0, 0, 0.05);
-            /* Light divider between workers */
-        }
-
-        .worker-column-inner:last-child {
-            border-right: none;
-        }
-
-        /* Ensure blocks take up full width of the sub-column */
-        .worker-column-inner .avail-block {
-            left: 2px;
-            right: 2px;
-        }
-    </style>
-</head>
-
-<body>
-
-    <nav class="navbar">
-        <div class="brand">Coorda</div>
-        <div class="nav-links">
-            <div class="user-profile">
-                <span>Supervisor Dashboard</span>
-                <i class="fa-regular fa-circle-user"></i>
+{% extends 'core/base.html' %}
+{% load static %}
+
+
+{% block title %}Coorda - Supervisor Dashboard{% endblock %}
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/scheduler.css' %}">
+{% endblock %}
+{% block head_scripts %}
+<script>
+    window.TEAM_ID = '{{ team.id }}'
+    window.OBSTRUCTIONS = JSON.parse('{{ obstructions|safe }}')
+    window.ROLES = JSON.parse('{{ roles|safe }}')
+    window.WORKERS = JSON.parse('{{ workers_json|safe }}')
+    window.ROOMS = JSON.parse('{{ rooms | safe }}')
+    console.log(window.ROLES)
+</script>
+<script src="{% static 'js/scheduler.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+
+    <aside class="sidebar">
+        <div class="panel">
+            <h2 class="panel-title">Team Members</h2>
+            <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
+                onkeyup="filterWorkers()">
+            <div class="worker-list">
+                {% for worker in workers %}
+                <div class="worker-item"
+                    onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
+                    {{ worker.get_full_name|default:worker.username }}
+                </div>
+                {% endfor %}
+            </div>
+            <h2 class="panel-title">Filters</h2>
+            <div class="filter-options" onload="initFilters('{{team.id }}')"></div>
+            <h2 class="panel-title">Days</h2>
+            <div class="filter-options" id="dayFilters">
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(0)">Sun</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(1)">Mon</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(2)">Tue</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(3)">Wed</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(4)">Thu</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(5)">Fri</button>
+                <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(6)">Sat</button>
             </div>
         </div>
-    </nav>
+    </aside>
 
-    <div class="main-container">
+    <main class="grids-area">
 
-        <aside class="sidebar">
-            <div class="panel">
-                <h2 class="panel-title">Team Members</h2>
-                <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
-                    onkeyup="filterWorkers()">
-                <div class="worker-list">
-                    {% for worker in workers %}
-                    <div class="worker-item"
-                        onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
-                        {{ worker.get_full_name|default:worker.username }}
-                    </div>
-                    {% endfor %}
-                </div>
-                <h2 class="panel-title">Filters</h2>
-                <div class="filter-options" onload="initFilters('{{team.id }}')"></div>
+        <div class="scheduler-card">
+            <div class="toolbar">
+                <h3 id="viewingWorkerLabel">Select a worker or filter</h3>
+                <div style="font-size: 13px; color: #666;">Read-Only View</div>
             </div>
-        </aside>
-
-        <main class="grids-area">
-
-            <div class="scheduler-card">
-                <div class="toolbar">
-                    <h3 id="viewingWorkerLabel">Jane Doe - Availability</h3>
-                    <div style="font-size: 13px; color: #666;">Read-Only View</div>
+            <!-- Header and scroll area wrapped together -->
+            <div class="grid-wrapper">
+                <div class="grid-header" id="viewGridHeader">
+                    <div class="header-cell time-header">Time</div>
                 </div>
-                <div class="grid-header">
-                    <div class="header-cell">Time</div>
-                    <div class="header-cell">Sun</div>
-                    <div class="header-cell">Mon</div>
-                    <div class="header-cell">Tue</div>
-                    <div class="header-cell">Wed</div>
-                    <div class="header-cell">Thu</div>
-                    <div class="header-cell">Fri</div>
-                    <div class="header-cell">Sat</div>
-                </div>
-                <div class="scroll-area">
+                <div class="scroll-area" id="viewScrollArea">
                     <div class="grid-body" id="viewGrid">
                         <div class="time-col" id="viewTimeCol"></div>
-                        <div class="day-col" data-day="0"></div>
-                        <div class="day-col" data-day="1"></div>
-                        <div class="day-col" data-day="2"></div>
-                        <div class="day-col" data-day="3"></div>
-                        <div class="day-col" data-day="4"></div>
-                        <div class="day-col" data-day="5"></div>
-                        <div class="day-col" data-day="6"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="scheduler-card">
-                <div class="toolbar">
-                    <h3>Assign Shifts</h3>
-                    <div class="toolbar-actions">
-                        <span style="font-size: 13px; color: #888; margin-right: 15px;">Click & drag to add shift</span>
-                        <button class="btn btn-clear" onclick="clearInteractiveGrid()">Clear Shifts</button>
-                        <button class="btn btn-save" onclick="saveAllPreferences()">Save Schedule</button>
-                    </div>
+        <div class="scheduler-card">
+            <div class="toolbar">
+                <h3>Assign Shifts</h3>
+                <div class="toolbar-actions">
+                    <select id="scheduleSelect" class="role-selector" onchange="loadScheduleShifts()">
+                        <option value="">Select schedule...</option>
+                    </select>
+                    <button class="btn btn-clear" onclick="openCreateScheduleModal()">+ New</button>
+                    <button class="btn btn-clear" onclick="setActiveSchedule()">Set Active</button>
+                    <span style="font-size: 13px; color: #888;">Click & drag to add shift</span>
+                    <button class="btn btn-clear" onclick="clearInteractiveGrid()">Clear</button>
+                    <button class="btn btn-save" onclick="saveAllPreferences()">Save</button>
                 </div>
-                <div class="grid-header">
-                    <div class="header-cell">Time</div>
+            </div>
+            <div class="grid-wrapper">
+                <div class="grid-header" id="interactiveGridHeader">
+                    <div class="header-cell time-header">Time</div>
                     <div class="header-cell">Sun</div>
                     <div class="header-cell">Mon</div>
                     <div class="header-cell">Tue</div>
@@ -672,408 +108,56 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-        </main>
-    </div>
+    </main>
+</div>
 
-    <div class="modal-overlay" id="eventModal">
-        <div class="modal-box">
-            <div class="modal-header">Assign Shift</div>
-            <div class="modal-body">
-                <div class="input-group">
-                    <label>Worker Name</label>
-                    <input type="text" id="modalEventName" placeholder="e.g. Jane Doe">
-                </div>
-                <div class="input-group">
-                    <label>Location / Role</label>
-                    <input type="text" id="modalLocation" placeholder="e.g. Front Desk">
-                </div>
-                <div style="font-size: 13px; color: #666; font-weight: 500; margin-top: 15px;" id="modalTimeDisplay">
-                </div>
+<div class="modal-overlay" id="eventModal">
+    <div class="modal-box">
+        <div class="modal-header">Assign Shift</div>
+        <div class="modal-body">
+            <div class="input-group">
+                <label>Worker</label>
+                <select id="modalWorkerSelect" class="role-selector" style="width:100%; padding: 8px;">
+                    <option value="">Select a worker...</option>
+                </select>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-clear" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-save" onclick="saveEvent()">Assign</button>
+            <div class="input-group">
+                <label>Location</label>
+                <select id="modalRoomSelect" class="role-selector" style="width:100%; padding: 8px;">
+                    <option value="">Select a room...</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Role</label>
+                <select id="modalRoleSelect" class="role-selector" style="width:100%; padding: 8px;">
+                    <option value="">Select a role...</option>
+                </select>
+            </div>
+            <div style="font-size: 13px; color: #666; font-weight: 500; margin-top: 15px;" id="modalTimeDisplay">
             </div>
         </div>
+        <div class="modal-footer">
+            <button class="btn btn-clear" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-save" onclick="saveEvent()">Assign</button>
+        </div>
     </div>
-
-    <script>
-        const START_HOUR = 8; // 8:00 AM
-        const END_HOUR = 18;  // 6:00 PM
-        const SLOT_HEIGHT = 15; // Matches --slot-height in CSS
-
-        let isDragging = false;
-        let startTop = 0;
-        let activeEvent = null;
-        let activeCol = null;
-        let currentStartMin = 0;
-        let currentEndMin = 0;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            drawTimeLabels('viewTimeCol');
-            drawTimeLabels('interactiveTimeCol');
-            setupDragListeners();
-            setupSyncHover();
-            console.log('{{ team.id}}')
-            initFilters('{{ team.id }}')
-        });
-
-        async function loadRoleView(roleId, teamId) {
-            // 1. Fetch all workers belonging to this role
-            // You'll need an endpoint like /api/team/1/role/CHEM-SI/
-            console.log(roleId)
-            console.log(teamId)
-            const response = await fetch(`/api/team/${teamId}/roles/${roleId}`);
-            const data = await response.json();
-            // Expecting: { workers: [{id: 1, name: "Alice", availability: [...]}, {id: 2, name: "Bob", ...}] }
-
-            // 2. Clear the existing grid
-            document.querySelectorAll('#viewGrid .day-col').forEach(col => col.innerHTML = '');
-
-            const workers = data.workers;
-
-            // 3. For each day of the week
-            for (let dayNum = 0; dayNum <= 6; dayNum++) {
-                const dayCol = document.querySelector(`#viewGrid .day-col[data-day="${dayNum}"]`);
-
-                // 4. Create a sub-column for every worker in this role
-                workers.forEach(worker => {
-                    const workerCol = document.createElement('div');
-                    workerCol.className = 'worker-column-inner';
-                    workerCol.setAttribute('data-worker-id', worker.id);
-                    dayCol.appendChild(workerCol);
-
-                    // 5. Filter this worker's availability for THIS specific day
-                    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-                    const todayKey = dayKeys[dayNum];
-
-                    const shifts = worker.availability.filter(a => a.day.toLowerCase() === todayKey);
-
-                    shifts.forEach(range => {
-                        const startOffset = range.start_min - (START_HOUR * 60);
-                        const top = (startOffset / 15) * SLOT_HEIGHT;
-                        const height = ((range.end_min - range.start_min) / 15) * SLOT_HEIGHT;
-
-                        const block = document.createElement('div');
-                        block.className = 'event-block avail-block unavailable';
-                        block.style.top = `${top}px`;
-                        block.style.height = `${height}px`;
-                        block.innerHTML = `<div class="event-title" style="font-size:9px;">${worker.name}</div>`;
-
-                        workerCol.appendChild(block);
-                    });
-                });
-            }
-        }
-
-        async function initFilters(teamId) {
-            console.log(teamId)
-            const res = await fetch(`/api/team/${teamId}/roles/get`);
-            const data = await res.json();
-            const container = document.querySelector('.filter-options');
-
-            data.roles.forEach(role => {
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-clear';
-                btn.style.margin = '5px';
-                btn.textContent = role.name;
-                btn.onclick = () => loadRoleView(role.id, teamId);
-                container.appendChild(btn);
-            });
-        }
-        /* --- TIME LABELS --- */
-        function drawTimeLabels(containerId) {
-            const timeCol = document.getElementById(containerId);
-            const totalHours = END_HOUR - START_HOUR;
-
-            for (let h = START_HOUR; h <= END_HOUR; h++) {
-                if (h === END_HOUR) continue; // Skip bottom edge label
-
-                const label = document.createElement('div');
-                label.className = 'time-label';
-
-                const suffix = h >= 12 ? 'PM' : 'AM';
-                const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 ? 12 : h);
-                label.textContent = `${displayH} ${suffix}`;
-
-                const percentTop = ((h - START_HOUR) / totalHours) * 100;
-                label.style.top = `${percentTop}%`;
-                timeCol.appendChild(label);
-            }
-        }
-
-        /* --- DRAG & DROP LOGIC (Interactive Grid Only) --- */
-        function setupDragListeners() {
-            // ONLY select day columns inside the interactive grid
-            const interactiveCols = document.querySelectorAll('#interactiveGrid .day-col');
-
-            interactiveCols.forEach(col => {
-                col.addEventListener('mousedown', (e) => {
-                    if (e.target.closest('.event-block')) return;
-
-                    isDragging = true;
-                    activeCol = col;
-
-                    const rect = col.getBoundingClientRect();
-                    const relativeY = e.clientY - rect.top;
-
-                    // Snap to grid (15 mins = 20px)
-                    startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
-
-                    activeEvent = document.createElement('div');
-                    activeEvent.className = 'event-block shift-block temp';
-                    activeEvent.style.top = `${startTop}px`;
-                    activeEvent.style.height = `${SLOT_HEIGHT}px`;
-                    activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`;
-
-                    col.appendChild(activeEvent);
-                });
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging || !activeEvent || !activeCol) return;
-
-                const rect = activeCol.getBoundingClientRect();
-                const currentRelativeY = e.clientY - rect.top;
-
-                let newHeight = (Math.floor(currentRelativeY / SLOT_HEIGHT) * SLOT_HEIGHT) - startTop + SLOT_HEIGHT;
-                if (newHeight < SLOT_HEIGHT) newHeight = SLOT_HEIGHT;
-
-                activeEvent.style.height = `${newHeight}px`;
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    openModal();
-                }
-            });
-        }
-
-        /* --- MODAL LOGIC --- */
-        function openModal() {
-            const modal = document.getElementById('eventModal');
-            modal.classList.add('show');
-
-            // Auto-fill active worker name
-            const activeWorker = document.querySelector('.worker-item.active span').textContent;
-            document.getElementById('modalEventName').value = activeWorker;
-            document.getElementById('modalLocation').value = '';
-            document.getElementById('modalLocation').focus();
-
-            const topPx = parseFloat(activeEvent.style.top);
-            const heightPx = parseFloat(activeEvent.style.height);
-
-            const startSlotIndex = Math.round(topPx / SLOT_HEIGHT);
-            const slotsCount = Math.round(heightPx / SLOT_HEIGHT);
-
-            currentStartMin = (startSlotIndex * 15) + (START_HOUR * 60);
-            currentEndMin = currentStartMin + (slotsCount * 15);
-
-            document.getElementById('modalTimeDisplay').textContent =
-                `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`;
-        }
-
-        function closeModal() {
-            document.getElementById('eventModal').classList.remove('show');
-            if (activeEvent && activeEvent.classList.contains('temp')) {
-                activeEvent.remove();
-            }
-            activeEvent = null;
-        }
-
-        function saveEvent() {
-            const name = document.getElementById('modalEventName').value || 'Shift';
-            const location = document.getElementById('modalLocation').value;
-            const timeString = `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)}`;
-
-            const heightPx = parseFloat(activeEvent.style.height);
-            const isSmall = heightPx < (SLOT_HEIGHT * 2.5);
-
-            if (activeEvent) {
-                activeEvent.classList.remove('temp');
-                let html = `
-                    <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
-                    <div class="event-content">
-                        <div class="event-title">${name}</div>
-                        <div class="event-time">${timeString}</div>`;
-
-                if (!isSmall && location) html += `<div class="event-loc">${location}</div>`;
-                html += `</div>`;
-
-                activeEvent.innerHTML = html;
-            }
-
-            document.getElementById('eventModal').classList.remove('show');
-            activeEvent = null;
-        }
-
-        function removeEventBlock(e, xButton) {
-            e.stopPropagation(); // Don't trigger drag
-            if (confirm("Remove this shift?")) {
-                xButton.closest('.event-block').remove();
-            }
-        }
-
-        function clearInteractiveGrid() {
-            if (confirm("Clear all assigned shifts?")) {
-                document.querySelectorAll('#interactiveGrid .shift-block').forEach(el => el.remove());
-            }
-        }
-
-        function saveAllPreferences() {
-            const shifts = document.querySelectorAll('#interactiveGrid .shift-block:not(.temp)');
-            alert(`Saved ${shifts.length} shifts to the database!`);
-            // Your AJAX fetch call goes here
-        }
-
-        function formatTime(topPx) {
-            const totalMinutes = (topPx / SLOT_HEIGHT * 15) + (START_HOUR * 60);
-            const h = Math.floor(totalMinutes / 60);
-            const m = totalMinutes % 60;
-            const suffix = h >= 12 ? 'PM' : 'AM';
-            const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-            return `${displayH}:${m.toString().padStart(2, '0')} ${suffix}`;
-        }
-
-        async function loadWorker(workerId, teamId, name, element) {
-            // 1. UI: Highlight the selected worker in the sidebar
-            document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'));
-            element.classList.add('active');
-
-            // 2. UI: Update the header label
-            document.getElementById('viewingWorkerLabel').textContent = `${name} - Availability`;
-
-            // 3. Logic: Clear existing availability blocks
-            document.querySelectorAll('#viewGrid .avail-block').forEach(block => block.remove());
-
-            // Mapping to match your HTML data-day attributes (0-6)
-            const dayMap = {
-                'sun': '0', 'mon': '1', 'tue': '2', 'wed': '3', 'thu': '4', 'fri': '5', 'sat': '6'
-            };
-
-            try {
-                const response = await fetch(`/api/team/${teamId}/get-availability/${workerId}/`);
-                if (!response.ok) throw new Error("Failed to fetch worker availability");
-
-                const data = await response.json();
-
-                data.availabilityData.forEach(range => {
-                    // Translate string (e.g. "mon") to index (e.g. "1")
-                    const dayIndex = dayMap[range.day];
-                    const dayCol = document.querySelector(`#viewGrid .day-col[data-day="${dayIndex}"]`);
-
-                    if (dayCol) {
-                        const startOffset = range.start_min - (START_HOUR * 60);
-                        const top = (startOffset / 15) * SLOT_HEIGHT;
-
-                        const duration = range.end_min - range.start_min;
-                        const height = (duration / 15) * SLOT_HEIGHT;
-
-                        const block = document.createElement('div');
-                        // Note: using event-block class to inherit basic styling, 
-                        // plus avail-block and unavailable for color
-                        block.className = 'event-block avail-block unavailable';
-                        block.style.top = `${top}px`;
-                        block.style.height = `${height}px`;
-
-                        block.innerHTML = `
-                    <div class="event-content">
-                        <div class="event-title">Available</div>
-                        <div class="event-time">${range.label}</div>
-                    </div>`;
-
-                        dayCol.appendChild(block);
-                    } else {
-                        console.warn("Could not find column for day:", range.day);
-                    }
-                });
-            } catch (error) {
-                console.error("Error loading worker:", error);
-            }
-        }
-
-        function filterWorkers() {
-            const input = document.getElementById('workerSearch').value.toLowerCase();
-            document.querySelectorAll('.worker-item').forEach(item => {
-                const name = item.querySelector('span').textContent.toLowerCase();
-                item.style.display = name.includes(input) ? "flex" : "none";
-            });
-        }
-
-        function formatMin(totalMinutes) {
-            const h = Math.floor(totalMinutes / 60);
-            const m = totalMinutes % 60;
-            const suffix = h >= 12 ? 'PM' : 'AM';
-            const displayH = h > 12 ? h - 12 : (h === 0 || h === 12 ? 12 : h);
-            const displayM = m < 10 ? '0' + m : m;
-            return `${displayH}:${displayM} ${suffix}`;
-        }
-
-        /* --- MOCK DATA --- */
-        function mockLoadAvailability() {
-            // Draw a fake availability block on Monday (data-day="1") from 9:00 AM to 12:00 PM
-            const dayCol = document.querySelector('#viewGrid .day-col[data-day="1"]');
-            const startMins = (9 * 60) - (START_HOUR * 60); // 9AM relative to 8AM
-            const endMins = (12 * 60) - (START_HOUR * 60);  // 12PM relative to 8AM
-
-            const topPx = (startMins / 15) * SLOT_HEIGHT;
-            const heightPx = ((endMins - startMins) / 15) * SLOT_HEIGHT;
-
-            const block = document.createElement('div');
-            block.className = 'event-block avail-block';
-            block.style.top = `${topPx}px`;
-            block.style.height = `${heightPx}px`;
-            block.innerHTML = `
-                <div class="event-content">
-                    <div class="event-title">Available</div>
-                    <div class="event-time">9:00 AM - 12:00 PM</div>
-                </div>`;
-            dayCol.appendChild(block);
-        }
-        /* --- SYNCHRONIZED HOVER EFFECT --- */
-        function setupSyncHover() {
-            // Create the highlight elements
-            const viewHighlight = document.createElement('div');
-            viewHighlight.className = 'sync-highlight';
-
-            const interactiveHighlight = document.createElement('div');
-            interactiveHighlight.className = 'sync-highlight';
-
-            // Get columns from both grids
-            const interactiveCols = document.querySelectorAll('#interactiveGrid .day-col');
-            const viewCols = document.querySelectorAll('#viewGrid .day-col');
-
-            interactiveCols.forEach((col, index) => {
-                col.addEventListener('mousemove', (e) => {
-                    // Get Y coordinate relative to the column
-                    const rect = col.getBoundingClientRect();
-                    const relativeY = e.clientY - rect.top;
-
-                    // Snap to the nearest 15-minute block
-                    const snappedTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT;
-
-                    // Append and position in the Assign grid
-                    col.appendChild(interactiveHighlight);
-                    interactiveHighlight.style.top = `${snappedTop}px`;
-                    interactiveHighlight.classList.add('active');
-
-                    // Append and position in the matching Availability grid column
-                    const targetViewCol = viewCols[index];
-                    targetViewCol.appendChild(viewHighlight);
-                    viewHighlight.style.top = `${snappedTop}px`;
-                    viewHighlight.classList.add('active');
-                });
-
-                // Hide highlights when mouse leaves the column
-                col.addEventListener('mouseleave', () => {
-                    interactiveHighlight.classList.remove('active');
-                    viewHighlight.classList.remove('active');
-                });
-            });
-        }
-    </script>
-</body>
-
-</html>
+</div>
+
+<div class="modal-overlay" id="createScheduleModal">
+    <div class="modal-box">
+        <div class="modal-header">New Schedule</div>
+        <div class="modal-body">
+            <div class="input-group">
+                <label>Schedule Name</label>
+                <input type="text" id="newScheduleName" placeholder="e.g. Version A, Week 1">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-clear" onclick="closeCreateScheduleModal()">Cancel</button>
+            <button class="btn btn-save" onclick="createSchedule()">Create</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

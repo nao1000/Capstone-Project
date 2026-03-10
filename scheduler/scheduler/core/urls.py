@@ -59,6 +59,13 @@ urlpatterns = [
     # --- SUPERVISOR ROUTES ---
     path("team/<uuid:team_id>/supervisor/", views.supervisor_view, name="supervisor"),
     path("team/<uuid:team_id>/scheduler/", views.scheduler_view, name="scheduler"),
+    path('api/team/<uuid:team_id>/schedules/', views.get_schedules, name='get_schedules'),
+    path('api/team/<uuid:team_id>/schedules/create/', views.create_schedule, name='create_schedule'),
+    path('api/team/<uuid:team_id>/schedules/save-shifts/', views.save_role_shifts, name='save_role_shifts'),
+    path('api/team/<uuid:team_id>/schedules/set-active/', views.set_active_schedule, name='set_active_schedule'),
+    path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/shifts/', views.get_schedule_shifts, name='get_schedule_shifts'),
+    path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/room-bookings/', views.get_room_bookings, name='get_room_bookings'),
+    path('api/team/<uuid:team_id>/room-availability/', views.get_room_availability, name='get_room_availability'),
 
     # --- API ENDPOINTS ---
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
@@ -70,6 +77,10 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/rooms/save-availability/', views.save_room_availability, name='save_room_availability'),
     path("api/room/<uuid:room_id>/availability/", views.retrieve_room_availability, name="add_room_availability"),
     path("api/room/<uuid:team_id>/rooms/delete-room/", views.delete_room, name='delete_room'),
+    
+    # OBSTRUCTIONS API
+    path('api/team/<uuid:team_id>/obstructions/create/', views.create_obstruction, name='create_obstruction'),
+    path('api/team/<uuid:team_id>/obstructions/<int:obstruction_id>/delete/', views.delete_obstruction, name='delete_obstructin'),
 
     # ROLES API
     path("api/team/<uuid:team_id>/roles/", views.list_roles, name="list_roles"),
@@ -80,6 +91,11 @@ urlpatterns = [
     path("api/team/<uuid:team_id>/roles/unassign/", views.unassign_role, name="unassign_role"),
     path("api/team/<uuid:team_id>/roles/worker/<int:worker_id>/", views.worker_roles, name="worker_roles"),
     path("api/team/<uuid:team_id>/roles/<int:role_id>/delete/", views.delete_role, name="delete_role"),
+    path('api/team/<uuid:team_id>/roles/<int:role_id>/sections/', views.get_role_sections),
+    path('api/team/<uuid:team_id>/roles/<int:role_id>/sections/create/', views.create_role_section),
+    path('api/team/<uuid:team_id>/roles/<int:role_id>/sections/<int:section_id>/delete/', views.delete_role_section),
+    path('api/team/<uuid:team_id>/members/save-assignments/', views.save_member_assignments),
+
 
     # AUTHENTICATION
     path('login/', auth_views.LoginView.as_view(template_name='core/auth2.html'), name='login'),

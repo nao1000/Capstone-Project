@@ -1,411 +1,343 @@
-// availability-logic.js
 
-let isDrawing = false
+
+// Debugging: This will prove what ID Django is actually sending
+console.log('DJANGO SENT ID:', window.TEAM_ID)
+
+window.START_HOUR = 8
+window.END_HOUR = 22
+window.SLOT_HEIGHT = 25
+
+// 3. Load Saved Data
+// const dataElement = document.getElementById('availability-data')
+// if (dataElement) {
+//   window.SAVED_AVAILABILITY = JSON.parse(dataElement.textContent)
+// }
+
+// STATE
+let isDragging = false
 let startY = 0
-let startDayIndex = 0
-let pendingBlockData = null // Store block data while modal is open
-const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+let startTop = 0
+let activeEvent = null
+let activeCol = null
+let currentStartMin = 0
+let currentEndMin = 0
+// NEW STATE VARIABLES
+let selectedEvent = null
+let clipboardData = null
+let hoveredCol = null
+let hoverY = 0
+
+// DRAGGING EXISTING EVENTS
+let isDraggingEvent = false
+let draggedEvent = null
+let eventStartTop = 0
+let dragStartY = 0
+
+// Resizing Variables
+let isResizing = false
+let resizeDirection = null // Will be 'top' or 'bottom'
+let resizingEvent = null
+let resizeOriginalTop = 0
+let resizeOriginalHeight = 0
+let resizeStartY = 0
 
 document.addEventListener('DOMContentLoaded', () => {
-  initBackgroundGrid()
-  setupDrawingListeners()
-  loadExistingData()
-  styleModalElements() // NEW: Style modal on load
+  initLayout()
+  setupDragListeners()
+  addSavedEventsToGrid()
+  window.addEventListener('resize', initLayout)
+})
+// --- COPY, PASTE, & EDIT TRACKING ---
+
+// 2. Select & Edit Listeners
+document.addEventListener('DOMContentLoaded', () => {
+  const gridBody = document.getElementById('gridBody')
+
+  // Single click to Select
+  document.addEventListener('click', e => {
+    // Ignore the delete button or clicks inside the modal
+    if (e.target.closest('.delete-x') || e.target.closest('.modal-box')) return
+
+    const eventBlock = e.target.closest('.event-block')
+
+    // Scenario A: We clicked the event that is ALREADY selected -> Turn it off
+    if (selectedEvent && selectedEvent === eventBlock) {
+      selectedEvent.classList.remove('selected')
+      selectedEvent = null
+      return // Stop here!
+    }
+
+    // Scenario B: We clicked something else -> Turn off the previously selected event
+    if (selectedEvent) {
+      selectedEvent.classList.remove('selected')
+      selectedEvent = null
+    }
+
+    // Scenario C: We clicked a NEW event -> Turn it on
+    if (eventBlock && !eventBlock.classList.contains('temp')) {
+      selectedEvent = eventBlock
+      selectedEvent.classList.add('selected')
+    }
+  })
+
+  // Double click to Edit
+  gridBody.addEventListener('dblclick', e => {
+    const eventBlock = e.target.closest('.event-block')
+    if (eventBlock && !eventBlock.classList.contains('temp')) {
+      openEditModal(eventBlock)
+    }
+  })
 })
 
-function initBackgroundGrid () {
-  const bg = document.getElementById('gridBackground')
-  if (!bg) return
-  bg.innerHTML = ''
-  for (let hour = window.START_HOUR; hour < window.END_HOUR; hour++) {
-    for (let quarter = 0; quarter < 60; quarter += 15) {
-      const label = document.createElement('div')
-      label.className = 'time-slot-label'
-      label.textContent = quarter === 0 ? `${hour}:00` : ''
-      bg.appendChild(label)
-      for (let d = 0; d < 7; d++) {
-        const cell = document.createElement('div')
-        cell.className = 'grid-cell-bg'
-        cell.dataset.day = d
-        bg.appendChild(cell)
+// 3. Keyboard Shortcuts (Ctrl+C / Ctrl+V)
+document.addEventListener('keydown', e => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const modifier = isMac ? e.metaKey : e.ctrlKey
+
+  // COPY
+  if (modifier && e.key.toLowerCase() === 'c') {
+    if (selectedEvent) {
+      clipboardData = {
+        name: selectedEvent.querySelector('.event-title').textContent,
+        loc: selectedEvent.querySelector('.event-loc')
+          ? selectedEvent.querySelector('.event-loc').textContent
+          : '',
+        heightPx: parseFloat(selectedEvent.style.height)
       }
+      // Brief visual flash to confirm copy
+      selectedEvent.style.opacity = '0.5'
+      setTimeout(() => (selectedEvent.style.opacity = '1'), 150)
     }
   }
-}
 
-function loadExistingData() {
-    if (!window.SAVED_AVAILABILITY) return;
+  // PASTE
+  if (modifier && e.key.toLowerCase() === 'v') {
+    // Only paste if we have data, are hovering over a day, and the modal is closed
+    if (
+      clipboardData &&
+      hoveredCol &&
+      !document.getElementById('eventModal').classList.contains('show')
+    ) {
+      // Snap the pasted event to the grid based on mouse position
+      const topPx = Math.floor(hoverY / window.SLOT_HEIGHT) * window.SLOT_HEIGHT
 
-    const dayMap = { 'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6 };
+      // Calculate Times
+      const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+      const slotsCount = Math.round(clipboardData.heightPx / window.SLOT_HEIGHT)
+      const startMin = startSlotIndex * 15 + window.START_HOUR * 60
+      const endMin = startMin + slotsCount * 15
+      const timeString = `${formatMin(startMin)} - ${formatMin(endMin)}`
 
-    window.SAVED_AVAILABILITY.forEach(avail => {
-        // 1. Map the day string to index
-        const dayIdx = dayMap[avail.day.toLowerCase()];
-        if (dayIdx === undefined) return;
+      // Build Element
+      // Build Element
+      const newEvent = document.createElement('div')
+      newEvent.className = 'event-block'
+      newEvent.style.top = `${topPx}px`
+      newEvent.style.height = `${clipboardData.heightPx}px`
 
-        // 2. Parse times
-        const [sH, sM] = avail.start.split(':').map(Number);
-        const [eH, eM] = avail.end.split(':').map(Number);
-
-        const startTotalMins = sH * 60 + sM;
-        const endTotalMins = eH * 60 + eM;
-
-        // 3. Convert to Grid Pixels
-        // Formula: (Minutes from grid start / 15-min increments) * pixel height
-        const gridStartMins = window.START_HOUR * 60;
-        const topPx = ((startTotalMins - gridStartMins) / 15) * 25;
-        const bottomPx = ((endTotalMins - gridStartMins) / 15) * 25;
-
-        // 4. Render
-        renderBlockOnGrid({
-            dayIndex: dayIdx,
-            top: topPx,
-            height: bottomPx - topPx,
-            roleIds: avail.roleIds || [],
-            roleNames: avail.roleNames || avail.event_name || 'Saved Range',
-            building: avail.building || avail.location || '',
-            color: avail.color || '#4a90e2',
-            startTime: startTotalMins,
-            endTime: endTotalMins,
-            eventName: avail.event_name || ''
-        });
-    });
-}
-
-function setupDrawingListeners () {
-  const wrapper = document.getElementById('gridWrapper')
-  const overlay = document.getElementById('drawingOverlay')
-
-  wrapper.onmousedown = e => {
-    const cell = e.target.closest('.grid-cell-bg')
-    if (!cell) return
-    isDrawing = true
-    const rect = wrapper.getBoundingClientRect()
-    startDayIndex = parseInt(cell.dataset.day)
-    startY = e.clientY - rect.top
-    overlay.classList.remove('d-none')
-  }
-
-  window.onmousemove = e => {
-    if (!isDrawing) return
-    const rect = wrapper.getBoundingClientRect()
-    const currentY = e.clientY - rect.top
-    const top = Math.min(startY, currentY)
-    const height = Math.abs(currentY - startY)
-    const colWidth = (wrapper.offsetWidth - 60) / 7
-
-    overlay.style.top = top + 'px'
-    overlay.style.height = height + 'px'
-    overlay.style.left = 60 + startDayIndex * colWidth + 'px'
-    overlay.style.width = colWidth + 'px'
-  }
-
-  window.onmouseup = e => {
-    if (!isDrawing) return
-    isDrawing = false
-    document.getElementById('drawingOverlay').classList.add('d-none')
-    const rect = wrapper.getBoundingClientRect()
-    finalizeDrawing(startY, e.clientY - rect.top)
-  }
-}
-
-function finalizeDrawing (y1, y2) {
-  const top = Math.floor(Math.min(y1, y2) / 25) * 25
-  const bottom = Math.ceil(Math.max(y1, y2) / 25) * 25
-
-  // Minimal block size (15 mins)
-  if (bottom - top < 25) {
-    console.log('Block too small, minimum is 25px')
-    return
-  }
-
-  console.log('Opening modal for block:', {
-    dayIndex: startDayIndex,
-    top,
-    height: bottom - top
-  })
-
-  // Calculate time range
-  const startTotalMins = (top / 25) * 15 + window.START_HOUR * 60
-  const endTotalMins = startTotalMins + ((bottom - top) / 25) * 15
-
-  // Store pending block data and open modal
-  pendingBlockData = {
-    dayIndex: startDayIndex,
-    top: top,
-    height: bottom - top,
-    startTotalMins: startTotalMins,
-    endTotalMins: endTotalMins
-  }
-
-  // Display time range in modal
-  const timeDisplay = formatTimeRange(startTotalMins, endTotalMins)
-  const timeRangeEl = document.getElementById('timeRangeDisplay')
-  if (timeRangeEl) {
-    timeRangeEl.textContent = timeDisplay
-  }
-
-  // Open the modal
-  const modalElement = document.getElementById('eventModal')
-  if (!modalElement) {
-    console.error('Modal element not found!')
-    return
-  }
-
-  console.log('Modal element found, attempting to show')
-
-  if (typeof bootstrap !== 'undefined') {
-    console.log('Bootstrap available, using Modal API')
-    try {
-      const modal = new bootstrap.Modal(modalElement)
-      modal.show()
-    } catch (e) {
-      console.error('Bootstrap modal error:', e)
-      showModalFallback(modalElement)
-    }
-  } else {
-    console.log('Bootstrap not available, using fallback')
-    showModalFallback(modalElement)
-  }
-}
-
-function formatTimeRange (startMins, endMins) {
-  const toTimeStr = totalMins => {
-    const h = Math.floor(totalMins / 60)
-    const m = totalMins % 60
-    const period = h >= 12 ? 'PM' : 'AM'
-    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h
-    return `${displayH}:${m.toString().padStart(2, '0')} ${period}`
-  }
-  return `${toTimeStr(startMins)} - ${toTimeStr(endMins)}`
-}
-
-function showModalFallback (modalElement) {
-  modalElement.style.display = 'block'
-  modalElement.classList.add('show')
-  document.body.classList.add('modal-open')
-  document.body.style.overflow = 'hidden'
-  console.log('Modal shown with fallback')
-}
-
-function closeEventModal () {
-  const modalElement = document.getElementById('eventModal')
-  if (modalElement) {
-    if (typeof bootstrap !== 'undefined') {
-      try {
-        const modal = bootstrap.Modal.getInstance(modalElement)
-        if (modal) modal.hide()
-      } catch (e) {
-        hideModalFallback(modalElement)
+      let html = `
+                <div class="resize-handle top"></div>
+                <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+                <div class="event-content">
+                    <div class="event-title">${clipboardData.name}</div>
+                    <div class="event-time">${timeString}</div>`
+      if (clipboardData.loc) {
+        html += `<div class="event-loc">${clipboardData.loc}</div>`
       }
-    } else {
-      hideModalFallback(modalElement)
+      html += `</div>
+                <div class="resize-handle bottom"></div>`
+
+      newEvent.innerHTML = html
+      hoveredCol.appendChild(newEvent)
     }
   }
-  pendingBlockData = null
-}
+})
 
-function hideModalFallback (modalElement) {
-  modalElement.style.display = 'none'
-  modalElement.classList.remove('show')
-  document.body.classList.remove('modal-open')
-  document.body.style.overflow = 'auto'
-}
+// --- DRAG TO MOVE EXISTING EVENTS ---
 
-function confirmEventDetails () {
-  if (!pendingBlockData) return
+document.addEventListener('DOMContentLoaded', () => {
+  const gridBody = document.getElementById('gridBody')
 
-  const eventName = document.getElementById('modalEventName').value || 'Event'
-  const location = document.getElementById('modalLocation').value || 'Any'
+  // 1. Grab the event
+  // 1. Grab the event (UPDATED)
+  gridBody.addEventListener(
+    'mousedown',
+    e => {
+      if (e.target.closest('.delete-x')) return // Ignore delete button
 
-  renderBlockOnGrid({
-    dayIndex: pendingBlockData.dayIndex,
-    top: pendingBlockData.top,
-    height: pendingBlockData.height,
-    roleIds: [],
-    building: location,
-    color: '#4a90e2',
-    startTime: pendingBlockData.startTotalMins,
-    endTime: pendingBlockData.endTotalMins,
-    eventName: eventName
-  })
+      const eventBlock = e.target.closest('.event-block')
+      if (eventBlock && !eventBlock.classList.contains('temp')) {
+        // --- THE FIX ---
+        isDragging = false // Force "Create Mode" off immediately
+        e.stopPropagation() // Hide the click from the background column
+        // ---------------
 
-  // Close modal and reset
-  closeEventModal()
-  document.getElementById('modalEventName').value = ''
-  document.getElementById('modalLocation').value = ''
-}
+        isDraggingEvent = true
+        draggedEvent = eventBlock
 
-async function saveAll () {
-  const blocks = document.querySelectorAll('.pref-block')
-  const checkedRoles = document.querySelectorAll('.role-checkbox:checked')
+        // Record starting positions
+        dragStartY = e.clientY
+        eventStartTop = parseFloat(eventBlock.style.top) || 0
 
-  const payload = {
-    ranges: Array.from(blocks).map(block => ({
-      day: DAYS[Math.round(parseFloat(block.style.left) / (100 / 7))],
-      start: pixelsToTime(parseInt(block.style.top)),
-      end: pixelsToTime(
-        parseInt(block.style.top) + parseInt(block.style.height)
-      ),
-      building: block.dataset.building
-    })),
-    role_ids: Array.from(checkedRoles).map(cb => cb.value)
+        // Visual feedback
+        draggedEvent.style.opacity = '0.7'
+        draggedEvent.style.cursor = 'grabbing'
+        draggedEvent.classList.add('selected')
+
+        e.preventDefault()
+      }
+    },
+    true
+  ) // <-- 'true' intercepts the click before the column sees it
+})
+
+// 2. Move the event
+// 2. Move the event OR Draw a new event
+// document.addEventListener('mousemove', (e) => {
+
+//     // SCENARIO A: We are dragging an EXISTING event
+//     if (isDraggingEvent && draggedEvent) {
+//         const deltaY = e.clientY - dragStartY;
+//         let newTop = eventStartTop + deltaY;
+
+//         // Snap to grid (15 min intervals)
+//         newTop = Math.round(newTop / window.SLOT_HEIGHT) * window.SLOT_HEIGHT;
+
+//         // Prevent dragging above the top of the calendar
+//         if (newTop < 0) newTop = 0;
+
+//         draggedEvent.style.top = `${newTop}px`;
+
+//         // Move to a new day column if hovering over one
+//         if (hoveredCol && hoveredCol !== draggedEvent.parentElement) {
+//             hoveredCol.appendChild(draggedEvent);
+//         }
+//     }
+
+//     // SCENARIO B: We are drawing a NEW event (from scratch)
+//     if (isDragging && activeEvent && activeCol) {
+//         // 1. Get current mouse position relative to the column
+//         const rect = activeCol.getBoundingClientRect();
+//         let currentY = e.clientY - rect.top;
+
+//         // Constrain dragging so it doesn't break out of the calendar top/bottom
+//         currentY = Math.max(0, Math.min(currentY, rect.height));
+
+//         // 2. Calculate which 15-min slots we started in, and which one we are currently in
+//         const startSlot = Math.floor(startY / window.SLOT_HEIGHT);
+//         const currentSlot = Math.floor(currentY / window.SLOT_HEIGHT);
+
+//         // 3. The 'top' is ALWAYS whichever slot is higher up the page (the smaller number)
+//         const topSlot = Math.min(startSlot, currentSlot);
+
+//         // 4. The 'bottom' is ALWAYS whichever slot is further down the page (the larger number)
+//         const bottomSlot = Math.max(startSlot, currentSlot);
+
+//         // 5. Calculate the final pixels
+//         const newTop = topSlot * window.SLOT_HEIGHT;
+//         const newHeight = ((bottomSlot - topSlot) + 1) * window.SLOT_HEIGHT;
+
+//         // 6. Apply to the event block!
+//         activeEvent.style.top = `${newTop}px`;
+//         activeEvent.style.height = `${newHeight}px`;
+//     }
+// });
+// 3. Drop the event (UNIFIED MOUSEUP)
+document.addEventListener('mouseup', () => {
+  // Scenario 1: We were dragging an EXISTING event
+  if (isDraggingEvent && draggedEvent) {
+    draggedEvent.style.opacity = ''
+    draggedEvent.style.cursor = 'grab'
+
+    updateEventTimeText(draggedEvent)
+
+    isDraggingEvent = false
+    draggedEvent = null
+
+    return // <-- Prevents the New Shift modal
+  }
+
+  // Scenario 2: We were drawing a NEW event
+  if (isDragging) {
+    isDragging = false
+    openModal()
+  }
+})
+
+// --- HELPER: UPDATE TIME TEXT AFTER DRAG ---
+function updateEventTimeText (block) {
+  const topPx = parseFloat(block.style.top)
+  const heightPx = parseFloat(block.style.height)
+
+  const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+  const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
+
+  const startMin = startSlotIndex * 15 + window.START_HOUR * 60
+  const endMin = startMin + slotsCount * 15
+
+  const timeDiv = block.querySelector('.event-time')
+  if (timeDiv) {
+    timeDiv.textContent = `${formatMin(startMin)} - ${formatMin(endMin)}`
   }
 }
 
-function renderBlockOnGrid(data) {
-  const layer = document.getElementById('blocks-layer');
-  const block = document.createElement('div');
-  block.className = 'pref-block';
+// 4. Function to open the Edit Modal
+function openEditModal (block) {
+  // Re-use activeEvent so your existing saveEvent() handles the overwrite automatically
+  activeEvent = block
 
-  block.dataset.startTime = data.startTime;
-  block.dataset.endTime = data.endTime;
-  block.dataset.building = data.building;
-  block.dataset.eventName = data.eventName || '';
-  block.dataset.roleIds = JSON.stringify(data.roleIds || []);
+  const modal = document.getElementById('eventModal')
+  modal.classList.add('show')
 
-  block.style.top = data.top + 'px';
-  block.style.height = data.height + 'px';
-  block.style.left = (data.dayIndex * (100 / 7)) + '%';
-  block.style.width = (100 / 7) + '%'; // Ensures the block fills the column width
-  block.style.backgroundColor = data.color || '#4a90e2';
+  // Extract existing text
+  const title = block.querySelector('.event-title').textContent
+  const locNode = block.querySelector('.event-loc')
+  const loc = locNode ? locNode.textContent : ''
 
-  block.innerHTML = `
-        <button class="delete-btn" onclick="this.parentElement.remove()">×</button>
-        <button class="clone-btn" onclick="duplicateBlock(this.parentElement)" 
-                style="position:absolute; right:5px; bottom:2px; background:none; border:none; color:white; font-size:12px; cursor:pointer;">📋</button>
-        <div style="padding: 2px; height:100%;" onmousedown="initMove(event, this.parentElement)">
-            <div class="fw-bold" style="font-size: 10px;">${data.eventName || 'Event'}</div>
-            <div style="font-size: 9px;">${data.building}</div>
-            <div class="block-time-label" style="font-size: 8px; color: rgba(255,255,255,0.9);">
-                ${formatTimeRange(data.startTime, data.endTime)}
-            </div>
-        </div>
-    `;
-  layer.appendChild(block);
+  // Populate Inputs
+  document.getElementById('modalEventName').value = title
+  document.getElementById('modalLocation').value = loc
+
+  // Calculate & Display Times
+  const topPx = parseFloat(block.style.top)
+  const heightPx = parseFloat(block.style.height)
+  const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+  const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
+
+  currentStartMin = startSlotIndex * 15 + window.START_HOUR * 60
+  currentEndMin = currentStartMin + slotsCount * 15
+
+  document.getElementById('modalTimeDisplay').textContent = `${formatMin(
+    currentStartMin
+  )} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`
 }
-
-// Function to copy an existing block
-function duplicateBlock(blockElement) {
-    const data = {
-        dayIndex: Math.min(6, (Math.round(parseFloat(blockElement.style.left) / (100 / 7)) + 1)), // Move one day to the right
-        top: parseInt(blockElement.style.top),
-        height: parseInt(blockElement.style.height),
-        startTime: blockElement.dataset.startTime,
-        endTime: blockElement.dataset.endTime,
-        eventName: blockElement.dataset.eventName,
-        building: blockElement.dataset.building,
-        color: blockElement.style.backgroundColor,
-        roleIds: JSON.parse(blockElement.dataset.roleIds || "[]")
-    };
-    renderBlockOnGrid(data);
-}
-
-// availability.js
-
-function initMove(e, block) {
-    e.stopPropagation(); // Prevents triggering the background grid drawing
-    
-    const layer = document.getElementById('blocks-layer');
-    const rect = layer.getBoundingClientRect();
-    const colWidth = rect.width / 7; // Precise width of one day column
-
-    let startX = e.clientX;
-    let startY = e.clientY;
-    
-    // Get starting positions (fallback to 0 if not set)
-    let originalTop = parseInt(block.style.top) || 0;
-    let originalLeftPercent = parseFloat(block.style.left) || 0;
-    let originalDayIdx = Math.round(originalLeftPercent / (100 / 7));
-
-    function onMouseMove(e) {
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-
-        // 1. Calculate Day Shift (Horizontal)
-        const dayShift = Math.round(deltaX / colWidth);
-        const newDayIdx = Math.max(0, Math.min(6, originalDayIdx + dayShift));
-        
-        // 2. Calculate Top Shift (Vertical snapping to 25px)
-        const newTop = Math.max(0, Math.round((originalTop + deltaY) / 25) * 25);
-
-        // 3. Apply Styles (Crucial: use percentages for left to maintain responsiveness)
-        block.style.top = newTop + 'px';
-        block.style.left = (newDayIdx * (100 / 7)) + '%';
-
-        // 4. Update Time Data in dataset
-        const startMins = (newTop / 25) * 15 + (window.START_HOUR * 60);
-        const heightPx = parseInt(block.style.height);
-        const endMins = startMins + (heightPx / 25) * 15;
-
-        block.dataset.startTime = startMins;
-        block.dataset.endTime = endMins;
-
-        // 5. Update the visible text inside the block
-        const timeLabel = block.querySelector('.block-time-label');
-        if (timeLabel) {
-            timeLabel.textContent = formatTimeRange(startMins, endMins);
-        }
-    }
-
-    function onMouseUp() {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-}
-
-/**
- * Collects all blocks and POSTs them to Django
- */
-document
-  .getElementById('saveAllBtn')
-  .addEventListener('click', saveAllPreferences)
 
 async function saveAllPreferences () {
-  const blocks = document.querySelectorAll('.pref-block')
-  const checkedRoles = document.querySelectorAll('.role-checkbox:checked')
+  console.log(window.TEAM_ID)
+  const events = document.querySelectorAll('.event-block:not(.temp)')
+  const eventData = []
+  events.forEach(ev => {
+    const day = ev.parentElement.dataset.day
+    const topPx = parseFloat(ev.style.top)
+    const heightPx = parseFloat(ev.style.height)
 
-  // Helper function to convert minutes to 24-hour HH:MM format for Django
-  const toTimeStr24 = totalMins => {
-    const h = Math.floor(totalMins / 60)
-    const m = totalMins % 60
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-  }
+    const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+    const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
 
-  // 1. Prepare the Data Payload
-  const payload = {
-    role_ids: Array.from(checkedRoles).map(cb => cb.value),
-    ranges: Array.from(blocks).map(block => {
-      // Get Day Index from left percentage (e.g., "14.28%")
-      const leftPercent = parseFloat(block.style.left)
-      const dayIdx = Math.round(leftPercent / (100 / 7))
+    const startMin = startSlotIndex * 15 + window.START_HOUR * 60
+    const endMin = startMin + slotsCount * 15
 
-      // Use stored time data instead of recalculating from pixels!
-      const startTotalMins = block.dataset.startTime
-      const endTotalMins = block.dataset.endTime
-      console.log('Block data for payload:', {
-        day: DAYS[dayIdx],
-        startTotalMins,
-        endTotalMins,
-        building: block.dataset.building,
-        eventName: block.dataset.eventName || ''
-      })
-
-      return {
-        day: DAYS[dayIdx],
-        start: toTimeStr24(startTotalMins), // Changed to 24-hour format
-        end: toTimeStr24(endTotalMins), // Changed to 24-hour format
-        building: block.dataset.building,
-        eventName: block.dataset.eventName || '',
-        location: block.dataset.building
-      }
+    eventData.push({
+      name: ev.querySelector('.event-title').textContent,
+      location: ev.querySelector('.event-loc')
+        ? ev.querySelector('.event-loc').textContent
+        : '',
+      day: parseInt(day),
+      start_min: startMin,
+      end_min: endMin
     })
-  }
+  })
 
-  // 2. Send to Django
   try {
     const response = await fetch(
       `/api/team/${window.TEAM_ID}/save-availability/`,
@@ -415,23 +347,26 @@ async function saveAllPreferences () {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ events: eventData })
       }
     )
-
-    if (response.ok) {
-      alert('All preferences saved successfully!')
-    } else {
-      const errorData = await response.json()
-      alert('Error: ' + errorData.message)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-  } catch (err) {
-    console.error('Save failed:', err)
-    alert('Server error. Check console.')
+
+    // SHOW THE POPUP ON SUCCESS
+    document.getElementById('savePopupModal').classList.add('show')
+  } catch (error) {
+    console.error('Error saving events:', error)
+    alert('There was an error saving the schedule. Please try again.')
   }
 }
 
-// Helper to get CSRF token from cookies
+// Function to close the success popup
+function closeSavePopup () {
+  document.getElementById('savePopupModal').classList.remove('show')
+}
+
 function getCookie (name) {
   let cookieValue = null
   if (document.cookie && document.cookie !== '') {
@@ -447,19 +382,293 @@ function getCookie (name) {
   return cookieValue
 }
 
-function styleModalElements () {
-  // Style input fields with black border
-  const inputs = document.querySelectorAll('#modalEventName, #modalLocation')
-  inputs.forEach(input => {
-    input.style.borderColor = '#000'
-    input.style.borderWidth = '2px'
+function initLayout () {
+  fitGridToContainer()
+  drawTimeLabels()
+}
+
+function addSavedEventsToGrid () {
+  if (!window.SAVED_AVAILABILITY) return
+
+  // 1. Map string days (from DB) to integer indices (for HTML)
+  const dayStringToInt = {
+    sun: 0,
+    mon: 1,
+    tue: 2,
+    wed: 3,
+    thu: 4,
+    fri: 5,
+    sat: 6
+  }
+
+  window.SAVED_AVAILABILITY.forEach(item => {
+    // 2. Find the correct column
+    const dayKey = (item.day || '').toLowerCase()
+    const dayIndex = dayStringToInt[dayKey]
+
+    if (dayIndex === undefined) return // Skip invalid days
+    const dayCol = document.querySelector(`.day-col[data-day="${dayIndex}"]`)
+    if (!dayCol) return
+
+    // 3. Calculate Time (This defines topPx and heightPx)
+    const startParts = item.start.split(':')
+    const endParts = item.end.split(':')
+
+    // Convert "09:30" or "19:45" to total minutes from midnight
+    const startMin = parseInt(startParts[0]) * 60 + parseInt(startParts[1])
+    const endMin = parseInt(endParts[0]) * 60 + parseInt(endParts[1])
+
+    // Adjust relative to the start of the calendar (e.g. 8:00 AM)
+    const totalStartMin = startMin - START_HOUR * 60
+    const totalEndMin = endMin - START_HOUR * 60
+
+    if (totalStartMin < 0) return // Skip events before start time
+
+    // Calculate Pixel Position
+    const topPx = (totalStartMin / 15) * SLOT_HEIGHT
+    const heightPx = ((totalEndMin - totalStartMin) / 15) * SLOT_HEIGHT
+
+    // 4. Create the Element
+    const eventBlock = document.createElement('div')
+    eventBlock.className = 'event-block'
+    eventBlock.style.top = `${topPx}px`
+    eventBlock.style.height = `${heightPx}px`
+
+    const loc = item.building || item.location || ''
+
+    // 5. Set HTML (Including the Delete 'X' button)
+    // 🔥 THE FIX IS HERE: We swapped ${item.start} for ${formatMin(startMin)}
+    eventBlock.innerHTML = `
+            <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+            <div class="event-content">
+                <div class="event-title">${item.name || 'Busy'}</div>
+                <div class="event-time">${formatMin(startMin)} - ${formatMin(
+      endMin
+    )}</div>
+                ${loc ? `<div class="event-loc">${loc}</div>` : ''}
+            </div>`
+
+    dayCol.appendChild(eventBlock)
+  })
+}
+// 1. CALCULATE PERFECT FIT
+function fitGridToContainer () {
+  const container = document.getElementById('scrollContainer')
+  const availableHeight = container.clientHeight
+
+  const totalHours = END_HOUR - START_HOUR
+  const totalSlots = totalHours * 4 // 15 min slots
+
+  // Calculate height per slot
+  SLOT_HEIGHT = availableHeight / totalSlots
+
+  // Set CSS variable for background lines
+  document.documentElement.style.setProperty(
+    '--slot-height',
+    `${SLOT_HEIGHT}px`
+  )
+}
+
+function removeEventBlock (e, xButton) {
+  // 1. Stop the click from passing through to the event block
+  // (This prevents the Modal from opening when you just want to delete)
+  e.stopPropagation()
+
+  // 2. Optional: Confirm dialog
+  if (!confirm('Remove this shift?')) return
+
+  // 3. Find the parent event-block and remove it
+  const block = xButton.closest('.event-block')
+  if (block) {
+    block.remove()
+  }
+}
+
+// 2. DRAW TIME LABELS
+function drawTimeLabels () {
+  const timeCol = document.getElementById('timeColumn')
+  timeCol.innerHTML = '' // Clear
+
+  const totalHours = END_HOUR - START_HOUR
+
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    // Don't draw the very last label at the bottom edge if it looks messy
+    if (h === END_HOUR) continue
+
+    const label = document.createElement('div')
+    label.className = 'time-label'
+
+    const suffix = h >= 12 ? 'PM' : 'AM'
+    const displayH = h > 12 ? h - 12 : h === 0 || h === 12 || h === 24 ? 12 : h
+    label.textContent = `${displayH} ${suffix}`
+
+    // Position based on percentage
+    const percentTop = ((h - START_HOUR) / totalHours) * 100
+    label.style.top = `${percentTop}%`
+
+    timeCol.appendChild(label)
+  }
+}
+
+// 3. DRAG & DROP LOGIC
+function setupDragListeners () {
+  const dayCols = document.querySelectorAll('.day-col')
+
+  // 1. MOUSEDOWN (Keep exactly as you have it)
+  dayCols.forEach(col => {
+    col.addEventListener('mousedown', e => {
+      if (e.target.closest('.event-block')) return // Ignore clicks on events
+
+      isDragging = true
+      activeCol = e.target.closest('.day-col')
+
+      const rect = activeCol.getBoundingClientRect()
+      startY = e.clientY - rect.top // <-- This is perfect
+      const relativeY = e.clientY - rect.top
+
+      // Snap to grid
+      startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT
+
+      // Visual feedback
+      activeEvent = document.createElement('div')
+      activeEvent.className = 'event-block temp'
+      activeEvent.style.top = `${startTop}px`
+      activeEvent.style.height = `${SLOT_HEIGHT}px`
+      activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
+
+      col.appendChild(activeEvent)
+    })
   })
 
-  // Style modal content with blue border and white background
-  const modalContent = document.querySelector('#eventModal .modal-content')
-  if (modalContent) {
-    modalContent.style.borderColor = '#0066cc'
-    modalContent.style.borderWidth = '3px'
-    modalContent.style.backgroundColor = '#ffffff'
+  // 👇 2. MOUSEMOVE (REPLACE YOUR OLD ONE WITH THIS) 👇
+  // 👑 THE MASTER MOUSEMOVE LISTENER 👑
+  document.addEventListener('mousemove', e => {
+    // --- JOB 1: Track hovering for pasting ---
+    const col = e.target.closest('.day-col')
+    if (col) {
+      hoveredCol = col
+      const rect = col.getBoundingClientRect()
+      hoverY = e.clientY - rect.top
+    } else {
+      hoveredCol = null
+    }
+
+    // --- JOB 2: Dragging an EXISTING event ---
+    if (isDraggingEvent && draggedEvent) {
+      const deltaY = e.clientY - dragStartY
+      let newTop = eventStartTop + deltaY
+
+      // Snap to grid (15 min intervals)
+      newTop = Math.round(newTop / window.SLOT_HEIGHT) * window.SLOT_HEIGHT
+
+      // Prevent dragging above the top of the calendar
+      if (newTop < 0) newTop = 0
+
+      draggedEvent.style.top = `${newTop}px`
+
+      // Move to a new day column if hovering over one
+      if (hoveredCol && hoveredCol !== draggedEvent.parentElement) {
+        hoveredCol.appendChild(draggedEvent)
+      }
+    }
+
+    // --- JOB 3: Drawing a NEW event (Up & Down!) ---
+    if (isDragging && activeEvent && activeCol) {
+      const rect = activeCol.getBoundingClientRect()
+      let currentY = e.clientY - rect.top
+
+      // Constrain dragging so it doesn't break out of the calendar
+      currentY = Math.max(0, Math.min(currentY, rect.height))
+
+      // Figure out grid slots
+      const startSlot = Math.floor(startY / window.SLOT_HEIGHT)
+      const currentSlot = Math.floor(currentY / window.SLOT_HEIGHT)
+
+      // Math.min/max automatically handles dragging UP or DOWN
+      const topSlot = Math.min(startSlot, currentSlot)
+      const bottomSlot = Math.max(startSlot, currentSlot)
+
+      // Apply the math to the visual block
+      const newTop = topSlot * window.SLOT_HEIGHT
+      const newHeight = (bottomSlot - topSlot + 1) * window.SLOT_HEIGHT
+
+      activeEvent.style.top = `${newTop}px`
+      activeEvent.style.height = `${newHeight}px`
+    }
+  })
+}
+
+// 4. MODAL & SAVE LOGIC
+function openModal () {
+  const modal = document.getElementById('eventModal')
+  modal.classList.add('show')
+
+  document.getElementById('modalEventName').value = ''
+  document.getElementById('modalLocation').value = ''
+  document.getElementById('modalEventName').focus()
+
+  // Calculate Times for Display
+  const topPx = parseFloat(activeEvent.style.top)
+  const heightPx = parseFloat(activeEvent.style.height)
+
+  const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
+  const slotsCount = Math.round(heightPx / SLOT_HEIGHT)
+
+  currentStartMin = startSlotIndex * 15 + START_HOUR * 60
+  currentEndMin = currentStartMin + slotsCount * 15
+
+  document.getElementById('modalTimeDisplay').textContent = `${formatMin(
+    currentStartMin
+  )} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`
+}
+
+function closeModal () {
+  document.getElementById('eventModal').classList.remove('show')
+  if (activeEvent && activeEvent.classList.contains('temp')) {
+    activeEvent.remove()
   }
+  activeEvent = null
+}
+
+function saveEvent () {
+  // ... existing variable definitions ...
+  const name = document.getElementById('modalEventName').value || 'Shift'
+  const location = document.getElementById('modalLocation').value
+  const timeString = `${formatMin(currentStartMin)} - ${formatMin(
+    currentEndMin
+  )}`
+
+  // ... size calculations ...
+  const heightPx = parseFloat(activeEvent.style.height)
+  const isSmall = heightPx < SLOT_HEIGHT * 2.5
+
+  if (activeEvent) {
+    activeEvent.classList.remove('temp')
+
+    // UPDATED HTML STRING BELOW:
+    let html = `
+            <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+            <div class="event-content">
+                <div class="event-title">${name}</div>
+                <div class="event-time">${timeString}</div>`
+
+    if (!isSmall && location) {
+      html += `<div class="event-loc">${location}</div>`
+    }
+
+    html += `</div>`
+    activeEvent.innerHTML = html
+  }
+
+  document.getElementById('eventModal').classList.remove('show')
+  activeEvent = null
+}
+
+function formatMin (totalMinutes) {
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const displayH = h > 12 ? h - 12 : h === 0 || h === 12 || h === 24 ? 12 : h
+  const displayM = m < 10 ? '0' + m : m
+  return `${displayH}:${displayM} ${suffix}`
 }

@@ -1,25 +1,64 @@
-{% load static %}
 <!DOCTYPE html>
-<html>
+{% load static %}
+<html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}Coorda{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/nav.css' %}">
     {% block extra_css %}{% endblock %}
+    {% block head_scripts %}{% endblock %}
 </head>
 
 <body>
+    {% block navbar %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const profileContainer = document.querySelector('.user-profile-container')
 
-{% if user.is_authenticated %}
-<form method="post" action="{% url 'logout' %}" style="padding: 10px;">
-    {% csrf_token %}
-    <button type="submit" class="secondary">Logout</button>
-</form>
-{% endif %}
+            profileContainer.addEventListener('click', (e) => {
+                profileContainer.classList.toggle('active')
+                e.stopPropagation()
+            })
 
-{% block content %}{% endblock %}
-
-<script src="{% static 'js/app.js' %}"></script>
-{% block extra_js %}{% endblock %}
+            // Close when clicking anywhere else on the page
+            document.addEventListener('click', () => {
+                profileContainer.classList.remove('active')
+            })
+        })
+    </script>
+    <nav class="navbar">
+        <div class="brand">Coorda</div>
+        <div class="nav-links">
+            <a href="{% url 'dashboard2' %}" aria-label="Home" title="Home">
+                <i class="fa-solid fa-house"></i>
+            </a>
+            <div class="icon-group">
+                <i class="fa-regular fa-bell"></i>
+            </div>
+            <div class="user-profile-container">
+                <div class="user-profile">
+                    <span>{{ user.first_name|default:user.username }}</span>
+                    <i class="fa-regular fa-circle-user"></i>
+                </div>
+                <div class="profile-dropdown">
+                    <a href="#">Account Details</a>
+                    <form method="post" action="{% url 'logout' %}" class="logout-form">
+                        {% csrf_token %}
+                        <button type="submit">
+                            <span>Logout</span>
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endblock %}
+    {% block content %}{% endblock %}
 </body>
+
 </html>

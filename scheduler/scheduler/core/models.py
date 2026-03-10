@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import UniqueConstraint
 import uuid
+
 
 # Team Model
 class Team(models.Model):
@@ -12,7 +14,9 @@ class Team(models.Model):
 
     # The supervisor -- will want to update to allow multiple supervisors in one team
     # currently, one team can have one owner -- if owner is deleted, so is team
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_teams")
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="owned_teams"
+    )
 
     # The workers -- many workers in one team is possible
     members = models.ManyToManyField(User, related_name="joined_teams", blank=True)
@@ -21,6 +25,7 @@ class Team(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -36,14 +41,18 @@ class Room(models.Model):
     def __str__(self):
         return self.name
 
+
 class RoomAvailability(models.Model):
-    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="availability_slots")
-    day = models.CharField(max_length=10) # 'mon', 'tue', etc.
+    room = models.ForeignKey(
+        Room, on_delete=models.CASCADE, related_name="availability_slots"
+    )
+    day = models.CharField(max_length=10)  # 'mon', 'tue', etc.
     start_time = models.TimeField()
     end_time = models.TimeField()
 
     def __str__(self):
         return f"{self.room.name} ({self.day}): {self.start_time}-{self.end_time}"
+
 
 # worker's role defined by supervisor
 class Role(models.Model):
@@ -55,16 +64,19 @@ class Role(models.Model):
     # requires role to be unique within the team (no duplicate roles)
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["team", "name"], name="uniq_role_name_per_team")
+            models.UniqueConstraint(
+                fields=["team", "name"], name="uniq_role_name_per_team"
+            )
         ]
 
     def __str__(self):
         return f"{self.name} ({self.team.name})"
 
+
 class AvailabilityRange(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    day = models.CharField(max_length=10) # 'mon', 'tue', 'wed', etc.
+    day = models.CharField(max_length=10)  # 'mon', 'tue', 'wed', etc.
     start_time = models.TimeField()
     end_time = models.TimeField()
     building = models.CharField(max_length=100, blank=True)
@@ -73,6 +85,7 @@ class AvailabilityRange(models.Model):
     def __str__(self):
         return f"{self.user.username}: {self.day} {self.start_time}-{self.end_time}"
 
+
 class UserRolePreference(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
@@ -80,50 +93,77 @@ class UserRolePreference(models.Model):
     roles = models.ManyToManyField(Role, blank=True)
 
     class Meta:
-        unique_together = ('user', 'team') # One set of preferences per user/team
+        unique_together = ("user", "team")  # One set of preferences per user/team
 
     def __str__(self):
         return f"{self.user.username} Roles for {self.team.name}"
 
-# defined event by a supervisor
-class Shift(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True)
 
-    # NEW: Link the shift to a room
-    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='shifts')
-
-    day = models.CharField(max_length=5)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
-
-    def __str__(self):
-        room_info = f" at {self.room.name}" if self.room else ""
-        return f"SHIFT: {self.user.username} ({self.role}){room_info}"
-
-# assign roles to workers
-class TeamRoleAssignment(models.Model):
-    team = models.ForeignKey("Team", on_delete=models.CASCADE, related_name="role_assignments")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="team_role_assignments")
-    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="assignments")
-    assigned_at = models.DateTimeField(auto_now_add=True)
+class Schedule(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="schedules")
+    name = models.CharField(max_length=100, default="Default")
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["team", "user"], name="uniq_role_assignment")
+            models.UniqueConstraint(
+                fields=["team", "name"], name="uniq_schedule_per_team"
+            )
         ]
 
     def __str__(self):
-        return f"{self.team.name}: {self.user.username} -> {self.role.name}"
+        return f"{self.team.name} - {self.name}"
+
+
+class Shift(models.Model):
+    schedule = models.ForeignKey(
+        Schedule, on_delete=models.CASCADE, related_name="shifts"
+    )
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="shifts")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shifts")
+    role = models.ForeignKey(
+        Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
+    )
+    room = models.ForeignKey(
+        Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
+    )
+    day = models.CharField(max_length=3)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role} ({self.day})"
+
+
+class RoleSection(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="sections")
+    name = models.CharField(max_length=20)  # e.g. "001", "002"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["role", "name"], name="unique_role_section")
+        ]
+
+
+class TeamRoleAssignment(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="team_role_assignments"
+    )
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)
+    section = models.ForeignKey(
+        RoleSection, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
 
 class TeamEvent(models.Model):
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='events')
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="events")
     # Change 'name' or keep it for the event title, but add 'room'
-    name = models.CharField(max_length=100) # e.g., "Weekly Sync" or "Chem 101 Lab"
-    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
+    name = models.CharField(max_length=100)  # e.g., "Weekly Sync" or "Chem 101 Lab"
+    room = models.ForeignKey(
+        Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="events"
+    )
     day = models.CharField(max_length=10)
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -131,3 +171,36 @@ class TeamEvent(models.Model):
     def __str__(self):
         room_name = self.room.name if self.room else "No Room"
         return f"{self.name} in {room_name} on {self.day}"
+
+
+class FixedObstruction(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)
+    section = models.CharField(
+        max_length=20, blank=True, null=True
+    )  # None = applies to ALL sections
+    name = models.CharField(max_length=100)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.name} ({self.role.name if self.role else 'No Role'})"
+
+
+class ObstructionDay(models.Model):
+    DAY_CHOICES = [
+        ("sun", "Sunday"),
+        ("mon", "Monday"),
+        ("tue", "Tuesday"),
+        ("wed", "Wednesday"),
+        ("thu", "Thursday"),
+        ("fri", "Friday"),
+        ("sat", "Saturday"),
+    ]
+    obstruction = models.ForeignKey(
+        FixedObstruction, on_delete=models.CASCADE, related_name="days"
+    )
+    day = models.CharField(max_length=3, choices=DAY_CHOICES)
+
+    def __str__(self):
+        return f"{self.obstruction.name} - {self.day}"
