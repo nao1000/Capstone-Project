@@ -1,50 +1,703 @@
-.bg-success-soft { background-color: #e8f5e9; }
-.bg-warning-soft { background-color: #fff3e0; }
-
-.supervisor-dashboard .card {
-    border: none;
-    border-radius: 8px;
+:root {
+    --header-bg: #7a92ac;
+    --primary-blue: #7393B3;
+    --dark-blue: #5a7a9a;
+    --bg-main: #ffffff;
+    --text-main: #333;
+    --border-color: #e0e0e0;
 }
 
-.supervisor-dashboard .table thead th {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #6c757d;
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #fff;
+    color: var(--text-main);
 }
 
-.badge {
-    padding: 0.5em 0.8em;
+/* NAVBAR */
+.navbar {
+    background-color: var(--header-bg);
+    height: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 40px;
+    color: white;
+}
+
+.brand {
+    font-size: 24px;
     font-weight: 500;
 }
 
-/* Custom Role Tags */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 400;
+}
+
+/* Home icon link */
+.nav-links a[aria-label="Home"] i {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+}
+
+.user-profile i {
+    font-size: 26px;
+    font-weight: 90;
+    /* Makes the icon lines thinner */
+}
+
+.user-profile-container {
+    position: relative;
+    cursor: pointer;
+}
+
+.profile-dropdown {
+    display: none;
+    position: absolute;
+    top: 120%;
+    /* A little space from the navbar */
+    right: 0;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 180px;
+    z-index: 100;
+    padding: 8px;
+    color: var(--text-main);
+}
+
+.user-profile-container:hover .profile-dropdown,
+.user-profile-container.active .profile-dropdown {
+    display: block;
+}
+
+.profile-dropdown a,
+.profile-dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    text-decoration: none;
+    color: var(--text-main);
+    font-size: 15px;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.profile-dropdown a:hover,
+.profile-dropdown button:hover {
+    background-color: #f0f4f8;
+}
+
+.logout-form {
+    margin: 0;
+}
+
+.profile-dropdown button span {
+    flex-grow: 1;
+}
+
+.icon-group {
+    font-size: 22px;
+    cursor: pointer;
+}
+
+/* MAIN LAYOUT */
+.main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px;
+}
+
+.time-range-text {
+    font-size: 10px;
+    color: #166534;
+    pointer-events: none;
+    /* Prevents text from interfering with drags */
+    white-space: nowrap;
+    overflow: wrap;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+}
+
+h1 {
+    font-weight: 400;
+    margin-bottom: 20px;
+    font-size: 32px;
+}
+
+.divider {
+    border: 0;
+    border-top: 2px solid #333;
+    margin: 40px 0;
+}
+
+/* CONTROLS & INPUTS */
+.controls-row {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.search-wrapper {
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 300px;
+}
+
+.search-wrapper input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--dark-blue);
+}
+
+.btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #d0d0d0;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+/* TABLE STYLES */
+.table-card {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+}
+
+th {
+    text-align: left;
+    padding: 12px 10px;
+    border-bottom: 2px solid #eee;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+th i {
+    font-size: 12px;
+    color: #999;
+    margin-left: 5px;
+}
+
+td {
+    padding: 15px 10px;
+    border-bottom: 1px solid #eee;
+    color: #444;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.inactive {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+}
+
+/* DASHBOARD GRID (BOTTOM HALF) */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+}
+
+.col-left {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    /* add this */
+}
+
+.day-checkbox-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.day-check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    background: #f0f4f8;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid #dae1e7;
+    user-select: none;
+}
+
+.day-check input[type="checkbox"] {
+    accent-color: var(--primary-blue);
+}
+
+.field-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.time-range-group {
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 25px;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.card h3 {
+    margin-top: 0;
+    font-weight: 500;
+    font-size: 22px;
+}
+
+.card p {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+/* Role Tags */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .role-tag {
+    background: #f0f4f8;
+    color: #334e68;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #dae1e7;
+}
+
+.role-tag i {
+    cursor: pointer;
+    font-size: 11px;
+    color: #888;
+}
+
+.role-tag i:hover {
+    color: #d32f2f;
+}
+
+.role-selector {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: #f9f9f9;
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+}
+
+.role-selector:focus {
+    border-color: var(--primary-blue);
+}
+
+/* Placeholder Box */
+.placeholder-box {
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #fafafa;
+    border: 2px dashed #ccc;
+}
+
+.empty-state {
+    text-align: center;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+/* MODAL STYLES */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    background: var(--header-bg);
+    color: white;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px 25px 10px 25px;
+}
+
+.modal-footer {
+    padding: 15px 25px;
+    background: #f9f9f9;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #eee;
+}
+
+/* ROOM SCHEDULER STYLES */
+:root {
+    --slot-height: 10px;
+    /* Shrink 15 min slots to 10px */
+    --pixels-per-hour: 40px;
+    /* Shrink 1 hour to 40px */
+}
+
+.room-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.room-controls select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.calendar-container {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+.calendar-header {
+    display: flex;
+    background: #f1f1f1;
+    border-bottom: 1px solid #ddd;
+}
+
+.time-spacer {
+    width: 60px;
+    border-right: 1px solid #ddd;
+}
+
+.day-header {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 13px;
+    border-right: 1px solid #ddd;
+}
+
+.day-header:last-child {
+    border-right: none;
+}
+
+.calendar-body {
+    display: flex;
+    position: relative;
+    /* Height calculation: (18 - 8) hours * 40px = 400px */
+    height: 400px;
+    max-height: 400px;
+    /* Forces the container to stop at the last line */
+    overflow-y: hidden;
+    /* Removes the scrollbar if you want a fixed, cropped look */
+    background: white;
+    user-select: none;
+    align-items: stretch;
+}
+
+
+.time-col {
+    width: 60px;
+    border-right: 1px solid #ddd;
+    position: relative;
+    /* Change background to grey for the whole column */
+    background: #f1f1f1;
+}
+
+
+.time-label {
+    position: absolute;
+    right: 10px;
+    font-size: 8px;
+    color: #666;
+    transform: translateY(-50%);
+}
+
+.grid-lines {
+    position: absolute;
+    top: 0;
+    left: 60px;
+    right: 0;
+    bottom: 0;
+    background-image:
+        linear-gradient(to right, #eee 1px, transparent 1px),
+        linear-gradient(to bottom, #eee 1px, transparent 1px);
+    /* Changed from --pixels-per-hour to --slot-height */
+    pointer-events: none;
+    z-index: 1;
+    background-size: calc(100% / 7) var(--slot-height);
+}
+
+.day-col {
+    flex: 1;
+    position: relative;
+    border-right: 1px solid #ddd;
+    z-index: 2;
+    cursor: crosshair;
+}
+
+.day-col:last-child {
+    border-right: none;
+}
+
+.room-block {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    background-color: #dcfce7;
+    border-left: 4px solid #22c55e;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #166534;
+    font-weight: 600;
+}
+
+/* Floating, circular delete button so it doesn't get squished by 10px blocks */
+.room-block .delete-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #fff;
+    border: 1px solid #166534;
+    border-radius: 50%;
+    color: #166534;
+    cursor: pointer;
+    font-size: 10px;
+    width: 16px;
+    height: 16px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.room-block:hover .delete-btn {
+    display: flex;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .table-card {
+        overflow-x: scroll;
+    }
+}
+
+.role-block {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.role-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.role-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.section-tag {
     display: inline-flex;
     align-items: center;
-    background-color: #e0f2fe; /* Light blue */
-    color: #0369a1;            /* Dark blue text */
-    padding: 4px 10px;
-    border-radius: 16px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid #bae6fd;
-    transition: all 0.2s ease;
+    gap: 4px;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px;
 }
 
-.role-tag:hover {
-    background-color: #bae6fd;
-}
-
-.delete-role-btn {
-    margin-left: 8px;
+.section-tag i {
     cursor: pointer;
-    font-size: 1.2rem;
-    line-height: 1;
-    color: #7dd3fc;
-    transition: color 0.2s;
+    opacity: 0.6;
 }
 
-.delete-role-btn:hover {
-    color: #0369a1; /* Darkens on hover */
+.section-tag i:hover {
+    opacity: 1;
+    color: #ef4444;
 }

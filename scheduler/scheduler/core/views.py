@@ -13,12 +13,16 @@ from .models import (
     AvailabilityRange,
     Role,
     Shift,
+    Schedule,
     Team,
     TeamRoleAssignment,
     TeamEvent,
     UserRolePreference,
     Room,
     RoomAvailability,
+    FixedObstruction,
+    ObstructionDay,
+    RoleSection
 )
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
@@ -267,11 +271,55 @@ def scheduler_view(request, team_id):
         )
     )
 
+    # Reuse the same queryset - no extra query needed
+    role_assignments = TeamRoleAssignment.objects.filter(team=team).select_related(
+        "role"
+    )
+    role_map = {ra.user_id: ra.role_id for ra in role_assignments}
+    section_map = {
+    a.user_id: a.section.name if a.section else None
+    for a in TeamRoleAssignment.objects.filter(team=team).select_related('section')
+}
+    workers_json = json.dumps(
+        [
+            {
+                "id": str(w.id),
+                "name": w.get_full_name() or w.username,
+                "role_id": role_map.get(
+                    w.id
+                ), 
+                'section': section_map.get(w.id)
+            }
+            for w in workers
+        ]
+    )
+
     # Fetch roles so the scheduler can assign them to shifts
     roles = Role.objects.filter(team=team)
-
+    roles_json = json.dumps([{"id": r.id, "name": r.name} for r in roles])
     # FETCH ROOMS:
     rooms = Room.objects.filter(team=team)
+    print(rooms)
+    rooms_json = json.dumps(
+        [{"id": str(r.id), "name": r.name, "capacity": r.capacity} for r in rooms]
+    )
+    print(rooms_json)
+
+    obstructions = FixedObstruction.objects.filter(team=team).prefetch_related("days")
+    obstructions_json = json.dumps(
+        [
+            {
+                "id": o.id,
+                "name": o.name,
+                "role_id": o.role_id,
+                'section': o.section,
+                "start_min": o.start_time.hour * 60 + o.start_time.minute,
+                "end_min": o.end_time.hour * 60 + o.end_time.minute,
+                "days": [d.day for d in o.days.all()],  # e.g. ['mon', 'wed', 'fri']
+            }
+            for o in obstructions
+        ]
+    )
 
     return render(
         request,
@@ -279,8 +327,10 @@ def scheduler_view(request, team_id):
         {
             "team": team,
             "workers": workers,
-            "roles": roles,
-            "rooms": rooms,  # Now the frontend can see the rooms!
+            "workers_json": workers_json,
+            "roles": roles_json,
+            "rooms": rooms_json,  # Now the frontend can see the rooms!
+            "obstructions": obstructions_json,
         },
     )
 
@@ -389,6 +439,7 @@ def supervisor_view(request, team_id):
 
     roles = Role.objects.filter(team=team)
     rooms = Room.objects.filter(team=team)
+    obstructions = FixedObstruction.objects.filter(team=team)
 
     member_list = []
     for member in members:
@@ -408,14 +459,13 @@ def supervisor_view(request, team_id):
 
         status = "Submitted" if (has_availability or preferred_roles) else "Pending"
 
-        member_list.append(
-            {
-                "user": member,
-                "status": status,
-                "preferred_roles": preferred_roles,
-                "current_role_id": assignment.role_id if assignment else None,
-            }
-        )
+        member_list.append({
+            "user": member,
+            "status": status,
+            "preferred_roles": preferred_roles,
+            "current_role_id": assignment.role_id if assignment else None,
+            "current_section_id": assignment.section_id if assignment else None,
+        })
 
     return render(
         request,
@@ -425,6 +475,7 @@ def supervisor_view(request, team_id):
             "member_list": member_list,
             "roles": roles,
             "rooms": rooms,
+            "obstructions": obstructions,
         },
     )
 
@@ -643,7 +694,6 @@ def filter_view(request, team_id, role_id):
 
     print(f"DEBUG: Found User IDs: {list(user_ids)}")
 
-
     workers_data = []
 
     for user in relevant_users:
@@ -677,36 +727,21 @@ def filter_view(request, team_id, role_id):
 @require_http_methods(["POST"])
 def assign_role(request, team_id):
     team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    user_id = data.get('worker_id') or data.get('user_id')  # accept both
+    role_id = data.get('role_id')
+    section = data.get('section', None)
 
-    # Permission check
-    if team.owner != request.user:
-        return JsonResponse({"error": "Unauthorized"}, status=403)
-
-    try:
-        data = json.loads(request.body)
-        worker_id = data.get("worker_id")
-        role_id = data.get("role_id")
-
-        if not role_id:
-            # If "Choose Role..." (empty) is selected, remove existing assignments
-            TeamRoleAssignment.objects.filter(team=team, user_id=worker_id).delete()
-            return JsonResponse({"ok": True, "message": "Role cleared"})
-
-        role = get_object_or_404(Role, id=role_id, team=team)
-
-        # Update or Create: Ensures a worker has ONE specific role in this team
-        # If your business logic allows multiple roles, use .get_or_create() instead
-        assignment, created = TeamRoleAssignment.objects.update_or_create(
-            team=team, user_id=worker_id, defaults={"role": role}
-        )
-
-        return JsonResponse(
-            {"ok": True, "role_name": role.name, "worker_id": worker_id}
-        )
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
+    user = get_object_or_404(User, id=user_id)
+    assignment, _ = TeamRoleAssignment.objects.update_or_create(
+        team=team,
+        user=user,
+        defaults={
+            'role_id': role_id if role_id else None,
+            'section': section or None
+        }
+    )
+    return JsonResponse({'status': 'ok'})
 
 @login_required
 @require_http_methods(["POST"])
@@ -958,3 +993,324 @@ def save_schedule(request, team_id):
     except Exception as e:
         # This catches the capacity Exception or any DB errors
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+from datetime import time
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_obstruction(request, team_id):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        print("lol")
+        team = get_object_or_404(Team, id=team_id)
+        print("lol2")
+        role = (
+            get_object_or_404(Role, id=data["role_id"]) if data.get("role_id") else None
+        )
+        print("lol3")
+        # Convert minutes to time objects
+        start_min = data["start_min"]
+        end_min = data["end_min"]
+        start_time = time(start_min // 60, start_min % 60)
+        end_time = time(end_min // 60, end_min % 60)
+        section_id = data.get('section', None)
+        section = get_object_or_404(RoleSection, id=section_id) if section_id else None
+
+        obstruction = FixedObstruction.objects.create(
+            team=team,
+            role=role,
+            name=data["name"],
+            start_time=start_time,
+            end_time=end_time,
+            section=section,
+        )
+
+        # Create a day entry for each checked day
+        day_names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        for day_index in data["days"]:
+            ObstructionDay.objects.create(
+                obstruction=obstruction, day=day_names[day_index]
+            )
+
+        return JsonResponse({"status": "ok", "obstruction_id": obstruction.id})
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_obstruction(request, team_id, obstruction_id):
+    print("here")
+    obstruction = get_object_or_404(FixedObstruction, team=team_id, id=obstruction_id)
+    obstruction.delete()  # CASCADE will also delete ObstructionDay entries
+    return JsonResponse({"status": "ok"})
+
+
+# Schedules
+# 1. Get all schedules for a team
+def get_schedules(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    schedules = Schedule.objects.filter(team=team).values("id", "name", "is_active")
+    return JsonResponse({"schedules": list(schedules)})
+
+
+# 2. Create a new schedule
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_schedule(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    name = data.get("name", "Default")
+
+    schedule, created = Schedule.objects.get_or_create(team=team, name=name)
+    if not created:
+        return JsonResponse(
+            {"error": "A schedule with that name already exists."}, status=400
+        )
+
+    return JsonResponse(
+        {"id": schedule.id, "name": schedule.name, "is_active": schedule.is_active}
+    )
+
+
+# 3. Save role shifts (delete existing for role on schedule, recreate)
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_role_shifts(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+
+    schedule_id = data.get("schedule_id")
+    role_id = data.get("role_id")
+    shifts = data.get("shifts", [])
+
+    schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
+    role = get_object_or_404(Role, id=role_id, team=team) if role_id else None
+
+    # Delete existing shifts for this role on this schedule only
+    Shift.objects.filter(schedule=schedule, role=role).delete()
+
+    # Check for conflicts before saving
+    conflicts = []
+    created_shifts = []
+
+    for s in shifts:
+        start_time = time(s["start_min"] // 60, s["start_min"] % 60)
+        end_time = time(s["end_min"] // 60, s["end_min"] % 60)
+        day = s["day"]
+        user = get_object_or_404(User, id=s["user_id"])
+        room = get_object_or_404(Room, id=s["room_id"]) if s.get("room_id") else None
+
+        # Check room conflict - same room, same day, overlapping time, different role
+        # Inside the loop, replace the room conflict check with:
+        if room:
+            overlapping_count = Shift.objects.filter(
+                schedule=schedule,
+                room=room,
+                day=day,
+                start_time__lt=end_time,
+                end_time__gt=start_time,
+            ).count()
+
+            if overlapping_count >= room.capacity:
+                conflicts.append(
+                    {
+                        "type": "room_capacity",
+                        "message": f"{room.name} is at full capacity ({room.capacity}) on {day} from {start_time} to {end_time}",
+                    }
+                )
+
+        # Check worker double-booking - same user, same day, overlapping time
+        worker_conflict = (
+            Shift.objects.filter(
+                schedule=schedule,
+                user=user,
+                day=day,
+                start_time__lt=end_time,
+                end_time__gt=start_time,
+            )
+            .exclude(role=role)
+            .first()
+        )
+
+        if worker_conflict:
+            conflicts.append(
+                {
+                    "type": "worker",
+                    "message": f"{user.get_full_name() or user.username} is already scheduled on {day} from {worker_conflict.start_time} to {worker_conflict.end_time}",
+                }
+            )
+
+        # Save regardless (soft block)
+        shift = Shift.objects.create(
+            schedule=schedule,
+            team=team,
+            user=user,
+            role=role,
+            room=room,
+            day=day,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        created_shifts.append(shift.id)
+
+    return JsonResponse(
+        {
+            "status": "ok",
+            "saved": len(created_shifts),
+            "conflicts": conflicts,  # empty list if no conflicts
+        }
+    )
+
+
+# 4. Set active schedule
+@csrf_exempt
+@require_http_methods(["POST"])
+def set_active_schedule(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    schedule_id = data.get("schedule_id")
+
+    # Deactivate all schedules for this team
+    Schedule.objects.filter(team=team).update(is_active=False)
+
+    # Activate the selected one
+    schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
+    schedule.is_active = True
+    schedule.save()
+
+    return JsonResponse({"status": "ok", "active_schedule": schedule.name})
+
+
+# 5. Get shifts for a schedule, optionally filtered by role
+def get_schedule_shifts(request, team_id, schedule_id):
+    team = get_object_or_404(Team, id=team_id)
+    schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
+    role_id = request.GET.get("role_id")
+
+    shifts = Shift.objects.filter(schedule=schedule).select_related(
+        "user", "role", "room"
+    )
+
+    if role_id:
+        shifts = shifts.filter(role_id=role_id)
+
+    day_map = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
+
+    data = [
+        {
+            "id": s.id,
+            "user_id": str(s.user.id),
+            "user_name": s.user.get_full_name() or s.user.username,
+            "role_id": s.role_id,
+            "role_name": s.role.name if s.role else None,
+            "room_id": str(s.room.id) if s.room else None,
+            "room_name": s.room.name if s.room else None,
+            "day": s.day,
+            "start_min": s.start_time.hour * 60 + s.start_time.minute,
+            "end_min": s.end_time.hour * 60 + s.end_time.minute,
+        }
+        for s in shifts
+    ]
+
+    return JsonResponse({"shifts": data})
+
+
+def get_room_bookings(request, team_id, schedule_id):
+    team = get_object_or_404(Team, id=team_id)
+    schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
+    day = request.GET.get("day")
+
+    shifts = Shift.objects.filter(schedule=schedule, room__isnull=False).select_related(
+        "room", "user"
+    )
+
+    if day:
+        shifts = shifts.filter(day=day)
+
+    bookings = {}
+    for s in shifts:
+        room_id = str(s.room.id)
+        if room_id not in bookings:
+            bookings[room_id] = {"capacity": s.room.capacity, "shifts": []}
+        bookings[room_id]["shifts"].append(
+            {
+                "user_name": s.user.get_full_name() or s.user.username,
+                "start_min": s.start_time.hour * 60 + s.start_time.minute,
+                "end_min": s.end_time.hour * 60 + s.end_time.minute,
+                "day": s.day,
+            }
+        )
+
+    return JsonResponse({"bookings": bookings})
+
+
+def get_room_availability(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    day = request.GET.get("day")
+
+    slots = RoomAvailability.objects.filter(room__team=team)
+    if day:
+        slots = slots.filter(day=day)
+
+    availability = {}
+    for slot in slots:
+        room_id = str(slot.room.id)
+        if room_id not in availability:
+            availability[room_id] = []
+        availability[room_id].append(
+            {
+                "start_min": slot.start_time.hour * 60 + slot.start_time.minute,
+                "end_min": slot.end_time.hour * 60 + slot.end_time.minute,
+            }
+        )
+
+        start_min = slot.start_time.hour * 60 + slot.start_time.minute
+        end_min = slot.end_time.hour * 60 + slot.end_time.minute
+        print(
+            f"Room: {slot.room.name}, day: {slot.day}, start_min: {start_min}, end_min: {end_min}"
+        )
+
+    return JsonResponse({"availability": availability})
+
+def get_role_sections(request, team_id, role_id):
+    role = get_object_or_404(Role, id=role_id, team_id=team_id)
+    sections = list(role.sections.values('id', 'name'))
+    return JsonResponse({'sections': sections})
+
+def create_role_section(request, team_id, role_id):
+    role = get_object_or_404(Role, id=role_id, team_id=team_id)
+    data = json.loads(request.body)
+    name = data.get('name', '').strip()
+    if not name:
+        return JsonResponse({'error': 'Section name required'}, status=400)
+    section, created = RoleSection.objects.get_or_create(role=role, name=name)
+    return JsonResponse({'id': section.id, 'name': section.name})
+
+def delete_role_section(request, team_id, role_id, section_id):
+    section = get_object_or_404(RoleSection, id=section_id, role_id=role_id)
+    section.delete()
+    return JsonResponse({'status': 'ok'})
+
+def save_member_assignments(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    assignments = data.get('assignments', [])
+
+    for a in assignments:
+        user_id = a.get('user_id')
+        role_id = a.get('role_id') or None
+        section_id = a.get('section_id') or None
+
+        user = get_object_or_404(User, id=user_id)
+        TeamRoleAssignment.objects.update_or_create(
+            team=team,
+            user=user,
+            defaults={
+                'role_id': role_id,
+                'section_id': section_id
+            }
+        )
+
+    return JsonResponse({'status': 'ok', 'saved': len(assignments)})

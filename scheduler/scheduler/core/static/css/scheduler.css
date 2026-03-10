@@ -1,137 +1,648 @@
-/* scheduler.css - Shared by Supervisor and Availability */
+:root {
+    --nav-bg: #7a92ac;
+    --bg-color: #eef2f6;
+    --card-bg: #ffffff;
+    --text-main: #333333;
+    --grid-line: #e0e0e0;
+    --grid-line-hour: #c0c0c0;
+    --primary-blue: #7393B3;
 
+    /* Shift Colors */
+    --event-bg: #dbeafe;
+    --event-border: #2563eb;
+    --event-text: #1e3a8a;
 
-/* This targets the main wrapper of the page */
-.container {
-    max-width: 1000px;  /* Adjust this number to make the page narrower or wider */
-    margin: 0 auto;     /* This centers the container on the screen */
-    padding: 0 20px;    /* Prevents content from touching the screen edges on mobile */
+    /* Availability Colors */
+    --avail-bg: #e6f4ea;
+    --avail-border: #34a853;
+    --avail-text: #0d652d;
+
+    --font-headers: 'Oswald', sans-serif;
+    --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+    --slot-height: 15px;
 }
 
-/* Specifically for the supervisor dashboard to keep it tight */
-.container.supervisor {
-    max-width: 950px; 
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
-/* Layout for Supervisor Dashboard specifically */
-.main-layout {
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    user-select: none;
+}
+
+/* --- NAVBAR --- */
+.navbar {
+    background-color: var(--nav-bg);
+    height: 60px;
     display: flex;
-    gap: 30px;
-    align-items: flex-start;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 40px;
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+.brand {
+    font-family: var(--font-headers);
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-headers);
+    font-size: 24px;
+    font-weight: 300;
+}
+
+/* --- MAIN LAYOUT --- */
+.main-container {
+    display: flex;
+    padding: 20px 30px;
+    gap: 20px;
+    max-width: 100%;
+    margin: 0 auto;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+/* --- SIDEBAR --- */
 .sidebar {
-    flex: 0 0 250px;
-    background: #f8f9fa;
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+.panel {
+    background: white;
     padding: 20px;
     border-radius: 8px;
-    border: 1px solid #eee;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-.grid-area {
+.panel-title {
+    font-family: var(--font-headers);
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 10px;
+}
+
+.worker-list {
+    border: 1px solid var(--grid-line);
+    border-radius: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.worker-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--grid-line);
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.worker-item:hover,
+.worker-item.active {
+    background-color: #f5f5f5;
+}
+
+/* --- GRIDS AREA --- */
+.grids-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* --- SCHEDULER CARD --- */
+.scheduler-card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
     flex: 1;
     min-width: 0;
 }
 
-/* Common Grid Container */
-.grid-container {
-    overflow-x: auto;
-    margin-top: 10px;
-    display: inline-block; /* This prevents the grid from stretching to 100% width */
+/* --- TOOLBAR --- */
+.toolbar {
+    padding: 0 25px;
+    height: 55px;
+    border-bottom: 1px solid var(--grid-line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fcfcfc;
+    flex-shrink: 0;
+}
+
+.toolbar h3 {
+    margin: 0;
+    font-family: var(--font-headers);
+    font-size: 24px;
+    font-weight: 400;
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* --- BUTTONS --- */
+.btn {
+    padding: 6px 16px;
     border-radius: 4px;
-}
-
-.grid {
-    display: grid;
-    /* Unified to 90px for time labels to prevent text clipping */
-    grid-template-columns: 50px repeat(7, 70px); 
-    gap: 0px;
-    background: #ddd;
-    border: 1px solid #ccc;
-    width: fit-content;;
-}
-
-/* Common Cell Styles */
-.cell {
-    background: white;
-    height: 12px; 
-    width: 70px; /* Matching the grid-template-columns */
-    font-size: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-    border: 1px solid #e0e0e0;
     cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    transition: 0.2s;
 }
 
-/* Grid Headers (Days of the week) */
-.header {
-    font-weight: 700;
-    text-align: center;
-    padding: 2px 0;
-    background: #f8f9fa;
-    font-size: 10px;
-    color: #333;
-    border-bottom: 1px solid #ccc;
+.btn-clear {
+    background: #e9ecef;
+    color: #495057;
 }
 
-/* Time Labels (8:00, 9:00, etc) */
-.time-label, .time {
-    background: #f8f9fa;
-    font-size: 9px;
-    padding-right: 8px;
-    justify-content: flex-end;
-    display: flex;
-    align-items: center;
-    color: #666;
-    border-right: 1px solid #ccc;
+.btn-clear:hover {
+    background: #dee2e6;
 }
 
-hr {
-    margin: 15px 0 !important;
-}
-
-/* --- State Classes --- */
-
-/* 1. Availability Page: Worker selecting their own time */
-.cell.selected { 
-    background-color: #b9e3ff; 
-}
-
-/* 2. Supervisor Page: Showing worker is busy/unavailable */
-.cell.unavailable {
-    background-color: #ffcccc;
-    cursor: not-allowed;
-    background-image: repeating-linear-gradient(45deg, #ffb3b3 0, #ffb3b3 1px, transparent 0, transparent 50%);
-    background-size: 10px 10px;
-}
-
-/* 3. Supervisor Page: Shift has been assigned */
-.cell.scheduled {
-    background-color: #28a745;
+.btn-clear.active {
+    background: #7393B3;
     color: white;
 }
 
-/* Worker Sidebar List (Supervisor Page) */
-.worker-list {
-    height: 400px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+.btn-save {
+    background-color: #cdd2de;
+    color: #333;
+    padding: 8px 20px;
+}
+
+.btn-save:hover {
+    background-color: #bec3cf;
+}
+
+/* --- GRID WRAPPER (keeps header + scroll area together) --- */
+.grid-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* --- GRID HEADER --- */
+/* View grid header scrolls with the grid via JS */
+#viewGridHeader {
+    display: flex;
+    flex-direction: row;
+    overflow-x: hidden;
+    /* controlled by JS sync with scroll area */
+    flex-shrink: 0;
+    height: 40px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--grid-line);
+}
+
+/* Interactive grid header is standard CSS grid, no scrolling needed */
+#interactiveGridHeader {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    flex-shrink: 0;
+    height: 40px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--grid-line);
+}
+
+.header-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    border-right: 1px solid var(--grid-line);
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.header-cell:last-child {
+    border-right: none;
+}
+
+.time-header {
+    width: 60px;
+    flex-shrink: 0;
+}
+
+/* --- SCROLL AREA --- */
+.scroll-area {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
     background: white;
 }
 
-.worker-item {
+/* --- GRID BODIES --- */
+
+/* View grid: flex row, width expands for multi-column role view */
+#viewGrid {
     display: flex;
-    justify-content: space-between;
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-    transition: background 0.2s;
+    flex-direction: row;
+    height: calc(10 * 4 * var(--slot-height));
+    width: max-content;
+    min-width: 100%;
 }
 
-.worker-item:hover { background: #f0f7ff; }
-.worker-item.active {
-    background: #e7f3ff;
-    border-left: 4px solid #007bff;
+/* Interactive grid: standard 7-column CSS grid, never scrolls horizontally */
+#interactiveGrid {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    height: calc(10 * 4 * var(--slot-height));
+    min-width: 100%;
+}
+
+/* --- COLUMNS --- */
+.time-col {
+    border-right: 1px solid var(--grid-line);
+    background: #ffffff;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.day-col {
+    border-right: 1px solid var(--grid-line);
+    position: relative;
+}
+
+.day-col:last-child {
+    border-right: none;
+}
+
+/* Worker sub-columns inside role view */
+.worker-sub-col {
+    width: 120px;
+    flex-shrink: 0;
+    position: relative;
+    border-right: 1px solid var(--grid-line);
+}
+
+/* Day group separator in role view */
+.day-separator {
+    width: 2px;
+    flex-shrink: 0;
+    background: var(--grid-line-hour);
+}
+
+/* Interactive grid crosshair cursor */
+.interactive-grid .day-col {
+    cursor: crosshair;
+}
+
+/* Zebra striping */
+.day-col {
+    background-image: repeating-linear-gradient(to bottom,
+            transparent, transparent calc(var(--slot-height) * 4),
+            #fafbfc calc(var(--slot-height) * 4), #fafbfc calc(var(--slot-height) * 8));
+}
+
+/* 15-min grid lines */
+.day-col::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 100% var(--slot-height);
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Hour grid lines */
+.day-col::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
+    background-size: 100% calc(var(--slot-height) * 4);
+    pointer-events: none;
+}
+
+/* --- TIME LABELS --- */
+.time-label {
+    position: absolute;
+    right: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #777;
+    transform: translateY(-50%);
+    background: white;
+    padding-left: 4px;
+    z-index: 2;
+}
+
+/* --- EVENT BLOCKS --- */
+.event-block {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-radius: 4px;
+    padding: 1px 4px;
+    overflow: hidden;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s;
+}
+
+/* Interactive shift blocks */
+.shift-block {
+    background-color: var(--event-bg);
+    border: 1px solid var(--event-border);
+    border-left: 4px solid var(--event-border);
+    color: var(--event-text);
+    cursor: pointer;
+}
+
+.shift-block:hover {
+    transform: scale(1.02);
+    z-index: 11;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.shift-block.temp {
+    opacity: 0.6;
+    pointer-events: none;
+    border-style: dashed;
+}
+
+/* Local (unsaved) shifts — blue */
+.shift-block.local {
+    background-color: #dbeafe;
+    border-color: #3b82f6;
+    border-left: 4px solid #3b82f6;
+    color: #1e3a8a;
+}
+
+/* DB saved shifts — green */
+.shift-block.saved {
+    background-color: #dcfce7;
+    border-color: #22c55e;
+    border-left: 4px solid #22c55e;
+    color: #166534;
+}
+
+/* Obstruction blocks */
+.obstruction-block {
+    background-color: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-left: 4px solid #ef4444;
+    color: #991b1b;
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Read-only availability blocks */
+.avail-block {
+    background-color: var(--avail-bg);
+    border: 1px solid var(--avail-border);
+    border-left: 4px solid var(--avail-border);
+    color: var(--avail-text);
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.event-content {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+    margin-top: 1px;
+}
+
+.event-title {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event-time {
+    font-size: 10px;
+    opacity: 0.8;
+    margin-top: 2px;
+}
+
+.event-loc {
+    font-size: 10px;
+    opacity: 0.9;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- DELETE X --- */
+.delete-x {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    text-align: center;
+    font-weight: bold;
+    color: #666;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 50;
+    display: none;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 0 0 0 4px;
+}
+
+.delete-x:hover {
+    color: #ef4444;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.shift-block:hover .delete-x {
+    display: block;
+}
+
+/* --- SYNC HIGHLIGHT --- */
+.sync-highlight {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--slot-height);
+    background-color: rgba(37, 99, 235, 0.15);
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+}
+
+.sync-highlight.active {
+    display: block;
+}
+
+/* --- MODAL --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    backdrop-filter: blur(2px);
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-box {
+    background: white;
+    width: 350px;
+    border-radius: 8px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    background: var(--nav-bg);
+    color: white;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.input-group {
+    margin-bottom: 12px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #444;
+}
+
+.input-group input,
+.input-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+    border-color: var(--primary-blue);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
+}
+
+.modal-footer {
+    padding: 12px 20px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid #eee;
+}
+
+/* --- FILTER OPTIONS --- */
+.filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+/* --- ROLE SELECTOR DROPDOWN --- */
+.role-selector {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+/* In buildSingleWorkerGrid, the 120px fixed width is the culprit */
+/* Override view grid day cols to stretch when in single-worker mode */
+#viewGrid.single-worker {
+    width: 100%;
+}
+
+#viewGrid.single-worker .day-col {
+    flex: 1;
 }
