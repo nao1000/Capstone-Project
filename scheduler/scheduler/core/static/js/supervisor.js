@@ -453,51 +453,67 @@ async function loadSavedTimes () {
   }
 }
 
-async function saveCurrentRoom () {
-  const openTime = document.querySelectorAll('.room-block')
-  const roomTimeData = []
-  const roomSelect = document.getElementById('roomSelect')
-  const selectedRoomId = roomSelect.value
-  console.log(selectedRoomId)
-  console.log(openTime)
-  openTime.forEach(ev => {
-    const day = ev.parentElement.dataset.day
-    const topPx = parseFloat(ev.style.top)
-    const heightPx = parseFloat(ev.style.height)
+async function saveCurrentRoom() {
+    const openTime = document.querySelectorAll('.room-block');
+    const roomTimeData = [];
+    const roomSelect = document.getElementById('roomSelect');
 
-    const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
-    const slotsCount = Math.round(heightPx / SLOT_HEIGHT)
+    // Safety check: if there's no room selected, don't try to save
+    if (!roomSelect) return;
+    const selectedRoomId = roomSelect.value;
 
-    const startMin = startSlotIndex * 15 + START_HOUR * 60
-    const endMin = startMin + slotsCount * 15
+    // Use window. prefixes to ensure these values are found
+    const sHeight = window.SLOT_HEIGHT || 15;
+    const sHour = window.START_HOUR || 8;
 
-    roomTimeData.push({
-      day: parseInt(day),
-      start_min: startMin,
-      end_min: endMin,
-      room: selectedRoomId
-    })
-  })
+    openTime.forEach(ev => {
+        const day = ev.parentElement.dataset.day;
+        const topPx = parseFloat(ev.style.top) || 0;
+        const heightPx = parseFloat(ev.style.height) || 0;
 
-  try {
-    const response = await fetch(
-      `/api/team/${window.TEAM_ID}/rooms/save-availability/`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({ times: roomTimeData, room_id: selectedRoomId })
-      }
-    )
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+        const startSlotIndex = Math.round(topPx / sHeight);
+        const slotsCount = Math.round(heightPx / sHeight);
+
+        const startMin = startSlotIndex * 15 + sHour * 60;
+        const endMin = startMin + slotsCount * 15;
+
+        roomTimeData.push({
+            day: parseInt(day),
+            start_min: startMin,
+            end_min: endMin,
+            room: selectedRoomId
+        });
+    });
+
+    try {
+        const response = await fetch(
+            `/api/team/${window.TEAM_ID}/rooms/save-availability/`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Changed from 'csrfToken' to the function call to ensure it's defined
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ times: roomTimeData, room_id: selectedRoomId })
+            }
+        );
+
+        if (response.ok) {
+            // THE BASIC ALERT
+            alert('Room availability saved successfully!');
+
+            // Optional: close the scheduler modal if the function exists
+            if (typeof closeScheduler === 'function') {
+                closeScheduler();
+            }
+        } else {
+            alert(`Error: Save failed with status ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error saving events:', error);
+        alert('Could not connect to the server. Please check your connection.');
     }
-  } catch (error) {
-    console.error('Error saving events:', error)
-  }
-  console.log('Saving Events:', roomTimeData)
 }
 
 function getCookie (name) {
