@@ -157,11 +157,13 @@ async function loadRoleView (roleId, teamId) {
   const data = await response.json()
   const workers = data.workers
 
-  // Rebuild grid for role view
   buildRoleGrid(workers)
 
-  // Plot availability for each worker
   const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const obstructions =
+    typeof window.OBSTRUCTIONS === 'string'
+      ? JSON.parse(window.OBSTRUCTIONS)
+      : window.OBSTRUCTIONS
 
   workers.forEach(worker => {
     dayKeys.forEach((dayKey, dayIndex) => {
@@ -170,10 +172,10 @@ async function loadRoleView (roleId, teamId) {
       )
       if (!workerCol) return
 
+      // Draw availability
       const shifts = worker.availability.filter(
         a => a.day.toLowerCase() === dayKey
       )
-
       shifts.forEach(range => {
         const startOffset = range.start_min - START_HOUR * 60
         const top = (startOffset / 15) * SLOT_HEIGHT
@@ -184,6 +186,53 @@ async function loadRoleView (roleId, teamId) {
         block.style.top = `${top}px`
         block.style.height = `${height}px`
         block.innerHTML = `<div class="event-title" style="font-size:9px;">${worker.name}</div>`
+        workerCol.appendChild(block)
+      })
+
+      // Draw obstructions relevant to this worker
+      obstructions.forEach(o => {
+        console.log(
+          'o.role_id:',
+          o.role_id,
+          typeof o.role_id,
+          '| roleId:',
+          roleId,
+          typeof roleId
+        )
+        if (o.role_id !== parseInt(roleId)) return
+        console.log('o.days:', o.days, '| dayKey:', dayKey)
+        if (!o.days.includes(dayKey)) return
+
+        // Match section: null section = applies to all, specific section_id = only that worker
+
+        const workerData = (
+          typeof window.WORKERS === 'string'
+            ? JSON.parse(window.WORKERS)
+            : window.WORKERS
+        ).find(w => w.id === String(worker.id))
+        // null obstruction section = applies to all workers in role
+        // specific section = only workers whose section name matches
+        if (!o.days.includes(dayKey)) return
+        console.log(
+          'o.section:',
+          o.section,
+          '| workerData?.section:',
+          workerData?.section
+        )
+        if (o.section && workerData?.section !== o.section) return
+
+        const startOffset = o.start_min - START_HOUR * 60
+        const top = (startOffset / 15) * SLOT_HEIGHT
+        const height = ((o.end_min - o.start_min) / 15) * SLOT_HEIGHT
+
+        const block = document.createElement('div')
+        block.className = 'event-block obstruction-block'
+        block.style.top = `${top}px`
+        block.style.height = `${height}px`
+        block.innerHTML = `
+                    <div class="event-content">
+                        <div class="event-title" style="font-size:9px;">${o.name}</div>
+                    </div>`
         workerCol.appendChild(block)
       })
     })
@@ -1142,4 +1191,118 @@ function getInteractiveColWidth () {
   const firstCol = interactiveGrid.querySelector('.day-col')
   if (!firstCol) return 120
   return firstCol.getBoundingClientRect().width
+}
+
+let editingWorkerId = null
+
+function openWorkerEditModal (workerId, workerName) {
+  editingWorkerId = workerId
+  document.getElementById('workerEditName').textContent = workerName
+  document.getElementById('workerEditModal').classList.add('show')
+
+  const roles =
+    typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
+  const workers =
+    typeof window.WORKERS === 'string'
+      ? JSON.parse(window.WORKERS)
+      : window.WORKERS
+  const worker = workers.find(w => w.id === workerId)
+
+  // Populate role dropdown
+  const roleSelect = document.getElementById('workerEditRole')
+  roleSelect.innerHTML = '<option value="">No Role</option>'
+  roles.forEach(r => {
+    const opt = new Option(r.name, r.id)
+    if (worker?.role_id === r.id) opt.selected = true
+    roleSelect.appendChild(opt)
+  })
+
+  // Load sections for current role, passing section NAME for preselection
+  if (worker?.role_id) {
+    onWorkerEditRoleChange(roleSelect, worker.section)
+  } else {
+    document.getElementById('workerEditSectionGroup').style.display = 'none'
+  }
+}
+
+function onWorkerEditRoleChange (select, preselectSectionName = null) {
+  const roleId = parseInt(select.value)
+  const roles =
+    typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
+  const role = roles.find(r => r.id === roleId)
+
+  const sectionGroup = document.getElementById('workerEditSectionGroup')
+  const sectionSelect = document.getElementById('workerEditSection')
+
+  if (!role || !role.sections || role.sections.length === 0) {
+    sectionGroup.style.display = 'none'
+    return
+  }
+
+  sectionSelect.innerHTML = '<option value="">No Section</option>'
+  role.sections.forEach(s => {
+    const opt = new Option(s.name, s.id)
+    // Match by name since worker.section is a name string e.g. "001"
+    if (preselectSectionName && s.name === preselectSectionName)
+      opt.selected = true
+    sectionSelect.appendChild(opt)
+  })
+  sectionGroup.style.display = 'block'
+}
+
+function closeWorkerEditModal () {
+  document.getElementById('workerEditModal').classList.remove('show')
+  editingWorkerId = null
+}
+
+async function saveWorkerAssignment () {
+  const roleId = document.getElementById('workerEditRole').value || null
+  const sectionId = document.getElementById('workerEditSection').value || null
+
+  try {
+    const res = await fetch(
+      `/api/team/${window.TEAM_ID}/members/save-assignments/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          assignments: [
+            {
+              user_id: editingWorkerId,
+              role_id: roleId,
+              section_id: sectionId
+            }
+          ]
+        })
+      }
+    )
+
+    if (res.ok) {
+      // Update window.WORKERS in memory so filters reflect the change immediately
+      const workers =
+        typeof window.WORKERS === 'string'
+          ? JSON.parse(window.WORKERS)
+          : window.WORKERS
+      const worker = workers.find(w => w.id === editingWorkerId)
+      if (worker) {
+        worker.role_id = roleId ? parseInt(roleId) : null
+        // Store section as name string to match obstruction comparison
+        const sectionSelect = document.getElementById('workerEditSection')
+        worker.section = sectionId
+          ? sectionSelect.options[sectionSelect.selectedIndex].text
+          : null
+        window.WORKERS = workers
+      }
+      closeWorkerEditModal()
+      alert('✓ Assignment saved.')
+    } else {
+      alert('Failed to save.')
+    }
+  } catch (err) {
+    console.error(err)
+    alert('An error occurred.')
+  }
 }
