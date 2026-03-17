@@ -29,9 +29,12 @@
                 onkeyup="filterWorkers()">
             <div class="worker-list">
                 {% for worker in workers %}
-                <div class="worker-item"
+                <div class="worker-item" 
                     onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
-                    {{ worker.get_full_name|default:worker.username }}
+                    <span>{{ worker.get_full_name|default:worker.username }}</span>
+                    <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
+                        onclick="event.stopPropagation(); openWorkerEditModal('{{ worker.id }}', '{{ worker.get_full_name|default:worker.username }}')">
+                    </i>
                 </div>
                 {% endfor %}
             </div>
@@ -157,6 +160,32 @@
         <div class="modal-footer">
             <button class="btn btn-clear" onclick="closeCreateScheduleModal()">Cancel</button>
             <button class="btn btn-save" onclick="createSchedule()">Create</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="workerEditModal">
+    <div class="modal-box">
+        <div class="modal-header">Reassign Worker</div>
+        <div class="modal-body">
+            <p id="workerEditName" style="font-weight:600; margin-bottom:12px; font-size:15px;"></p>
+            <div class="input-group">
+                <label>Role</label>
+                <select id="workerEditRole" class="role-selector" style="width:100%; padding:8px;"
+                    onchange="onWorkerEditRoleChange(this)">
+                    <option value="">No Role</option>
+                </select>
+            </div>
+            <div class="input-group" id="workerEditSectionGroup" style="display:none;">
+                <label>Section</label>
+                <select id="workerEditSection" class="role-selector" style="width:100%; padding:8px;">
+                    <option value="">No Section</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-clear" onclick="closeWorkerEditModal()">Cancel</button>
+            <button class="btn btn-save" onclick="saveWorkerAssignment()">Save</button>
         </div>
     </div>
 </div>

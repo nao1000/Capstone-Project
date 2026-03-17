@@ -1,4 +1,9 @@
+'''
+views.py
+'''
+
 import json
+from datetime import time
 from django.db import models
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.db import transaction
@@ -28,13 +33,39 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
+DAY_MAP = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
+
+def time_to_minutes(t):
+    if t is None:
+        return None
+    return (t.hour * 60) + t.minute
+
+def minutes_to_time(minutes):
+    if minutes is None:
+        return None
+    return time(int(minutes) // 60, int(minutes) % 60)
+
+def minutes_to_string(minutes):
+    if minutes is None:
+        return ""
+    t = minutes_to_time(minutes)
+    return f"{t.hour:02d}:{t.minute:02d}"
+
+# =============================================================================
+# AUTHENTICATION
+# =============================================================================
 
 def signup(request):
+    '''
+    Handles new registration of users
+    '''
+    
+    # log out user if trying to sign up
     if request.user.is_authenticated:
         logout(request)
 
+    # get all user sign up info
     if request.method == "POST":
-        # 1. Grab the new fields from the POST data
         first_name = request.POST.get("first_name")
         last_name = request.POST.get("last_name")
         username = request.POST["username"]
@@ -42,28 +73,31 @@ def signup(request):
         pass1 = request.POST["password"]
         pass2 = request.POST["confirm_password"]
 
-        # Simple validation
+        # verify passwords
         if pass1 != pass2:
             messages.error(request, "Passwords do not match!")
             return render(request, "core/auth2.html")
 
+        # unique usernames
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken!")
             return render(request, "core/auth2.html")
 
-        # 2. Pass first_name and last_name into create_user
+        # create the user object and save it
         user = User.objects.create_user(
             username=username,
             email=email,
             password=pass1,
-            first_name=first_name,  # Save first name
-            last_name=last_name,  # Save last name
+            first_name=first_name,
+            last_name=last_name,
         )
         user.save()
 
+        # direct user to the dashboard
         login(request, user)
         return redirect("dashboard2")
 
+    # render the auth page again
     return render(request, "core/auth2.html")
 
 
@@ -71,19 +105,22 @@ def auth_ping(request):
     return JsonResponse({"authenticated": request.user.is_authenticated})
 
 
+# =============================================================================
+# DASHBOARD & TEAM MANAGEMENT
+# =============================================================================
+
 @never_cache
 @login_required
 def dashboard(request):
-    """
-    The landing page. Shows teams you own and teams you joined.
-    """
-    # 1. Teams I supervise
+    '''
+    All users have a dashboard page that shows them the teams there in,
+    allows team creation, and team joining. Send user to the dashboard
+    with any teams they may be a part of.
+    '''
+
+    # get all associated teams and render the page
     owned_teams = request.user.owned_teams.all()
-
-    # 2. Teams I am a worker in
     joined_teams = request.user.joined_teams.all()
-
-    # sends us to the dashboard with our current teams
     return render(
         request,
         "core/dashboard2.html",
@@ -94,6 +131,10 @@ def dashboard(request):
 @login_required
 @require_http_methods(["POST"])
 def create_team(request):
+    '''
+    Create a team owned by the user
+    '''
+    # get the name of the team and then create the object
     name = request.POST.get("team_name")
     if name:
         Team.objects.create(name=name, owner=request.user)
@@ -103,327 +144,88 @@ def create_team(request):
 @login_required
 @require_http_methods(["POST"])
 def join_team(request):
+    '''
+    Join a created team using the correct join code
+    '''
+    # check for a join code
     code = request.POST.get("join_code")
     try:
+        # find the team with the associated join code if it exists and add them
+        # if it does.
         team = Team.objects.get(join_code=code)
         if team.owner == request.user:
-            # You can't join your own team as a worker
             pass
         else:
             team.members.add(request.user)
     except Team.DoesNotExist:
-        # Handle error (maybe add a message in real app)
         pass
     return redirect("dashboard2")
 
 
-# --- 1. WORKER SIDE (Updated for Teams) ---
-
+# =============================================================================
+# PAGES
+# =============================================================================
 
 @login_required
 @never_cache
 def availability_view(request, team_id):
+    '''
+    The page a user will create their current schedule that supervisors will
+    use to when building the work schedule.
+    '''
+    
+    # find the team object and make sure current user should be here
     team = get_object_or_404(Team, id=team_id)
-
-    # 1. Fetch time ranges (removed .prefetch_related('preferred_roles'))
+    if request.user not in team.members.all() and request.user != team.owner:
+        return HttpResponseForbidden("You are not a member of this team.")
+    
+    # find any events for a worker that they may have already saved
     availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
 
-    # 2. Fetch the user's global roles for this team (Path B)
+    # FIX: UNUSED FOR NOW
     role_prefs = UserRolePreference.objects.filter(user=request.user, team=team).first()
-    # Get a list of IDs so the JS knows which checkboxes to tick on load
     selected_role_ids = (
         list(role_prefs.roles.values_list("id", flat=True)) if role_prefs else []
     )
 
-    # 3. Format ranges for the JS Grid
-    avail_list = []
-    for a in availabilities:
-        avail_list.append(
-            {
-                "day": a.day,
-                "start": a.start_time.strftime("%H:%M"),
-                "end": a.end_time.strftime("%H:%M"),
-                "building": a.building,
-                "name": a.eventName,
-                # We no longer send roles per-block, just the block itself
-                "color": "#4a90e2",
-            }
-        )
+    # FIX MAY WANT TO CHANGE COLOR
+    # create a list for each time object in the database for this user
+    avail_list = [
+        {
+            "day": a.day,
+            "start": a.start_time.strftime("%H:%M"),
+            "end": a.end_time.strftime("%H:%M"),
+            "building": a.building,
+            "name": a.eventName,
+            "color": "#4a90e2",
+        }
+        for a in availabilities
+    ]
 
-    # 4. Get all possible roles for the sidebar checkboxes
+    # FIX UNUSED YET
     all_roles = Role.objects.filter(team=team)
 
     context = {
         "team": team,
-        "roles": all_roles,  # For the sidebar
-        "selected_role_ids": selected_role_ids,  # To check the boxes on load
+        "roles": all_roles,
+        "selected_role_ids": selected_role_ids,
         "existing_availabilities_json": avail_list,
     }
     return render(request, "core/availability2.html", context)
 
 
-def minutes_to_string(minutes):
-    if minutes is None:
-        return ""
-
-    # Calculate hours and remaining minutes
-    hours = int(minutes) // 60
-    mins = int(minutes) % 60
-
-    # Return formatted string (02d ensures 9 becomes 09)
-    return f"{hours:02d}:{mins:02d}"
-
-
-@login_required
-def save_availability(request, team_id):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            team = get_object_or_404(Team, id=team_id)
-
-            # 1. FIX: The JS sends 'events', not 'ranges'
-            events_data = data.get("events", [])
-
-            # JS payload might not include role_ids in this specific call
-            # Default to empty list to prevent errors
-            role_ids = data.get("role_ids", [])
-
-            with transaction.atomic():
-                # 2. Wipe old data
-                AvailabilityRange.objects.filter(user=request.user, team=team).delete()
-
-                # 3. Map JS Day integers (0=Sun) to Model strings ('sun')
-                # Adjust if your week starts on Monday (0=Mon)
-                day_map = {
-                    0: "sun",
-                    1: "mon",
-                    2: "tue",
-                    3: "wed",
-                    4: "thu",
-                    5: "fri",
-                    6: "sat",
-                }
-
-                for item in events_data:
-                    # 4. Convert JS Minutes (Integers) to Python Time Objects
-
-                    print(f"Processing item: {item}")  # Debugging line
-                    start_val = minutes_to_string(item.get("start_min"))
-                    end_val = minutes_to_string(item.get("end_min"))
-
-                    # 5. Handle Day conversion
-                    day_int = item.get("day")
-                    # Default to 'mon' if day is missing or invalid
-                    day_str = day_map.get(day_int, "mon")
-
-                    AvailabilityRange.objects.create(
-                        user=request.user,
-                        team=team,
-                        day=day_str,
-                        start_time=start_val,
-                        end_time=end_val,
-                        # Map JS 'location' to Model 'building'
-                        building=item.get("location", ""),
-                        # Map JS 'name' to Model 'eventName' (if field exists)
-                        eventName=item.get("name", ""),
-                    )
-
-                # 6. Save Role Preferences (only if sent)
-                if role_ids:
-                    role_prefs, _ = UserRolePreference.objects.get_or_create(
-                        user=request.user, team=team
-                    )
-                    role_prefs.roles.set(
-                        Role.objects.filter(id__in=role_ids, team=team)
-                    )
-
-            return JsonResponse({"status": "success", "count": len(events_data)})
-
-        except Exception as e:
-            # Print error to terminal for debugging
-            print(f"CRITICAL SAVE ERROR: {str(e)}")
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
-    return JsonResponse(
-        {"status": "error", "message": "Method not allowed"}, status=405
-    )
-
-
-# --- 2. SUPERVISOR SIDE (Updated for Teams) ---
-
-
-@never_cache
-@login_required
-def scheduler_view(request, team_id):
-    """
-    Renders the Full Scheduler (the grid page).
-    """
-    team = get_object_or_404(Team, id=team_id)
-
-    if team.owner != request.user:
-        return HttpResponseForbidden("You are not the supervisor of this team.")
-
-    workers = team.members.all().prefetch_related(
-        Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team=team),
-            to_attr="team_availability",
-        )
-    )
-
-    # Reuse the same queryset - no extra query needed
-    role_assignments = TeamRoleAssignment.objects.filter(team=team).select_related(
-        "role"
-    )
-    role_map = {ra.user_id: ra.role_id for ra in role_assignments}
-    section_map = {
-    a.user_id: a.section.name if a.section else None
-    for a in TeamRoleAssignment.objects.filter(team=team).select_related('section')
-}
-    workers_json = json.dumps(
-        [
-            {
-                "id": str(w.id),
-                "name": w.get_full_name() or w.username,
-                "role_id": role_map.get(
-                    w.id
-                ), 
-                'section': section_map.get(w.id)
-            }
-            for w in workers
-        ]
-    )
-
-    # Fetch roles so the scheduler can assign them to shifts
-    roles = Role.objects.filter(team=team)
-    roles_json = json.dumps([{"id": r.id, "name": r.name} for r in roles])
-    # FETCH ROOMS:
-    rooms = Room.objects.filter(team=team)
-    print(rooms)
-    rooms_json = json.dumps(
-        [{"id": str(r.id), "name": r.name, "capacity": r.capacity} for r in rooms]
-    )
-    print(rooms_json)
-
-    obstructions = FixedObstruction.objects.filter(team=team).prefetch_related("days")
-    obstructions_json = json.dumps(
-        [
-            {
-                "id": o.id,
-                "name": o.name,
-                "role_id": o.role_id,
-                'section': o.section,
-                "start_min": o.start_time.hour * 60 + o.start_time.minute,
-                "end_min": o.end_time.hour * 60 + o.end_time.minute,
-                "days": [d.day for d in o.days.all()],  # e.g. ['mon', 'wed', 'fri']
-            }
-            for o in obstructions
-        ]
-    )
-
-    return render(
-        request,
-        "core/scheduler.html",
-        {
-            "team": team,
-            "workers": workers,
-            "workers_json": workers_json,
-            "roles": roles_json,
-            "rooms": rooms_json,  # Now the frontend can see the rooms!
-            "obstructions": obstructions_json,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["POST"])
-def save_schedule(request, team_id):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
-
-    team = get_object_or_404(Team, id=team_id)
-
-    if team.owner != request.user:
-        return HttpResponseForbidden("Only the supervisor can save schedules.")
-
-    worker_id = data.get("worker_id")
-    role_id = data.get("role")
-    assigned_shifts = data.get("assigned_shifts")
-
-    if not worker_id:
-        return JsonResponse(
-            {"status": "error", "message": "No worker ID provided"}, status=400
-        )
-
-    target_user = get_object_or_404(User, id=worker_id)
-
-    # Validate Role
-    role_obj = None
-    if role_id:
-        role_obj = get_object_or_404(Role, id=role_id, team=team)
-
-    try:
-        with transaction.atomic():
-            # 1. Wipe existing shifts for this specific worker in this team
-            # This prevents duplicates and handles "removing" shifts via the UI
-            Shift.objects.filter(user=target_user, team=team).delete()
-
-            # 2. Re-create the shifts from the payload
-            count = 0
-            if assigned_shifts:
-                for day, shifts in assigned_shifts.items():
-                    for time_range in shifts:
-                        if len(time_range) == 2:
-                            start, end = time_range
-                            Shift.objects.create(
-                                user=target_user,
-                                team=team,
-                                day=day.lower(),
-                                start_time=start,
-                                end_time=end,
-                                role=role_obj,
-                            )
-                            count += 1
-
-        return JsonResponse({"status": "success", "created": count})
-
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-def add_event(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden("Unauthorized")
-
-    try:
-        data = json.loads(request.body)
-        event = TeamEvent.objects.create(
-            team=team,
-            name=data.get("name"),
-            day=data.get("day"),
-            start_time=data.get("start"),
-            end_time=data.get("end"),
-        )
-        return JsonResponse(
-            {
-                "ok": True,
-                "event": {"id": event.id, "name": event.name, "day": event.day},
-            }
-        )
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=400)
-
-
 @login_required
 def supervisor_view(request, team_id):
+    '''
+    A supervisor will have their own page that lets them
+    assign roles, provide room availability, and other information
+    prior to building a schedule.
+    '''
     team = get_object_or_404(Team, id=team_id)
-
-    # PREFETCH MAGIC: Get members, their role assignments, and availability in 1-2 queries total
+    if team.owner != request.user:
+        return HttpResponseForbidden("Supervisors only.")
+    
+    # queries all members pluss their assignments and schedules
     members = team.members.all().prefetch_related(
         Prefetch(
             "team_role_assignments",
@@ -437,23 +239,23 @@ def supervisor_view(request, team_id):
         ),
     )
 
+    # query all rooms, roles, and fixed events for the team
     roles = Role.objects.filter(team=team)
     rooms = Room.objects.filter(team=team)
     obstructions = FixedObstruction.objects.filter(team=team)
 
+    # each member of the team has associated information to store with them
     member_list = []
     for member in members:
-        # Instead of a DB query, we check the list we already fetched ('to_attr')
         assignment = (
             member.current_team_assignment[0]
             if member.current_team_assignment
             else None
         )
 
-        # Check if they have availability ranges in the prefetched list
         has_availability = len(member.team_availabilities) > 0
 
-        # Note: You can also prefetch UserRolePreference similarly to remove those queries!
+        # FIX: ADD TO PREFETCH
         role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
         preferred_roles = list(role_prefs.roles.all()) if role_prefs else []
 
@@ -479,591 +281,194 @@ def supervisor_view(request, team_id):
         },
     )
 
+@login_required
+@never_cache
+def scheduler_view(request, team_id):
+    '''
+    Supervisor page that allows supervisors to actually make
+    the schedule for their team
+    '''
+    team = get_object_or_404(Team, id=team_id)
+
+    if team.owner != request.user:
+        return HttpResponseForbidden("You are not the supervisor of this team.")
+
+    workers = team.members.all().prefetch_related(
+        Prefetch(
+            "availabilityrange_set",
+            queryset=AvailabilityRange.objects.filter(team=team),
+            to_attr="team_availability",
+        )
+    )
+
+    assignments = TeamRoleAssignment.objects.filter(team=team).select_related("role", "section")
+    role_map = {ra.user_id: ra.role_id for ra in assignments}
+    section_map = {str(a.user_id): a.section.name if a.section else None for a in assignments}
+
+    workers_json = json.dumps([
+        {
+            "id": str(w.id),
+            "name": w.get_full_name() or w.username,
+            "role_id": role_map.get(w.id),
+            "section": section_map.get(str(w.id)),
+        }
+        for w in workers
+    ])
+
+    roles = Role.objects.filter(team=team).prefetch_related('sections')
+    roles_with_sections = []
+    for r in roles:
+        roles_with_sections.append({
+            "id": r.id,
+            "name": r.name,
+            "sections": [{"id": s.id, "name": s.name} for s in r.sections.all()]
+        })
+    roles_json = json.dumps(roles_with_sections)
+
+    rooms = Room.objects.filter(team=team)
+    rooms_json = json.dumps(
+        [{"id": str(r.id), "name": r.name, "capacity": r.capacity} for r in rooms]
+    )
+
+    obstructions = FixedObstruction.objects.filter(team=team).prefetch_related("days")
+    obstructions_json = json.dumps([
+        {
+            "id": o.id,
+            "name": o.name,
+            "role_id": o.role_id,
+            "section": o.section,
+            "start_min": time_to_minutes(o.start_time),
+            "end_min": time_to_minutes(o.end_time),
+            "days": [d.day for d in o.days.all()],
+        }
+        for o in obstructions
+    ])
+
+    return render(
+        request,
+        "core/scheduler.html",
+        {
+            "team": team,
+            "workers": workers,
+            "workers_json": workers_json,
+            "roles": roles_json,
+            "rooms": rooms_json,
+            "obstructions": obstructions_json,
+        },
+    )
+
+
+# =============================================================================
+# API: AVAILABILITY
+# =============================================================================
 
 @login_required
-def get_team_roles(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    # Get unique roles from your WorkerProfile or Membership model
-    roles = Role.objects.filter(team=team).values()
-    print("FIND ME")
-    print(roles)
-    return JsonResponse({"roles": list(roles)})
+@require_http_methods(["POST"])
+def save_availability(request, team_id):
+    '''
+    Save the events a team member creates for their personal schedule
+    '''
+    try:
+        data = json.loads(request.body)
+        team = get_object_or_404(Team, id=team_id)
+        if request.user not in team.members.all() and request.user != team.owner:
+            return HttpResponseForbidden("You are not a member of this team.")
 
+        events_data = data.get("events", [])
+        role_ids = data.get("role_ids", [])
+
+        with transaction.atomic():
+            AvailabilityRange.objects.filter(user=request.user, team=team).delete()
+
+            for item in events_data:
+                start_val = minutes_to_string(item.get("start_min"))
+                end_val = minutes_to_string(item.get("end_min"))
+
+                day_int = item.get("day")
+                day_str = DAY_MAP.get(day_int, "mon")
+
+                AvailabilityRange.objects.create(
+                    user=request.user,
+                    team=team,
+                    day=day_str,
+                    start_time=start_val,
+                    end_time=end_val,
+                    building=item.get("location", ""),
+                    eventName=item.get("name", ""),
+                )
+
+            if role_ids:
+                role_prefs, _ = UserRolePreference.objects.get_or_create(
+                    user=request.user, team=team
+                )
+                role_prefs.roles.set(
+                    Role.objects.filter(id__in=role_ids, team=team)
+                )
+
+        return JsonResponse({"status": "success", "count": len(events_data)})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 @login_required
 def get_worker_availability(request, team_id, worker_id):
+    '''
+    Supervisor fetches a workers availability
+    '''
     team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden("Supervisor only")
-
-    target_user = get_object_or_404(User, id=worker_id)
-
-    # Simplified authorization check
-    if not (team.owner == request.user or request.user.id == int(worker_id)):
+    if team.owner != request.user and request.user.id != int(worker_id):
         return HttpResponseForbidden("Unauthorized")
 
+    target_user = get_object_or_404(User, id=worker_id)
     ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
 
-    # We want a flat list for the availabilityData.forEach loop
     availability_list = []
-
     for r in ranges:
-        # Calculate minutes from midnight for the frontend math
-        start_min = (r.start_time.hour * 60) + r.start_time.minute
-        end_min = (r.end_time.hour * 60) + r.end_time.minute
+        start_min = time_to_minutes(r.start_time)
+        end_min = time_to_minutes(r.end_time)
 
         availability_list.append(
             {
-                "day": r.day.lower(),  # 'mon', 'tue', etc.
+                "day": r.day.lower(),
                 "start_min": start_min,
                 "end_min": end_min,
                 "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
             }
         )
 
-    # Return the flat list directly
     return JsonResponse({"availabilityData": availability_list})
 
 
-# @login_required
-# @require_http_methods(["POST"])
-# def save_schedule(request, team_id):
-#     try:
-#         data = json.loads(request.body)
-#     except json.JSONDecodeError:
-#         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
-
-#     team = get_object_or_404(Team, id=team_id)
-
-#     if team.owner != request.user:
-#         return HttpResponseForbidden("Only the supervisor can save schedules.")
-
-#     worker_id = data.get('worker_id')
-#     role_id = data.get('role') # This comes from the dropdown in scheduler
-#     assigned_shifts = data.get('assigned_shifts')
-
-#     if not worker_id:
-#         return JsonResponse({'status': 'error', 'message': 'No worker ID provided'}, status=400)
-
-#     target_user = get_object_or_404(User, id=worker_id)
-
-#     # Correctly lookup the Role object for the Shift
-#     role_obj = None
-#     if role_id:
-#         role_obj = Role.objects.filter(id=role_id, team=team).first()
-
-#     try:
-#         with transaction.atomic():
-#             # Clear existing shifts for this specific worker/team combo
-#             Shift.objects.filter(user=target_user, team=team).delete()
-
-#             count = 0
-#             if assigned_shifts:
-#                 for day, shifts in assigned_shifts.items():
-#                     for time_range in shifts:
-#                         if len(time_range) == 2:
-#                             start, end = time_range
-#                             Shift.objects.create(
-#                                 user=target_user,
-#                                 team=team,
-#                                 day=day.lower(),
-#                                 start_time=start,
-#                                 end_time=end,
-#                                 role=role_obj
-#                             )
-#                             count += 1
-
-#         return JsonResponse({'status': 'success', 'created': count})
-#     except Exception as e:
-#         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+# =============================================================================
+# API: SCHEDULES & SHIFTS
+# =============================================================================
 
 @login_required
-@require_http_methods(["POST"])
-def create_role(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    print(
-        f"Attempting to create role for team {team_id} by user {request.user.username}"
-    )
-    if team.owner != request.user:
-        return HttpResponseForbidden("Only supervisors can create roles.")
-
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
-
-    name = (data.get("name") or "").strip()
-    if not name:
-        return HttpResponseBadRequest("Missing role name")
-
-    try:
-        # Check if role already exists for THIS team
-        role = Role.objects.get(team=team, name=name)
-        return JsonResponse(
-            {"ok": True, "role_id": role.id, "created": False, "name": role.name}
-        )
-    except Role.DoesNotExist:
-        # Create new role (no capacity field needed)
-        role = Role.objects.create(team=team, name=name)
-        return JsonResponse(
-            {"ok": True, "role_id": role.id, "created": True, "name": role.name}
-        )
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-def update_member_role(request, team_id):
-    try:
-        data = json.loads(request.body)
-        worker_id = data.get(
-            "member_id"
-        )  # The template sends entry.id, ensure this matches
-        role_id = data.get("role_id")
-
-        team = get_object_or_404(Team, id=team_id)
-
-        # Ensure only the owner can change roles
-        if team.owner != request.user:
-            return HttpResponseForbidden("Unauthorized")
-
-        if not role_id:
-            # Handle "No Role" selection by removing the assignment
-            TeamRoleAssignment.objects.filter(team=team, user_id=worker_id).delete()
-            return JsonResponse({"status": "success", "message": "Role cleared"})
-
-        # Update the assignment or create a new one if it doesn't exist
-        role = get_object_or_404(Role, id=role_id, team=team)
-        assignment, created = TeamRoleAssignment.objects.update_or_create(
-            team=team, user_id=worker_id, defaults={"role": role}
-        )
-
-        return JsonResponse(
-            {"status": "success", "role_name": role.name, "created": created}
-        )
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
-
-@login_required
-@require_http_methods(["DELETE"])
-def delete_role(request, team_id, role_id):
-    team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden()
-
-    role = get_object_or_404(Role, id=role_id, team=team)
-    role.delete()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-def list_roles(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-
-    # allow owner + members to view roles (adjust if you want)
-    if request.user != team.owner and request.user not in team.members.all():
-        return HttpResponseForbidden("Not allowed")
-
-    roles = Role.objects.filter(team=team).order_by("name")
-    return JsonResponse({"roles": [{"id": r.id, "name": r.name} for r in roles]})
-
-
-@login_required
-def filter_view(request, team_id, role_id):
-    # Now it will reach these print statements
-    print(f"DEBUG: team_id={team_id}, role_id={role_id}")
-
-    # 1. Get the list of user IDs assigned to this role in this team
-    # Note: Ensure your model field names are team_id/role_id or team/role
-    # based on your specific TeamRoleAssignment model definition
-    user_ids = TeamRoleAssignment.objects.filter(
-        team_id=team_id, role_id=role_id
-    ).values_list("user", flat=True)
-
-    relevant_users = User.objects.filter(id__in=user_ids).prefetch_related(
-        models.Prefetch(
-            "availabilityrange_set",  # or whatever the related_name is
-            queryset=AvailabilityRange.objects.filter(team_id=team_id),
-            to_attr="team_avail",
-        )
-    )
-
-    print(f"DEBUG: Found User IDs: {list(user_ids)}")
-
-    workers_data = []
-
-    for user in relevant_users:
-        # ACCESS THE PREFETCHED LIST HERE
-        # Note: We use the name defined in 'to_attr'
-        prefetched_ranges = user.team_avail
-
-        avail_list = []
-        for r in prefetched_ranges:
-            avail_list.append(
-                {
-                    "day": r.day.lower(),
-                    "start_min": (r.start_time.hour * 60) + r.start_time.minute,
-                    "end_min": (r.end_time.hour * 60) + r.end_time.minute,
-                    "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
-                }
-            )
-
-        workers_data.append(
-            {
-                "id": user.id,
-                "name": user.get_full_name() or user.username,
-                "availability": avail_list,
-            }
-        )
-
-    return JsonResponse({"workers": workers_data})
-
-
-@login_required
-@require_http_methods(["POST"])
-def assign_role(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    data = json.loads(request.body)
-    user_id = data.get('worker_id') or data.get('user_id')  # accept both
-    role_id = data.get('role_id')
-    section = data.get('section', None)
-
-    user = get_object_or_404(User, id=user_id)
-    assignment, _ = TeamRoleAssignment.objects.update_or_create(
-        team=team,
-        user=user,
-        defaults={
-            'role_id': role_id if role_id else None,
-            'section': section or None
-        }
-    )
-    return JsonResponse({'status': 'ok'})
-
-@login_required
-@require_http_methods(["POST"])
-def unassign_role(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden("Only supervisors can unassign roles.")
-
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
-
-    worker_id = data.get("worker_id")
-    role_id = data.get("role_id")
-    if not worker_id or not role_id:
-        return HttpResponseBadRequest("worker_id and role_id required")
-
-    TeamRoleAssignment.objects.filter(
-        team=team, user_id=worker_id, role_id=role_id
-    ).delete()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-def worker_roles(request, team_id, worker_id):
-    team = get_object_or_404(Team, id=team_id)
-
-    # supervisor can only view worker roles if they are assigned to that team
-    worker = get_object_or_404(User, id=worker_id)
-    if worker != team.owner and worker not in team.members.all():
-        return HttpResponseBadRequest("Worker is not on this team")
-
-    # allow owner OR the worker themselves
-    if request.user != team.owner and request.user.id != worker_id:
-        return HttpResponseForbidden("Unauthorized")
-
-    assigned = (
-        TeamRoleAssignment.objects.filter(team=team, user_id=worker_id)
-        .select_related("role")
-        .order_by("role__name")
-    )
-
-    return JsonResponse(
-        {"roles": [{"id": a.role.id, "name": a.role.name} for a in assigned]}
-    )
-
-
-@login_required
-@require_POST
-def create_room(request, team_id):
-    team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden("Unauthorized")
-
-    try:
-        data = json.loads(request.body)
-        room = Room.objects.create(
-            team=team, name=data.get("name"), capacity=data.get("capacity", 1)
-        )
-        return JsonResponse({"ok": True, "room_id": room.id})
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=400)
-
-
-@login_required
-def retrieve_room_availability(request, room_id):
-    room = get_object_or_404(Room, id=room_id)
-    if room.team.owner != request.user:
-        return HttpResponseForbidden("Unauthorized")
-    openTimes = RoomAvailability.objects.filter(room_id=room_id)
-    open_lst = []
-    for o in openTimes:
-        open_lst.append(
-            {
-                "day": o.day,
-                "start": o.start_time.strftime("%H:%M"),
-                "end": o.end_time.strftime("%H:%M"),
-            }
-        )
-    context = {"savedTimes": open_lst}
-    print(context)
-    return JsonResponse(context)
-
-
-@login_required
-def save_room_availability(request, team_id):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            team = get_object_or_404(Team, id=team_id)
-            room_to_save = data.get("times", [])
-            print(data)
-            theRoom = Room.objects.get(id=data.get("room_id"))
-            print(data.get("room_id"))
-            print(theRoom)
-            print(room_to_save)
-            with transaction.atomic():
-                RoomAvailability.objects.filter(room_id=data.get("room_id")).delete()
-                day_map = {
-                    0: "sun",
-                    1: "mon",
-                    2: "tue",
-                    3: "wed",
-                    4: "thu",
-                    5: "fri",
-                    6: "sat",
-                }
-
-                for item in room_to_save:
-                    print(item)
-                    start_val = minutes_to_string(item.get("start_min"))
-                    end_val = minutes_to_string(item.get("end_min"))
-                    day_int = item.get("day")
-                    day_str = day_map.get(day_int, "mon")
-
-                    RoomAvailability.objects.create(
-                        day=day_str,
-                        start_time=start_val,
-                        end_time=end_val,
-                        room=theRoom,
-                    )
-            return JsonResponse({"status": "success", "count": len(room_to_save)})
-
-        except Exception as e:
-            # Print error to terminal for debugging
-            print(f"CRITICAL SAVE ERROR: {str(e)}")
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
-    return JsonResponse(
-        {"status": "error", "message": "Method not allowed"}, status=405
-    )
-
-
-@login_required
-@require_http_methods(["POST"])
-def delete_room(request, team_id):
-    try:
-        data = json.loads(request.body)
-        room_id = data.get("room_id")
-
-        if not room_id:
-            return JsonResponse(
-                {"status": "error", "message": "No room_id provided"}, status=400
-            )
-
-        with transaction.atomic():
-            # filter().delete() is "idempotent" (won't crash if already deleted)
-            RoomAvailability.objects.filter(room_id=room_id).delete()
-
-            # Use filter instead of get to avoid DoesNotExist exceptions
-            deleted_count, _ = Room.objects.filter(id=room_id, team_id=team_id).delete()
-
-            if deleted_count == 0:
-                return JsonResponse(
-                    {"status": "error", "message": "Room not found or already deleted"},
-                    status=404,
-                )
-
-        return JsonResponse({"status": "success"})
-
-    except json.JSONDecodeError:
-        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
-    except Exception as e:
-        print(f"CRITICAL DELETE ERROR: {str(e)}")
-        return JsonResponse(
-            {"status": "error", "message": "Internal server error"}, status=500
-        )
-
-
-@login_required
-@require_http_methods(["POST"])
-def save_schedule(request, team_id):
-    try:
-        # 1. Initialize 'data' from the request body
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
-
-    # 2. Define 'team' and check permissions
-    team = get_object_or_404(Team, id=team_id)
-    if team.owner != request.user:
-        return HttpResponseForbidden("Only the supervisor can save schedules.")
-
-    # 3. Define 'worker_id', 'target_user', and 'assigned_shifts'
-    worker_id = data.get("worker_id")
-    assigned_shifts = data.get("assigned_shifts")
-
-    if not worker_id:
-        return JsonResponse(
-            {"status": "error", "message": "No worker ID provided"}, status=400
-        )
-
-    target_user = get_object_or_404(User, id=worker_id)
-
-    # 4. Handle Role and Room lookups
-    role_id = data.get("role")
-    role_obj = Role.objects.filter(id=role_id, team=team).first() if role_id else None
-
-    room_id = data.get("room_id")  # Ensure your JS sends this!
-    room_obj = Room.objects.filter(id=room_id, team=team).first() if room_id else None
-
-    try:
-        with transaction.atomic():
-            # 5. Clear existing shifts for this specific worker/team combo
-            Shift.objects.filter(user=target_user, team=team).delete()
-
-            count = 0
-            if assigned_shifts:
-                for day, shifts in assigned_shifts.items():
-                    for time_range in shifts:
-                        if len(time_range) == 2:
-                            start, end = time_range
-
-                            # 6. CAPACITY CHECK LOGIC
-                            if room_obj:
-                                # Count shifts in this room that overlap with the new one
-                                overlapping_count = (
-                                    Shift.objects.filter(
-                                        room=room_obj,
-                                        day=day.lower(),
-                                    )
-                                    .filter(
-                                        Q(start_time__lt=end) & Q(end_time__gt=start)
-                                    )
-                                    .count()
-                                )
-
-                                if overlapping_count >= room_obj.capacity:
-                                    # This error will trigger the 'except' block and rollback the delete
-                                    raise Exception(
-                                        f"Room {room_obj.name} is full on {day} at {start}!"
-                                    )
-
-                            # 7. Create the new shift
-                            Shift.objects.create(
-                                user=target_user,
-                                team=team,
-                                room=room_obj,
-                                day=day.lower(),
-                                start_time=start,
-                                end_time=end,
-                                role=role_obj,
-                            )
-                            count += 1
-
-        return JsonResponse({"status": "success", "created": count})
-
-    except Exception as e:
-        # This catches the capacity Exception or any DB errors
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-
-from datetime import time
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def create_obstruction(request, team_id):
-    if request.method == "POST":
-        data = json.loads(request.body)
-
-        print("lol")
-        team = get_object_or_404(Team, id=team_id)
-        print("lol2")
-        role = (
-            get_object_or_404(Role, id=data["role_id"]) if data.get("role_id") else None
-        )
-        print("lol3")
-        # Convert minutes to time objects
-        start_min = data["start_min"]
-        end_min = data["end_min"]
-        start_time = time(start_min // 60, start_min % 60)
-        end_time = time(end_min // 60, end_min % 60)
-        section_id = data.get('section', None)
-        section = get_object_or_404(RoleSection, id=section_id) if section_id else None
-
-        obstruction = FixedObstruction.objects.create(
-            team=team,
-            role=role,
-            name=data["name"],
-            start_time=start_time,
-            end_time=end_time,
-            section=section,
-        )
-
-        # Create a day entry for each checked day
-        day_names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-        for day_index in data["days"]:
-            ObstructionDay.objects.create(
-                obstruction=obstruction, day=day_names[day_index]
-            )
-
-        return JsonResponse({"status": "ok", "obstruction_id": obstruction.id})
-
-
-@csrf_exempt
-@require_http_methods(["DELETE"])
-def delete_obstruction(request, team_id, obstruction_id):
-    print("here")
-    obstruction = get_object_or_404(FixedObstruction, team=team_id, id=obstruction_id)
-    obstruction.delete()  # CASCADE will also delete ObstructionDay entries
-    return JsonResponse({"status": "ok"})
-
-
-# Schedules
-# 1. Get all schedules for a team
 def get_schedules(request, team_id):
+    '''
+    Get all saved schedules for a team
+    '''
     team = get_object_or_404(Team, id=team_id)
+    
+    # fetch the relevant fields
     schedules = Schedule.objects.filter(team=team).values("id", "name", "is_active")
     return JsonResponse({"schedules": list(schedules)})
 
 
-# 2. Create a new schedule
+@login_required
 @csrf_exempt
 @require_http_methods(["POST"])
 def create_schedule(request, team_id):
+    '''
+    Create a new schedule to use
+    '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
     name = data.get("name", "Default")
 
     schedule, created = Schedule.objects.get_or_create(team=team, name=name)
+    
+    # make sure it is unique
     if not created:
         return JsonResponse(
             {"error": "A schedule with that name already exists."}, status=400
@@ -1073,11 +478,13 @@ def create_schedule(request, team_id):
         {"id": schedule.id, "name": schedule.name, "is_active": schedule.is_active}
     )
 
-
-# 3. Save role shifts (delete existing for role on schedule, recreate)
+@login_required
 @csrf_exempt
 @require_http_methods(["POST"])
 def save_role_shifts(request, team_id):
+    '''
+    Save all of created shift events for a schedule to the database
+    '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
 
@@ -1088,22 +495,26 @@ def save_role_shifts(request, team_id):
     schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
     role = get_object_or_404(Role, id=role_id, team=team) if role_id else None
 
-    # Delete existing shifts for this role on this schedule only
+    # delete any shifts that existed prior
     Shift.objects.filter(schedule=schedule, role=role).delete()
+    
+    # get all ids first (fewer queries)
+    user_ids = [s["user_id"] for s in shifts]
+    room_ids = [s["room_id"] for s in shifts if s.get("room_id")]
+    users = {u.id: u for u in User.objects.filter(id__in=user_ids)}
+    rooms = {str(r.id): r for r in Room.objects.filter(id__in=room_ids)}
 
-    # Check for conflicts before saving
     conflicts = []
     created_shifts = []
 
     for s in shifts:
-        start_time = time(s["start_min"] // 60, s["start_min"] % 60)
-        end_time = time(s["end_min"] // 60, s["end_min"] % 60)
+        start_time = minutes_to_time(s["start_min"])
+        end_time = minutes_to_time(s["end_min"])
         day = s["day"]
-        user = get_object_or_404(User, id=s["user_id"])
-        room = get_object_or_404(Room, id=s["room_id"]) if s.get("room_id") else None
-
-        # Check room conflict - same room, same day, overlapping time, different role
-        # Inside the loop, replace the room conflict check with:
+        user = users[s["user_id"]]                  
+        room = rooms.get(str(s["room_id"])) if s.get("room_id") else None
+        
+        # make sure room has availability
         if room:
             overlapping_count = Shift.objects.filter(
                 schedule=schedule,
@@ -1121,7 +532,7 @@ def save_role_shifts(request, team_id):
                     }
                 )
 
-        # Check worker double-booking - same user, same day, overlapping time
+        # make sure worker isn't already scheduled
         worker_conflict = (
             Shift.objects.filter(
                 schedule=schedule,
@@ -1142,7 +553,7 @@ def save_role_shifts(request, team_id):
                 }
             )
 
-        # Save regardless (soft block)
+        # create the shift
         shift = Shift.objects.create(
             schedule=schedule,
             team=team,
@@ -1159,23 +570,24 @@ def save_role_shifts(request, team_id):
         {
             "status": "ok",
             "saved": len(created_shifts),
-            "conflicts": conflicts,  # empty list if no conflicts
+            "conflicts": conflicts,
         }
     )
 
 
-# 4. Set active schedule
+@login_required
 @csrf_exempt
 @require_http_methods(["POST"])
 def set_active_schedule(request, team_id):
+    '''
+    Swap which schedule we should be looking at
+    '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
     schedule_id = data.get("schedule_id")
 
-    # Deactivate all schedules for this team
     Schedule.objects.filter(team=team).update(is_active=False)
 
-    # Activate the selected one
     schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
     schedule.is_active = True
     schedule.save()
@@ -1183,8 +595,10 @@ def set_active_schedule(request, team_id):
     return JsonResponse({"status": "ok", "active_schedule": schedule.name})
 
 
-# 5. Get shifts for a schedule, optionally filtered by role
 def get_schedule_shifts(request, team_id, schedule_id):
+    '''
+    Get the shifts associated with a specific schedule
+    '''
     team = get_object_or_404(Team, id=team_id)
     schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
     role_id = request.GET.get("role_id")
@@ -1195,8 +609,6 @@ def get_schedule_shifts(request, team_id, schedule_id):
 
     if role_id:
         shifts = shifts.filter(role_id=role_id)
-
-    day_map = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
 
     data = [
         {
@@ -1217,7 +629,127 @@ def get_schedule_shifts(request, team_id, schedule_id):
     return JsonResponse({"shifts": data})
 
 
+# =============================================================================
+# API: ROOMS
+# =============================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def create_room(request, team_id):
+    '''
+    Create a new room that a team has access to
+    '''
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Unauthorized")
+
+    try:
+        data = json.loads(request.body)
+        name = data.get("name", "").strip()
+        if not name:
+            return JsonResponse({"ok": False, "error": "Room name required"}, status=400)
+        room = Room.objects.create(
+            team=team, name=data.get("name"), capacity=data.get("capacity", 1)
+        )
+        return JsonResponse({"ok": True, "room_id": room.id})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_room_availability(request, team_id):
+    '''
+    Save the the time a team has access to a room
+    '''
+    try:
+        data = json.loads(request.body)
+        team = get_object_or_404(Team, id=team_id)
+        if team.owner != request.user:
+            return HttpResponseForbidden("Unauthorized")
+        room_to_save = data.get("times", [])
+        theRoom = Room.objects.get(id=data.get("room_id"))
+
+        with transaction.atomic():
+            RoomAvailability.objects.filter(room_id=data.get("room_id")).delete()
+
+            for item in room_to_save:
+                start_val = minutes_to_string(item.get("start_min"))
+                end_val = minutes_to_string(item.get("end_min"))
+                day_int = item.get("day")
+                day_str = DAY_MAP.get(day_int, "mon")
+
+                RoomAvailability.objects.create(
+                    day=day_str,
+                    start_time=start_val,
+                    end_time=end_val,
+                    room=theRoom,
+                )
+        return JsonResponse({"status": "success", "count": len(room_to_save)})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+
+
+@login_required
+def retrieve_room_availability(request, room_id):
+    '''
+    For created rooms, show what was already saved
+    '''
+    room = get_object_or_404(Room, id=room_id)
+    if room.team.owner != request.user:
+        return HttpResponseForbidden("Unauthorized")
+    openTimes = RoomAvailability.objects.filter(room_id=room_id)
+    slots = [
+        {
+            "day": o.day,
+            "start": o.start_time.strftime("%H:%M"),
+            "end": o.end_time.strftime("%H:%M"),
+        }
+        for o in openTimes
+    ]
+    return JsonResponse({"savedTimes": slots})
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_room(request, team_id):
+    '''
+    Delete a room a team doesn't need anymore
+    '''
+    try:
+        data = json.loads(request.body)
+        room_id = data.get("room_id")
+
+        if not room_id:
+            return JsonResponse(
+                {"status": "error", "message": "No room_id provided"}, status=400
+            )
+
+        with transaction.atomic():
+            deleted_count, _ = Room.objects.filter(id=room_id, team_id=team_id).delete()
+
+            if deleted_count == 0:
+                return JsonResponse(
+                    {"status": "error", "message": "Room not found or already deleted"},
+                    status=404,
+                )
+
+        return JsonResponse({"status": "success"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse(
+            {"status": "error", "message": "Internal server error"}, status=500
+        )
+
+@login_required
 def get_room_bookings(request, team_id, schedule_id):
+    '''
+    Get the room booking to see what is available when scheduling
+    '''
     team = get_object_or_404(Team, id=team_id)
     schedule = get_object_or_404(Schedule, id=schedule_id, team=team)
     day = request.GET.get("day")
@@ -1245,8 +777,11 @@ def get_room_bookings(request, team_id, schedule_id):
 
     return JsonResponse({"bookings": bookings})
 
-
+@login_required
 def get_room_availability(request, team_id):
+    '''
+    FIX?
+    '''
     team = get_object_or_404(Team, id=team_id)
     day = request.GET.get("day")
 
@@ -1266,18 +801,219 @@ def get_room_availability(request, team_id):
             }
         )
 
-        start_min = slot.start_time.hour * 60 + slot.start_time.minute
-        end_min = slot.end_time.hour * 60 + slot.end_time.minute
-        print(
-            f"Room: {slot.room.name}, day: {slot.day}, start_min: {start_min}, end_min: {end_min}"
+    return JsonResponse({"availability": availability})
+
+
+# =============================================================================
+# API: ROLES
+# =============================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def create_role(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Only supervisors can create roles.")
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    name = (data.get("name") or "").strip()
+    if not name:
+        return HttpResponseBadRequest("Missing role name")
+
+    try:
+        role = Role.objects.get(team=team, name=name)
+        return JsonResponse(
+            {"ok": True, "role_id": role.id, "created": False, "name": role.name}
+        )
+    except Role.DoesNotExist:
+        role = Role.objects.create(team=team, name=name)
+        return JsonResponse(
+            {"ok": True, "role_id": role.id, "created": True, "name": role.name}
+        )
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+def list_roles(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+
+    if request.user != team.owner and request.user not in team.members.all():
+        return HttpResponseForbidden("Not allowed")
+
+    roles = Role.objects.filter(team=team).order_by("name")
+    return JsonResponse({"roles": [{"id": r.id, "name": r.name} for r in roles]})
+
+
+@login_required
+def get_team_roles(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    roles = Role.objects.filter(team=team).values()
+    return JsonResponse({"roles": list(roles)})
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_role(request, team_id, role_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden()
+
+    role = get_object_or_404(Role, id=role_id, team=team)
+    role.delete()
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def filter_view(request, team_id, role_id):
+    assignments = TeamRoleAssignment.objects.filter(
+        team_id=team_id, role_id=role_id
+    ).select_related('section')
+
+    user_ids = [a.user_id for a in assignments]
+    section_map = {a.user_id: a.section.name if a.section else None for a in assignments}
+
+    relevant_users = User.objects.filter(id__in=user_ids).prefetch_related(
+        models.Prefetch(
+            "availabilityrange_set",
+            queryset=AvailabilityRange.objects.filter(team_id=team_id),
+            to_attr="team_avail",
+        )
+    )
+
+    workers_data = []
+
+    for user in relevant_users:
+        prefetched_ranges = user.team_avail
+
+        avail_list = []
+        for r in prefetched_ranges:
+            avail_list.append(
+                {
+                    "day": r.day.lower(),
+                    "start_min": (r.start_time.hour * 60) + r.start_time.minute,
+                    "end_min": (r.end_time.hour * 60) + r.end_time.minute,
+                    "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
+                }
+            )
+
+        workers_data.append(
+            {
+                "id": str(user.id),
+                "name": user.get_full_name() or user.username,
+                "availability": avail_list,
+                "section": section_map.get(user.id),
+            }
         )
 
-    return JsonResponse({"availability": availability})
+    return JsonResponse({"workers": workers_data})
+
+
+@login_required
+@require_http_methods(["POST"])
+def assign_role(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    user_id = data.get('worker_id') or data.get('user_id')
+    role_id = data.get('role_id')
+    section = data.get('section', None)
+
+    user = get_object_or_404(User, id=user_id)
+    assignment, _ = TeamRoleAssignment.objects.update_or_create(
+        team=team,
+        user=user,
+        defaults={
+            'role_id': role_id if role_id else None,
+            'section': section or None
+        }
+    )
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def unassign_role(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Only supervisors can unassign roles.")
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    worker_id = data.get("worker_id")
+    role_id = data.get("role_id")
+    if not worker_id or not role_id:
+        return HttpResponseBadRequest("worker_id and role_id required")
+
+    TeamRoleAssignment.objects.filter(
+        team=team, user_id=worker_id, role_id=role_id
+    ).delete()
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_member_role(request, team_id):
+    try:
+        data = json.loads(request.body)
+        worker_id = data.get("member_id")
+        role_id = data.get("role_id")
+
+        team = get_object_or_404(Team, id=team_id)
+
+        if team.owner != request.user:
+            return HttpResponseForbidden("Unauthorized")
+
+        if not role_id:
+            TeamRoleAssignment.objects.filter(team=team, user_id=worker_id).delete()
+            return JsonResponse({"status": "success", "message": "Role cleared"})
+
+        role = get_object_or_404(Role, id=role_id, team=team)
+        assignment, created = TeamRoleAssignment.objects.update_or_create(
+            team=team, user_id=worker_id, defaults={"role": role}
+        )
+
+        return JsonResponse(
+            {"status": "success", "role_name": role.name, "created": created}
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@login_required
+def worker_roles(request, team_id, worker_id):
+    team = get_object_or_404(Team, id=team_id)
+
+    worker = get_object_or_404(User, id=worker_id)
+    if worker != team.owner and worker not in team.members.all():
+        return HttpResponseBadRequest("Worker is not on this team")
+
+    if request.user != team.owner and request.user.id != worker_id:
+        return HttpResponseForbidden("Unauthorized")
+
+    assigned = (
+        TeamRoleAssignment.objects.filter(team=team, user_id=worker_id)
+        .select_related("role")
+        .order_by("role__name")
+    )
+
+    return JsonResponse(
+        {"roles": [{"id": a.role.id, "name": a.role.name} for a in assigned]}
+    )
+
 
 def get_role_sections(request, team_id, role_id):
     role = get_object_or_404(Role, id=role_id, team_id=team_id)
     sections = list(role.sections.values('id', 'name'))
     return JsonResponse({'sections': sections})
+
 
 def create_role_section(request, team_id, role_id):
     role = get_object_or_404(Role, id=role_id, team_id=team_id)
@@ -1288,10 +1024,12 @@ def create_role_section(request, team_id, role_id):
     section, created = RoleSection.objects.get_or_create(role=role, name=name)
     return JsonResponse({'id': section.id, 'name': section.name})
 
+
 def delete_role_section(request, team_id, role_id, section_id):
     section = get_object_or_404(RoleSection, id=section_id, role_id=role_id)
     section.delete()
     return JsonResponse({'status': 'ok'})
+
 
 def save_member_assignments(request, team_id):
     team = get_object_or_404(Team, id=team_id)
@@ -1314,3 +1052,78 @@ def save_member_assignments(request, team_id):
         )
 
     return JsonResponse({'status': 'ok', 'saved': len(assignments)})
+
+
+# =============================================================================
+# API: EVENTS & OBSTRUCTIONS
+# =============================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def add_event(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden("Unauthorized")
+
+    try:
+        data = json.loads(request.body)
+        event = TeamEvent.objects.create(
+            team=team,
+            name=data.get("name"),
+            day=data.get("day"),
+            start_time=data.get("start"),
+            end_time=data.get("end"),
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "event": {"id": event.id, "name": event.name, "day": event.day},
+            }
+        )
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_obstruction(request, team_id):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        team = get_object_or_404(Team, id=team_id)
+        role = (
+            get_object_or_404(Role, id=data["role_id"]) if data.get("role_id") else None
+        )
+
+        start_min = data["start_min"]
+        end_min = data["end_min"]
+        start_time = time(start_min // 60, start_min % 60)
+        end_time = time(end_min // 60, end_min % 60)
+        section_id = data.get('section', None)
+        section_obj = get_object_or_404(RoleSection, id=section_id) if section_id else None
+        section_name = section_obj.name if section_obj else None
+
+        obstruction = FixedObstruction.objects.create(
+            team=team,
+            role=role,
+            name=data["name"],
+            start_time=start_time,
+            end_time=end_time,
+            section=section_name,
+        )
+
+        day_names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        for day_index in data["days"]:
+            ObstructionDay.objects.create(
+                obstruction=obstruction, day=day_names[day_index]
+            )
+
+        return JsonResponse({"status": "ok", "obstruction_id": obstruction.id})
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_obstruction(request, team_id, obstruction_id):
+    obstruction = get_object_or_404(FixedObstruction, team=team_id, id=obstruction_id)
+    obstruction.delete()
+    return JsonResponse({"status": "ok"})
