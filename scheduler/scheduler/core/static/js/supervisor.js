@@ -550,9 +550,9 @@ async function deleteRoom () {
 
   try {
     const response = await fetch(
-      `/api/room/${window.TEAM_ID}/rooms/delete-room/`,
+      `/api/team/${window.TEAM_ID}/rooms/delete/`,
       {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrfToken // Using Django template tag for safety
