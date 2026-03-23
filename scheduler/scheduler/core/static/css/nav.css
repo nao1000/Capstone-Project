@@ -1,112 +1,115 @@
 :root {
-    --header-bg: #7a92ac;
-    --border-color: #e0e0e0;
-    --text-main: #333;
+  --header-bg: #7a92ac;
+  --border-color: #e0e0e0;
+  --text-main: #333;
 }
 
 .navbar {
-    background-color: var(--header-bg);
-    height: 60px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 40px;
-    color: white;
-    width: 100%;
-    box-sizing: border-box;
+  background-color: var(--header-bg);
+  height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  color: white;
+  width: 100%;
+  box-sizing: border-box;
+  /* keeps navbar present */
+  position: sticky;
+  top: 0;
+  z-index: 1000; /* Keeps it layered above your calendar/content */
 }
 
 .brand {
-    font-size: 24px;
-    font-weight: 500;
+  font-size: 24px;
+  font-weight: 500;
 }
 
 .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .nav-links a {
-    color: white;
-    text-decoration: none;
-    font-size: 18px;
-    font-weight: 400;
+  color: white;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 400;
 }
 
-.nav-links a[aria-label="Home"] i {
-    font-size: 20px;
-    line-height: 1;
+.nav-links a[aria-label='Home'] i {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .icon-group {
-    font-size: 22px;
-    cursor: pointer;
+  font-size: 22px;
+  cursor: pointer;
 }
 
 .user-profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
 }
 
 .user-profile i {
-    font-size: 26px;
-    font-weight: 90;
+  font-size: 26px;
+  font-weight: 90;
 }
 
 .user-profile-container {
-    position: relative;
-    cursor: pointer;
+  position: relative;
+  cursor: pointer;
 }
 
 .profile-dropdown {
-    display: none;
-    position: absolute;
-    top: 120%;
-    right: 0;
-    background-color: white;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    min-width: 180px;
-    z-index: 100;
-    padding: 8px;
-    color: var(--text-main);
+  display: none;
+  position: absolute;
+  top: 120%;
+  right: 0;
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  z-index: 100;
+  padding: 8px;
+  color: var(--text-main);
 }
 
-
 .user-profile-container.active .profile-dropdown {
-    display: block;
+  display: block;
 }
 
 .profile-dropdown a,
 .profile-dropdown button {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    text-decoration: none;
-    color: var(--text-main);
-    font-size: 15px;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-    border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  text-decoration: none;
+  color: var(--text-main);
+  font-size: 15px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
 .profile-dropdown a:hover,
 .profile-dropdown button:hover {
-    background-color: #f0f4f8;
+  background-color: #f0f4f8;
 }
 
 .logout-form {
-    margin: 0;
+  margin: 0;
 }
 
 .profile-dropdown button span {
-    flex-grow: 1;
+  flex-grow: 1;
 }
