@@ -31,8 +31,8 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/rooms/create/', views.create_room, name='create_room'),
     path('api/team/<uuid:team_id>/rooms/save-availability/', views.save_room_availability, name='save_room_availability'),
     path("api/room/<uuid:room_id>/availability/", views.retrieve_room_availability, name="add_room_availability"),
-    path("api/room/<uuid:team_id>/rooms/delete-room/", views.delete_room, name='delete_room'),
-    
+    path("api/team/<uuid:team_id>/rooms/delete/", views.delete_room, name='delete_room'),
+
     # OBSTRUCTIONS API
     path('api/team/<uuid:team_id>/obstructions/create/', views.create_obstruction, name='create_obstruction'),
     path('api/team/<uuid:team_id>/obstructions/<int:obstruction_id>/delete/', views.delete_obstruction, name='delete_obstructin'),
