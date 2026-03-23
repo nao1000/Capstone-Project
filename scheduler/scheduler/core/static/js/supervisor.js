@@ -462,9 +462,8 @@ async function saveCurrentRoom() {
     if (!roomSelect) return;
     const selectedRoomId = roomSelect.value;
 
-    // Use window. prefixes to ensure these values are found
-    const sHeight = window.SLOT_HEIGHT || 15;
-    const sHour = window.START_HOUR || 8;
+    const sHeight = SLOT_HEIGHT;
+    const sHour = START_HOUR;
 
     openTime.forEach(ev => {
         const day = ev.parentElement.dataset.day;
