@@ -701,3 +701,7 @@ td {
     opacity: 1;
     color: #ef4444;
 }
+.status-badge.pending {
+    background-color: #ffe4b5; /* Light orange/yellow */
+    color: #8b6508;
+}
