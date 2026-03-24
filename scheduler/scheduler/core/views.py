@@ -769,8 +769,8 @@ def get_room_bookings(request, team_id, schedule_id):
         bookings[room_id]["shifts"].append(
             {
                 "user_name": s.user.get_full_name() or s.user.username,
-                "start_min": s.start_time.hour * 60 + s.start_time.minute,
-                "end_min": s.end_time.hour * 60 + s.end_time.minute,
+                "start_min": time_to_minutes(s.start_time),
+                "end_min": time_to_minutes(s.end_time),
                 "day": s.day,
             }
         )
@@ -780,7 +780,7 @@ def get_room_bookings(request, team_id, schedule_id):
 @login_required
 def get_room_availability(request, team_id):
     '''
-    FIX?
+    Get the information of when each room is open.
     '''
     team = get_object_or_404(Team, id=team_id)
     day = request.GET.get("day")
@@ -796,8 +796,8 @@ def get_room_availability(request, team_id):
             availability[room_id] = []
         availability[room_id].append(
             {
-                "start_min": slot.start_time.hour * 60 + slot.start_time.minute,
-                "end_min": slot.end_time.hour * 60 + slot.end_time.minute,
+                "start_min": time_to_minutes(slot.start_time),
+                "end_min": time_to_minutes(slot.end_time)
             }
         )
 
@@ -811,6 +811,9 @@ def get_room_availability(request, team_id):
 @login_required
 @require_http_methods(["POST"])
 def create_role(request, team_id):
+    '''
+    Create a role for a team
+    '''
     team = get_object_or_404(Team, id=team_id)
     if team.owner != request.user:
         return HttpResponseForbidden("Only supervisors can create roles.")
@@ -840,6 +843,9 @@ def create_role(request, team_id):
 
 @login_required
 def list_roles(request, team_id):
+    '''
+    Return all roles a team has
+    '''
     team = get_object_or_404(Team, id=team_id)
 
     if request.user != team.owner and request.user not in team.members.all():
@@ -851,6 +857,9 @@ def list_roles(request, team_id):
 
 @login_required
 def get_team_roles(request, team_id):
+    '''
+    FIX? may need to delete
+    '''
     team = get_object_or_404(Team, id=team_id)
     roles = Role.objects.filter(team=team).values()
     return JsonResponse({"roles": list(roles)})
@@ -859,6 +868,9 @@ def get_team_roles(request, team_id):
 @login_required
 @require_http_methods(["DELETE"])
 def delete_role(request, team_id, role_id):
+    '''
+    Remove a role that is no longer necessary
+    '''
     team = get_object_or_404(Team, id=team_id)
     if team.owner != request.user:
         return HttpResponseForbidden()
@@ -870,6 +882,9 @@ def delete_role(request, team_id, role_id):
 
 @login_required
 def filter_view(request, team_id, role_id):
+    '''
+    Return the workers and their schedules based on a certain role
+    '''
     assignments = TeamRoleAssignment.objects.filter(
         team_id=team_id, role_id=role_id
     ).select_related('section')
@@ -895,8 +910,8 @@ def filter_view(request, team_id, role_id):
             avail_list.append(
                 {
                     "day": r.day.lower(),
-                    "start_min": (r.start_time.hour * 60) + r.start_time.minute,
-                    "end_min": (r.end_time.hour * 60) + r.end_time.minute,
+                    "start_min": time_to_minutes(r.start_time),
+                    "end_min": time_to_minutes(r.end_time),
                     "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
                 }
             )
@@ -916,6 +931,9 @@ def filter_view(request, team_id, role_id):
 @login_required
 @require_http_methods(["POST"])
 def assign_role(request, team_id):
+    '''
+    
+    '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
     user_id = data.get('worker_id') or data.get('user_id')
