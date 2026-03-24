@@ -972,3 +972,30 @@ async function onEventRoleChange (select) {
   // Override the default "No Section" label for this context
   sectionSelect.options[0].textContent = 'All sections'
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 👇 CHANGED: Now looks for the input inside the .search-wrapper div
+    const searchInput = document.querySelector('.search-wrapper input');
+
+    // Selects all the rows inside your specific table body
+    const tableRows = document.querySelectorAll('.table-card tbody tr');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            // Convert search query to lowercase for case-insensitive matching
+            const searchTerm = this.value.toLowerCase();
+
+            tableRows.forEach(row => {
+                // Grab all text from the row (Name, Email, Username, Role, etc.)
+                const rowText = row.textContent.toLowerCase();
+
+                // If the row contains the search term, show it. Otherwise, hide it.
+                if (rowText.includes(searchTerm)) {
+                    row.style.display = ''; // Shows the row
+                } else {
+                    row.style.display = 'none'; // Hides the row
+                }
+            });
+        });
+    }
+});

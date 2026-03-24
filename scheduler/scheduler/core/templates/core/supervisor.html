@@ -23,7 +23,7 @@
         <div class="controls-row" style="justify-content:space-between;">
             <div class="search-wrapper">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Search">
+                <input type="text" id="memberSearchInput" placeholder="Search">
             </div>
             <button class="btn btn-primary" onclick="saveAllAssignments()">Save All Assignments</button>
         </div>
@@ -45,8 +45,13 @@
                         <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
                         <td>{{ entry.user.email }}</td>
                         <td>{{ entry.user.username }}</td>
-                        <td><span class="status-badge active">Active</span></td>
-
+                        <td>
+                            {% if entry.status == 'Submitted' %}
+                                <span class="status-badge active">Submitted</span>
+                            {% else %}
+                                <span class="status-badge pending">Pending</span>
+                            {% endif %}
+                        </td>
                         <!-- In the members table row -->
                         <td>
                             <div style="display:flex; gap:8px; align-items:center;">
