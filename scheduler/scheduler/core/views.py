@@ -932,7 +932,7 @@ def filter_view(request, team_id, role_id):
 @require_http_methods(["POST"])
 def assign_role(request, team_id):
     '''
-    
+    Creates an assignment for a worker to some role (may include a section)
     '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
@@ -955,6 +955,9 @@ def assign_role(request, team_id):
 @login_required
 @require_http_methods(["POST"])
 def unassign_role(request, team_id):
+    '''
+    Deletes the assignment
+    '''
     team = get_object_or_404(Team, id=team_id)
     if team.owner != request.user:
         return HttpResponseForbidden("Only supervisors can unassign roles.")
@@ -978,6 +981,9 @@ def unassign_role(request, team_id):
 @login_required
 @require_http_methods(["POST"])
 def update_member_role(request, team_id):
+    '''
+    Deletes previous assignment and updates it to the new one for the worker
+    '''
     try:
         data = json.loads(request.body)
         worker_id = data.get("member_id")
@@ -1007,6 +1013,9 @@ def update_member_role(request, team_id):
 
 @login_required
 def worker_roles(request, team_id, worker_id):
+    '''
+    Returns all roles applicable to a team
+    '''
     team = get_object_or_404(Team, id=team_id)
 
     worker = get_object_or_404(User, id=worker_id)
@@ -1028,12 +1037,18 @@ def worker_roles(request, team_id, worker_id):
 
 
 def get_role_sections(request, team_id, role_id):
+    '''
+    Gets all sections for a given role FIX: probably combine with above?
+    '''
     role = get_object_or_404(Role, id=role_id, team_id=team_id)
     sections = list(role.sections.values('id', 'name'))
     return JsonResponse({'sections': sections})
 
 
 def create_role_section(request, team_id, role_id):
+    '''
+    Create sections for roles
+    '''
     role = get_object_or_404(Role, id=role_id, team_id=team_id)
     data = json.loads(request.body)
     name = data.get('name', '').strip()
@@ -1044,12 +1059,18 @@ def create_role_section(request, team_id, role_id):
 
 
 def delete_role_section(request, team_id, role_id, section_id):
+    '''
+    Remove a section
+    '''
     section = get_object_or_404(RoleSection, id=section_id, role_id=role_id)
     section.delete()
     return JsonResponse({'status': 'ok'})
 
 
 def save_member_assignments(request, team_id):
+    '''
+    Save all members role assignments
+    '''
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
     assignments = data.get('assignments', [])
@@ -1105,6 +1126,9 @@ def add_event(request, team_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def create_obstruction(request, team_id):
+    '''
+    FIX: necessary?
+    '''
     if request.method == "POST":
         data = json.loads(request.body)
 
@@ -1142,6 +1166,9 @@ def create_obstruction(request, team_id):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def delete_obstruction(request, team_id, obstruction_id):
+    '''
+    Removed the fixed event
+    '''
     obstruction = get_object_or_404(FixedObstruction, team=team_id, id=obstruction_id)
     obstruction.delete()
     return JsonResponse({"status": "ok"})
