@@ -164,9 +164,10 @@ h1 {
     border-radius: 20px;
     padding: 8px 15px;
     display: flex;
-    align-items: center;
+    align-items: center; /* This centers the icon and input vertically */
     gap: 10px;
     width: 300px;
+    background-color: #fff; /* Ensures the whole pill is white */
 }
 
 .search-wrapper input {
@@ -174,6 +175,15 @@ h1 {
     outline: none;
     width: 100%;
     font-size: 14px;
+    background: transparent; /* Strips out any default white box from the input */
+    padding: 0; /* Kills default browser padding causing vertical misalignment */
+    margin: 0;  /* Kills default margins */
+    line-height: 1.5; /* Keeps the text height predictable */
+}
+
+/* Optional: If you want to soften the magnifying glass color so it looks modern */
+.search-wrapper i {
+    color: #6c757d;
 }
 
 .btn {
