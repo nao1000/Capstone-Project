@@ -1,12 +1,8 @@
-function toggleForms () {
-  const loginBox = document.querySelector('.login-card')
-  const signupBox = document.querySelector('.signup-card')
+function toggleForms() {
+  const loginBox = document.querySelector('.login-card');
+  const signupBox = document.querySelector('.signup-card');
 
-  if (loginBox.classList.contains('hidden')) {
-    loginBox.classList.remove('hidden')
-    signupBox.classList.add('hidden')
-  } else {
-    loginBox.classList.add('hidden')
-    signupBox.classList.remove('hidden')
-  }
+  // classList.toggle is a cleaner way to flip the hidden state
+  loginBox.classList.toggle('hidden');
+  signupBox.classList.toggle('hidden');
 }

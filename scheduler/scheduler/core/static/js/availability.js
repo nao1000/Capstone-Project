@@ -1,18 +1,5 @@
 
 
-// Debugging: This will prove what ID Django is actually sending
-console.log('DJANGO SENT ID:', window.TEAM_ID)
-
-window.START_HOUR = 8
-window.END_HOUR = 22
-window.SLOT_HEIGHT = 25
-
-// 3. Load Saved Data
-// const dataElement = document.getElementById('availability-data')
-// if (dataElement) {
-//   window.SAVED_AVAILABILITY = JSON.parse(dataElement.textContent)
-// }
-
 // STATE
 let isDragging = false
 let startY = 0
@@ -190,58 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
     true
   ) // <-- 'true' intercepts the click before the column sees it
 })
-
-// 2. Move the event
-// 2. Move the event OR Draw a new event
-// document.addEventListener('mousemove', (e) => {
-
-//     // SCENARIO A: We are dragging an EXISTING event
-//     if (isDraggingEvent && draggedEvent) {
-//         const deltaY = e.clientY - dragStartY;
-//         let newTop = eventStartTop + deltaY;
-
-//         // Snap to grid (15 min intervals)
-//         newTop = Math.round(newTop / window.SLOT_HEIGHT) * window.SLOT_HEIGHT;
-
-//         // Prevent dragging above the top of the calendar
-//         if (newTop < 0) newTop = 0;
-
-//         draggedEvent.style.top = `${newTop}px`;
-
-//         // Move to a new day column if hovering over one
-//         if (hoveredCol && hoveredCol !== draggedEvent.parentElement) {
-//             hoveredCol.appendChild(draggedEvent);
-//         }
-//     }
-
-//     // SCENARIO B: We are drawing a NEW event (from scratch)
-//     if (isDragging && activeEvent && activeCol) {
-//         // 1. Get current mouse position relative to the column
-//         const rect = activeCol.getBoundingClientRect();
-//         let currentY = e.clientY - rect.top;
-
-//         // Constrain dragging so it doesn't break out of the calendar top/bottom
-//         currentY = Math.max(0, Math.min(currentY, rect.height));
-
-//         // 2. Calculate which 15-min slots we started in, and which one we are currently in
-//         const startSlot = Math.floor(startY / window.SLOT_HEIGHT);
-//         const currentSlot = Math.floor(currentY / window.SLOT_HEIGHT);
-
-//         // 3. The 'top' is ALWAYS whichever slot is higher up the page (the smaller number)
-//         const topSlot = Math.min(startSlot, currentSlot);
-
-//         // 4. The 'bottom' is ALWAYS whichever slot is further down the page (the larger number)
-//         const bottomSlot = Math.max(startSlot, currentSlot);
-
-//         // 5. Calculate the final pixels
-//         const newTop = topSlot * window.SLOT_HEIGHT;
-//         const newHeight = ((bottomSlot - topSlot) + 1) * window.SLOT_HEIGHT;
-
-//         // 6. Apply to the event block!
-//         activeEvent.style.top = `${newTop}px`;
-//         activeEvent.style.height = `${newHeight}px`;
-//     }
-// });
 // 3. Drop the event (UNIFIED MOUSEUP)
 document.addEventListener('mouseup', () => {
   // Scenario 1: We were dragging an EXISTING event
@@ -313,7 +248,6 @@ function openEditModal (block) {
 }
 
 async function saveAllPreferences () {
-  console.log(window.TEAM_ID)
   const events = document.querySelectorAll('.event-block:not(.temp)')
   const eventData = []
   events.forEach(ev => {
@@ -419,8 +353,8 @@ function addSavedEventsToGrid () {
     const endMin = parseInt(endParts[0]) * 60 + parseInt(endParts[1])
 
     // Adjust relative to the start of the calendar (e.g. 8:00 AM)
-    const totalStartMin = startMin - START_HOUR * 60
-    const totalEndMin = endMin - START_HOUR * 60
+    const totalStartMin = startMin - window.START_HOUR * 60
+    const totalEndMin = endMin - window.START_HOUR * 60
 
     if (totalStartMin < 0) return // Skip events before start time
 
@@ -456,7 +390,7 @@ function fitGridToContainer () {
   const container = document.getElementById('scrollContainer')
   const availableHeight = container.clientHeight
 
-  const totalHours = END_HOUR - START_HOUR
+  const totalHours = window.END_HOUR - window.START_HOUR
   const totalSlots = totalHours * 4 // 15 min slots
 
   // Calculate height per slot
@@ -489,11 +423,11 @@ function drawTimeLabels () {
   const timeCol = document.getElementById('timeColumn')
   timeCol.innerHTML = '' // Clear
 
-  const totalHours = END_HOUR - START_HOUR
+  const totalHours = window.END_HOUR - window.START_HOUR
 
-  for (let h = START_HOUR; h <= END_HOUR; h++) {
+  for (let h = window.START_HOUR; h <= window.END_HOUR; h++) {
     // Don't draw the very last label at the bottom edge if it looks messy
-    if (h === END_HOUR) continue
+    if (h === window.END_HOUR) continue
 
     const label = document.createElement('div')
     label.className = 'time-label'
@@ -503,7 +437,7 @@ function drawTimeLabels () {
     label.textContent = `${displayH} ${suffix}`
 
     // Position based on percentage
-    const percentTop = ((h - START_HOUR) / totalHours) * 100
+    const percentTop = ((h - window.START_HOUR) / totalHours) * 100
     label.style.top = `${percentTop}%`
 
     timeCol.appendChild(label)
@@ -614,7 +548,7 @@ function openModal () {
   const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
   const slotsCount = Math.round(heightPx / SLOT_HEIGHT)
 
-  currentStartMin = startSlotIndex * 15 + START_HOUR * 60
+  currentStartMin = startSlotIndex * 15 + window.START_HOUR * 60
   currentEndMin = currentStartMin + slotsCount * 15
 
   document.getElementById('modalTimeDisplay').textContent = `${formatMin(
