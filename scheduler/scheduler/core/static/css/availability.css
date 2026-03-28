@@ -1,469 +1,470 @@
-:root {
-    --header-bg: #7a92ac;
-    --card-bg: #ffffff;
-    --grid-line: #e0e0e0;
-    --grid-line-hour: #c0c0c0;
-    --primary-blue: #7393B3;
-    --event-bg: #dbeafe;
-    --event-border: #2563eb;
-    --text-main: #333;
-}
+        :root {
+            --header-bg: #7a92ac;
+            --card-bg: #ffffff;
+            --grid-line: #e0e0e0;
+            --grid-line-hour: #c0c0c0;
+            --primary-blue: #7393B3;
+            --event-bg: #dbeafe;
+            --event-border: #2563eb;
+            --text-main: #333;
+        }
 
-body {
-    margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #eef2f6;
-    /* Slightly darker bg to make card pop */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden;
-}
 
-/* --- THE COMPACT CARD --- */
-/* This controls the overall size on screen */
-.scheduler-card {
-    background-color: var(--card-bg);
-    width: 95%;
-    max-width: 1300px;
-    height: 85vh;
-    /* Takes up 85% of viewport height */
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-}
+        .scheduler-wrapper {
+            /* Takes up the whole screen minus your navbar */
+            height: calc(100vh - 60px);
+            width: 100%;
 
-/* --- SLIM HEADER --- */
-header {
-    background-color: var(--header-bg);
-    color: white;
-    padding: 0 25px;
-    height: 50px;
-    /* Fixed slim height */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-}
+            /* THIS is what actually centers the card inside of it */
+            display: flex;
+            justify-content: center;
+            /* Centers horizontally */
+            align-items: center;
+            /* Centers vertically */
+        }
 
-.logo {
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
+        /* --- THE COMPACT CARD --- */
+        /* This controls the overall size on screen */
+        .scheduler-card {
+            background-color: var(--card-bg);
+            width: 95%;
+            max-width: 1300px;
+            height: 85vh;
+            /* Takes up 85% of viewport height */
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
 
-.nav {
-    font-size: 14px;
-    opacity: 0.9;
-}
+        /* --- SLIM HEADER --- */
+        header {
+            background-color: var(--header-bg);
+            color: white;
+            padding: 0 25px;
+            height: 50px;
+            /* Fixed slim height */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
 
-/* --- TOOLBAR --- */
-.toolbar {
-    padding: 0 25px;
-    height: 45px;
-    /* Fixed slim height */
-    border-bottom: 1px solid var(--grid-line);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #fcfcfc;
-    flex-shrink: 0;
-}
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
 
-.toolbar h3 {
-    margin: 0;
-    font-size: 16px;
-    color: #444;
-}
+        .nav {
+            font-size: 14px;
+            opacity: 0.9;
+        }
 
-.hint {
-    font-size: 12px;
-    color: #888;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
+        /* --- TOOLBAR --- */
+        .toolbar {
+            padding: 0 25px;
+            height: 45px;
+            /* Fixed slim height */
+            border-bottom: 1px solid var(--grid-line);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fcfcfc;
+            flex-shrink: 0;
+        }
 
-.hint::before {
-    content: 'ℹ';
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    background: #ddd;
-    color: white;
-    border-radius: 50%;
-    text-align: center;
-    line-height: 14px;
-    font-size: 10px;
-    font-weight: bold;
-}
+        .toolbar h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #444;
+        }
 
-/* --- GRID HEADER (Days) --- */
-.grid-header {
-    display: grid;
-    grid-template-columns: 50px repeat(7, 1fr);
-    /* Time col is 50px */
-    border-bottom: 1px solid var(--grid-line);
-    height: 35px;
-    /* Slim header */
-    background: #f8f9fa;
-    flex-shrink: 0;
-}
+        .hint {
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-.header-cell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: #555;
-    border-right: 1px solid var(--grid-line);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
+        .hint::before {
+            content: 'ℹ';
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            background: #ddd;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 14px;
+            font-size: 10px;
+            font-weight: bold;
+        }
 
-.header-cell:last-child {
-    border-right: none;
-}
+        /* --- GRID HEADER (Days) --- */
+        .grid-header {
+            display: grid;
+            grid-template-columns: 50px repeat(7, 1fr);
+            /* Time col is 50px */
+            border-bottom: 1px solid var(--grid-line);
+            height: 35px;
+            /* Slim header */
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
 
-/* --- GRID BODY CONTAINER --- */
-.scroll-area {
-    flex: 1;
-    /* Fills the rest of the card */
-    position: relative;
-    overflow: hidden;
-    /* No scrollbars */
-    background: white;
-}
+        .header-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            border-right: 1px solid var(--grid-line);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
-.grid-body {
-    display: grid;
-    grid-template-columns: 50px repeat(7, 1fr);
-    height: 100%;
-    position: relative;
-}
+        .header-cell:last-child {
+            border-right: none;
+        }
 
-/* Time Column */
-.time-col {
-    border-right: 1px solid var(--grid-line);
-    background: #ffffff;
-    position: relative;
-}
+        /* --- GRID BODY CONTAINER --- */
+        .scroll-area {
+            flex: 1;
+            /* Fills the rest of the card */
+            position: relative;
+            overflow: hidden;
+            /* No scrollbars */
+            background: white;
+        }
 
-.time-label {
-    position: absolute;
-    right: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #777;
-    transform: translateY(-50%);
-    background: white;
-    padding-left: 4px;
-    z-index: 2;
-}
+        .grid-body {
+            display: grid;
+            grid-template-columns: 50px repeat(7, 1fr);
+            height: 100%;
+            position: relative;
+        }
 
-/* Day Columns */
-.day-col {
-    border-right: 1px solid var(--grid-line);
-    position: relative;
-}
+        /* Time Column */
+        .time-col {
+            border-right: 1px solid var(--grid-line);
+            background: #ffffff;
+            position: relative;
+        }
 
-.day-col:last-child {
-    border-right: none;
-}
+        .time-label {
+            position: absolute;
+            right: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #777;
+            transform: translateY(-50%);
+            background: white;
+            padding-left: 4px;
+            z-index: 2;
+        }
 
-/* VISUAL TRICK: Zebra Striping
-    We use a repeating gradient to color every other hour slightly grey.
-    This helps the eye track across the screen without heavy lines.
-*/
-.day-col {
-    background-image: repeating-linear-gradient(to bottom,
-            transparent,
-            transparent calc(var(--slot-height) * 4),
-            #fafbfc calc(var(--slot-height) * 4),
-            #fafbfc calc(var(--slot-height) * 8));
-}
+        /* Day Columns */
+        .day-col {
+            border-right: 1px solid var(--grid-line);
+            position: relative;
+        }
 
-/* The faint lines for 15-min increments */
-.day-col::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-    background-size: 100% var(--slot-height);
-    opacity: 0.4;
-    /* Very subtle */
-    pointer-events: none;
-}
+        .day-col:last-child {
+            border-right: none;
+        }
 
-/* The darker lines for Hour increments */
-.day-col::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
-    background-size: 100% calc(var(--slot-height) * 4);
-    pointer-events: none;
-}
+        /* VISUAL TRICK: Zebra Striping
+           We use a repeating gradient to color every other hour slightly grey.
+           This helps the eye track across the screen without heavy lines.
+        */
+        .day-col {
+            background-image: repeating-linear-gradient(to bottom,
+                    transparent,
+                    transparent calc(var(--slot-height) * 4),
+                    #fafbfc calc(var(--slot-height) * 4),
+                    #fafbfc calc(var(--slot-height) * 8));
+        }
 
-/* --- EVENTS --- */
-.event-block {
-    position: absolute;
-    left: 1px;
-    right: 1px;
-    background-color: var(--event-bg);
-    border: 1px solid var(--event-border);
-    border-left: 3px solid var(--event-border);
-    border-radius: 3px;
-    padding: 0 4px;
-    color: #1e3a8a;
-    overflow: hidden;
-    cursor: pointer;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    transition: transform 0.1s;
-}
+        /* The faint lines for 15-min increments */
+        .day-col::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+            background-size: 100% var(--slot-height);
+            opacity: 0.4;
+            /* Very subtle */
+            pointer-events: none;
+        }
 
-.event-block:hover {
-    transform: scale(1.02);
-    z-index: 11;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
+        /* The darker lines for Hour increments */
+        .day-col::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(to bottom, var(--grid-line-hour) 1px, transparent 1px);
+            background-size: 100% calc(var(--slot-height) * 4);
+            pointer-events: none;
+        }
 
-.event-block.temp {
-    opacity: 0.6;
-    pointer-events: none;
-    border-style: dashed;
-}
+        /* --- EVENTS --- */
+        .event-block {
+            position: absolute;
+            left: 1px;
+            right: 1px;
+            background-color: var(--event-bg);
+            border: 1px solid var(--event-border);
+            border-left: 3px solid var(--event-border);
+            border-radius: 3px;
+            padding: 0 4px;
+            color: #1e3a8a;
+            overflow: hidden;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s;
+        }
 
-.event-content {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
-}
+        .event-block:hover {
+            transform: scale(1.02);
+            z-index: 11;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
 
-.event-title {
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+        .event-block.temp {
+            opacity: 0.6;
+            pointer-events: none;
+            border-style: dashed;
+        }
 
-.event-time {
-    font-size: 9px;
-    opacity: 0.8;
-    margin-top: 1px;
-}
+        .event-content {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
 
-.event-loc {
-    font-size: 9px;
-    color: #444;
-    margin-top: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+        .event-title {
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-/* --- SELECTION STATE --- */
-.event-block.selected {
-    border-color: #f59e0b;
-    /* Amber outline */
-    border-left: 4px solid #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
-    z-index: 12;
-    /* Keep it on top */
-}
+        .event-time {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 1px;
+        }
 
-.event-block {
-    /* ... your existing styles ... */
-    cursor: grab;
-    /* Changed from pointer */
-}
+        .event-loc {
+            font-size: 9px;
+            color: #444;
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-.event-block:active {
-    cursor: grabbing;
-}
+        /* --- SELECTION STATE --- */
+        .event-block.selected {
+            border-color: #f59e0b;
+            /* Amber outline */
+            border-left: 4px solid #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+            z-index: 12;
+            /* Keep it on top */
+        }
 
-/* --- MODAL --- */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    /* Darker dim */
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    backdrop-filter: blur(2px);
-    /* Blur background */
-}
+        .event-block {
+            /* ... your existing styles ... */
+            cursor: grab;
+            /* Changed from pointer */
+        }
 
-.modal-overlay.show {
-    display: flex;
-}
+        .event-block:active {
+            cursor: grabbing;
+        }
 
-.modal-box {
-    background: white;
-    width: 350px;
-    border-radius: 8px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            /* Darker dim */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+            /* Blur background */
+        }
 
-@keyframes popIn {
-    from {
-        transform: scale(0.9);
-        opacity: 0;
-    }
+        .modal-overlay.show {
+            display: flex;
+        }
 
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
+        .modal-box {
+            background: white;
+            width: 350px;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
-.modal-header {
-    background: var(--header-bg);
-    color: white;
-    padding: 12px 20px;
-    font-size: 16px;
-    font-weight: 600;
-}
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
 
-.modal-body {
-    padding: 20px;
-}
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
 
-.input-group {
-    margin-bottom: 12px;
-}
+        .modal-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
 
-.input-group label {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: 600;
-    font-size: 13px;
-    color: #444;
-}
+        .modal-body {
+            padding: 20px;
+        }
 
-.input-group input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #aaa;
-    border-radius: 4px;
-    font-size: 14px;
-    box-sizing: border-box;
-}
+        .input-group {
+            margin-bottom: 12px;
+        }
 
-.input-group input:focus {
-    border-color: var(--primary-blue);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
-}
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #444;
+        }
 
-.modal-footer {
-    padding: 12px 20px;
-    background: #f8f9fa;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    border-top: 1px solid #eee;
-}
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
 
-.btn {
-    padding: 6px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    border: none;
-    transition: background 0.2s;
-}
+        .input-group input:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(115, 147, 179, 0.2);
+        }
 
-.btn-cancel {
-    background: #e9ecef;
-    color: #495057;
-}
+        .modal-footer {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid #eee;
+        }
 
-.btn-cancel:hover {
-    background: #dee2e6;
-}
+        .btn {
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            transition: background 0.2s;
+        }
 
-.btn-save {
-    background: var(--primary-blue);
-    color: white;
-}
+        .btn-cancel {
+            background: #e9ecef;
+            color: #495057;
+        }
 
-.btn-save:hover {
-    background: #5a7a9a;
-}
+        .btn-cancel:hover {
+            background: #dee2e6;
+        }
 
-/* Style for the Delete X */
-.delete-x {
-    position: absolute;
-    top: 0px;
-    right: 0px;
-    width: 20px;
-    height: 20px;
-    line-height: 18px;
-    text-align: center;
-    font-weight: bold;
-    color: #666;
-    cursor: pointer;
-    font-size: 16px;
-    z-index: 50;
-    /* Ensure it sits on top of everything */
-    display: none;
-    /* Hidden by default */
-    border-radius: 0 0 0 4px;
-    /* Rounded corner */
-}
+        .btn-save {
+            background: var(--primary-blue);
+            color: white;
+        }
 
-.delete-x:hover {
-    color: #ef4444;
-    /* Red on hover */
-    background: rgba(255, 255, 255, 0.8);
-}
+        .btn-save:hover {
+            background: #5a7a9a;
+        }
 
-/* Show the X when hovering the event block */
-.event-block:hover .delete-x {
-    display: block;
-}
+        /* Style for the Delete X */
+        .delete-x {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            width: 20px;
+            height: 20px;
+            line-height: 18px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 50;
+            /* Ensure it sits on top of everything */
+            display: none;
+            /* Hidden by default */
+            border-radius: 0 0 0 4px;
+            /* Rounded corner */
+        }
 
-/* Add to your CSS file */
-.resize-handle {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 10px;
-    cursor: ns-resize;
-    /* The up/down arrow cursor! */
-    z-index: 10;
-}
+        .delete-x:hover {
+            color: #ef4444;
+            /* Red on hover */
+            background: rgba(255, 255, 255, 0.8);
+        }
 
-.resize-handle.top {
-    top: 0;
-}
+        /* Show the X when hovering the event block */
+        .event-block:hover .delete-x {
+            display: block;
+        }
 
-.resize-handle.bottom {
-    bottom: 0;
-}
+        /* Add to your CSS file */
+        .resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 10px;
+            cursor: ns-resize;
+            /* The up/down arrow cursor! */
+            z-index: 10;
+        }
+
+        .resize-handle.top {
+            top: 0;
+        }
+
+        .resize-handle.bottom {
+            bottom: 0;
+        }

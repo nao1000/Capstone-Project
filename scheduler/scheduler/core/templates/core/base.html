@@ -7,29 +7,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Coorda{% endblock %}</title>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/nav.css' %}">
+    
     {% block extra_css %}{% endblock %}
     {% block head_scripts %}{% endblock %}
 </head>
 
 <body>
     {% block navbar %}
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const profileContainer = document.querySelector('.user-profile-container')
-
-            profileContainer.addEventListener('click', (e) => {
-                profileContainer.classList.toggle('active')
-                e.stopPropagation()
-            })
-
-            // Close when clicking anywhere else on the page
-            document.addEventListener('click', () => {
-                profileContainer.classList.remove('active')
-            })
-        })
-    </script>
     <nav class="navbar">
         <div class="brand">Coorda</div>
         <div class="nav-links">
@@ -58,7 +47,26 @@
         </div>
     </nav>
     {% endblock %}
+    
     {% block content %}{% endblock %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const profileContainer = document.querySelector('.user-profile-container')
+             if (!profileContainer) return
+
+            profileContainer.addEventListener('click', (e) => {
+                profileContainer.classList.toggle('active')
+                e.stopPropagation()
+            })
+
+            // Close when clicking anywhere else on the page
+            document.addEventListener('click', () => {
+                profileContainer.classList.remove('active')
+            })
+        })
+    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

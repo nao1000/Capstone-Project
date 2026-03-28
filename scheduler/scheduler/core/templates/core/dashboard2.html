@@ -1,20 +1,12 @@
 {% extends 'core/base.html' %}
 {% load static %}
+
 {% block title %}Dashboard{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
-{% block head_scripts %}
-<script src="{% static 'js/dashboard.js' %}"></script>{% endblock %}
 
-
-
-    <!-- <header>
-        <div class="logo">Coorda</div>
-        <div class="nav-links">
-            <span>Home 🔔 Name 👤</span>
-        </div>
-    </header> -->
 {% block content %}
     <div class="container">
         <div class="main-content">
@@ -105,4 +97,8 @@
 
         <div class="sidebar"></div>
     </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

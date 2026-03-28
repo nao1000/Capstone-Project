@@ -190,7 +190,7 @@ def availability_view(request, team_id):
 
     # FIX MAY WANT TO CHANGE COLOR
     # create a list for each time object in the database for this user
-    avail_list = [
+    avail_list = json.dumps([
         {
             "day": a.day,
             "start": a.start_time.strftime("%H:%M"),
@@ -200,7 +200,7 @@ def availability_view(request, team_id):
             "color": "#4a90e2",
         }
         for a in availabilities
-    ]
+    ])
 
     # FIX UNUSED YET
     all_roles = Role.objects.filter(team=team)

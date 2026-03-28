@@ -20,7 +20,7 @@
 
 {% block content %}
 <div class="main-container">
-    <div class="login-card">
+    <div class="auth-card login-card">
         <h2>Login</h2>
         <form method="POST" action="{% url 'login' %}">
             {% csrf_token %}
@@ -40,7 +40,7 @@
         <a class="toggle-link" onclick="toggleForms()">Create Account</a>
 
     </div>
-    <div class="signup-card hidden">
+    <div class="auth-card signup-card hidden">
         <h2>Create Account</h2>
         <form method="POST" action="{% url 'signup' %}">
             {% csrf_token %}

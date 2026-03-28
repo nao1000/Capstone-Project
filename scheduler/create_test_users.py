@@ -1,13 +1,11 @@
 import os
 import sys
 import django
-import random
 import uuid
 from datetime import time
 
 # --- Standard Django setup ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Adjust this path if your manage.py is in a different spot
 sys.path.insert(0, os.path.join(BASE_DIR, 'scheduler')) 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scheduler.settings')
 django.setup()
@@ -15,10 +13,32 @@ django.setup()
 from django.contrib.auth.models import User
 from scheduler.core.models import Team, AvailabilityRange, Schedule
 
-def seed_data():
-    # 1. Setup Core Objects
+# Import the data you typed out manually (or paste it above this line)
+from real_data import WORKERS 
+
+def parse_time_block(block):
+    """
+    Takes a tuple like (900, 950) or (1400, 1515, "Class", "Bldg A")
+    Returns (start_time, end_time, event_name, building)
+    """
+    # 1. Extract the integers
+    start_int = block[0]
+    end_int = block[1]
+    
+    # 2. Safely grab name and building if they exist in the tuple, otherwise use blank strings
+    event_name = block[2] if len(block) > 2 else ""
+    building = block[3] if len(block) > 3 else ""
+    
+    # 3. Convert military integers (like 1430) to hours (14) and minutes (30)
+    start_time = time(start_int // 100, start_int % 100)
+    end_time = time(end_int // 100, end_int % 100)
+    
+    return start_time, end_time, event_name, building
+
+def seed_real_data():
+    # 1. Setup Core Objects (Same as before)
     supervisor, _ = User.objects.get_or_create(
-        username="supervisor_admin",
+        username="supervisor",
         defaults={"email": "admin@siteam.com", "first_name": "Lead", "last_name": "Admin"}
     )
     supervisor.set_password("siteam2026!")
@@ -31,38 +51,19 @@ def seed_data():
 
     Schedule.objects.get_or_create(team=team, name="Spring 2026", defaults={"is_active": True})
 
-    # 2. Diversified Name Pools
-    first_names = [
-        "Liam", "Noah", "Oliver", "James", "Elijah", "William", "Henry", "Lucas", "Benjamin", "Theodore",
-        "Emma", "Olivia", "Charlotte", "Amelia", "Sophia", "Mia", "Isabella", "Ava", "Evelyn", "Luna",
-        "Mateo", "Levi", "Sebastian", "Jack", "Ezra", "Aria", "Aurora", "Gianna", "Ellie", "Mila",
-        "Zoe", "Leo", "Isaiah", "Charles", "Caleb", "Christopher", "Nathan", "Thomas", "Miles", "Josiah",
-        "Ruby", "Sophie", "Alice", "Hailey", "Sadie", "Piper", "Autumn", "Nevaeh", "Quinn", "Peyton"
-    ]
-    last_names = [
-        "Smith", "Jones", "Taylor", "Brown", "Wilson", "Johnson", "Davies", "Robinson", "Wright", "Thompson",
-        "Evans", "Walker", "White", "Roberts", "Green", "Hall", "Wood", "Harris", "Clark", "Lewis",
-        "Young", "King", "Baker", "Adams", "Campbell", "Anderson", "Allen", "Cook", "Bailey", "Parker",
-        "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Perez", "Sanchez", "Ramirez",
-        "Torres", "Flores", "Rivera", "Gomez", "Diaz", "Cruz", "Morales", "Ortiz", "Guttierez", "Reyes"
-    ]
+    print(f"Importing {len(WORKERS)} real workers...")
 
-    days = ["mon", "tue", "wed", "thu", "fri", "sat"]
-
-    print(f"Generating 50 unique users...")
-
-    for i in range(50):
-        # Using the index 'i' ensures the username is always unique
-        fname = first_names[i]
-        lname = last_names[i]
-        uname = f"{fname.lower()}.{lname.lower()}.{i+100}" # e.g. liam.smith.100
+    # 2. Iterate through your manually typed data
+    for worker_data in WORKERS:
+        username = worker_data["username"]
         
+        # Create or grab the user
         user, created = User.objects.get_or_create(
-            username=uname,
+            username=username,
             defaults={
-                "first_name": fname,
-                "last_name": lname,
-                "email": f"{uname}@university.edu"
+                "first_name": worker_data["first_name"],
+                "last_name": worker_data["last_name"],
+                "email": f"{username}@university.edu"
             }
         )
         if created:
@@ -71,37 +72,29 @@ def seed_data():
         
         team.members.add(user)
 
-        # 3. Create "Busy" Ranges (Simulating Classes)
+        # Clear old availability just in case you are re-running the script
         AvailabilityRange.objects.filter(user=user, team=team).delete()
 
-        for day in days:
-            # We want to create "Busy" blocks (when they CANNOT work)
-            # Most students have 3-5 hours of classes/obligations per day
-            num_busy_blocks = random.randint(2, 4)
-            
-            # Start hours between 8 AM and 6 PM
-            start_hours = random.sample(range(8, 19), num_busy_blocks)
-            
-            for start_h in start_hours:
-                # Duration is either 1 hour or 1.5 hours
-                duration = random.choice([1, 1.5])
+        # 3. Parse and create the schedules
+        schedule_dict = worker_data.get("schedule", {})
+        
+        for day, time_blocks in schedule_dict.items():
+            for block in time_blocks:
+                start_time, end_time, event_name, building = parse_time_block(block)
                 
-                end_h = int(start_h + duration)
-                end_m = 30 if (duration % 1 != 0) else 0
-
-                # Ensure we don't exceed 10 PM
-                if end_h >= 22:
-                    end_h, end_m = 22, 0
-
                 AvailabilityRange.objects.create(
                     user=user,
                     team=team,
                     day=day,
-                    start_time=time(start_h, 0),
-                    end_time=time(end_h, end_m)
+                    start_time=start_time,
+                    end_time=end_time,
+                    eventName=event_name,  # Saves the optional name
+                    building=building      # Saves the optional building
                 )
+                
+        print(f" -> Created schedule for {worker_data['first_name']} {worker_data['last_name']}")
 
-    print(f"Success! Created {User.objects.filter(username__contains='1').count()} unique SI Leaders.")
+    print("Success! Real data imported.")
 
 if __name__ == "__main__":
-    seed_data()
+    seed_real_data()
