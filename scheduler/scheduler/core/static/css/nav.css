@@ -67,7 +67,9 @@
 .profile-dropdown {
   display: none;
   position: absolute;
-  top: 120%;
+  top: 50%;
+  border-top: 10px solid transparent;
+  background-clip: padding-box;
   right: 0;
   background-color: white;
   border: 1px solid var(--border-color);
