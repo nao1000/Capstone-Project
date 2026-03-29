@@ -7,12 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Coorda{% endblock %}</title>
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    
+
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/nav.css' %}">
-    
+
     {% block extra_css %}{% endblock %}
     {% block head_scripts %}{% endblock %}
 </head>
@@ -47,24 +47,35 @@
         </div>
     </nav>
     {% endblock %}
-    
+
     {% block content %}{% endblock %}
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const profileContainer = document.querySelector('.user-profile-container')
-             if (!profileContainer) return
+            const profileContainer = document.querySelector('.user-profile-container');
+            const profileTrigger = document.querySelector('.user-profile');
+            const profileDropdown = document.querySelector('.profile-dropdown');
 
-            profileContainer.addEventListener('click', (e) => {
-                profileContainer.classList.toggle('active')
-                e.stopPropagation()
-            })
+            if (!profileContainer || !profileTrigger) return;
 
-            // Close when clicking anywhere else on the page
+            // 1. Only toggle the menu when clicking the profile icon/name
+            profileTrigger.addEventListener('click', (e) => {
+                profileContainer.classList.toggle('active');
+                e.stopPropagation(); // Stop the document click listener from firing
+            });
+
+            // 2. Prevent clicks INSIDE the dropdown from accidentally closing it
+            if (profileDropdown) {
+                profileDropdown.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
+            // 3. Close when clicking anywhere else on the page
             document.addEventListener('click', () => {
-                profileContainer.classList.remove('active')
-            })
-        })
+                profileContainer.classList.remove('active');
+            });
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>
