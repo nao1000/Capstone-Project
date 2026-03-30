@@ -33,6 +33,29 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
+from .auto_scheduler import generate_role_schedule # Import our new engine
+import json
+
+@require_POST
+@login_required
+def auto_schedule_role(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+    data = json.loads(request.body)
+    role_id = data.get("role_id")
+    
+    if not role_id:
+        return JsonResponse({"error": "role_id is required"}, status=400)
+        
+    role = get_object_or_404(Role, id=role_id, team=team)
+    
+    # Run the OR-Tools engine!
+    # (Wrapping in try/except is good practice in case the math solver hits an edge case)
+    try:
+        generated_shifts = generate_role_schedule(team, role)
+        return JsonResponse({"shifts": generated_shifts}, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 DAY_MAP = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
 
 def time_to_minutes(t):
@@ -511,7 +534,7 @@ def save_role_shifts(request, team_id):
         start_time = minutes_to_time(s["start_min"])
         end_time = minutes_to_time(s["end_min"])
         day = s["day"]
-        user = users[s["user_id"]]                  
+        user = users[int(s["user_id"])]                
         room = rooms.get(str(s["room_id"])) if s.get("room_id") else None
         
         # make sure room has availability
@@ -556,7 +579,6 @@ def save_role_shifts(request, team_id):
         # create the shift
         shift = Shift.objects.create(
             schedule=schedule,
-            team=team,
             user=user,
             role=role,
             room=room,

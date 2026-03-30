@@ -49,38 +49,60 @@ const csrfToken = document
   .getAttribute('content')
 
 document.addEventListener('DOMContentLoaded', () => {
-  drawTimeLabels('viewTimeCol')
-  drawTimeLabels('interactiveTimeCol')
+  drawTimeLabels('mainTimeCol')
   setupDragListeners()
-  setupSyncHover()
   console.log(window.TEAM_ID)
   initFilters()
   initSchedules()
-  setupHeaderSync()
+
+  const scrollArea = document.getElementById('mainScrollArea')
+  const header = document.getElementById('mainGridHeader')
+  if (scrollArea && header) {
+    scrollArea.addEventListener('scroll', () => {
+      header.scrollLeft = scrollArea.scrollLeft
+    })
+  }
+
+  // Double click to edit existing shifts
+  const mainGrid = document.getElementById('mainGrid')
+  mainGrid.addEventListener('dblclick', e => {
+    const block = e.target.closest('.shift-block')
+    if (block && !block.classList.contains('temp')) {
+      activeEvent = block
+      openModal()
+
+      // Pre-select existing values after modal opens
+      document.getElementById('modalWorkerSelect').value =
+        block.dataset.workerId
+      document.getElementById('modalRoleSelect').value = block.dataset.roleId
+      document.getElementById('modalRoomSelect').value = block.dataset.roomId
+    }
+  })
 })
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
 function buildSingleWorkerGrid (workerName) {
-  const header = document.getElementById('viewGridHeader')
-  const grid = document.getElementById('viewGrid')
+  const header = document.getElementById('mainGridHeader')
+  const grid = document.getElementById('mainGrid')
 
   header.innerHTML =
     '<div class="header-cell time-header" style="width:60px;">Time</div>'
   grid.innerHTML = ''
-  grid.className = 'single-worker' // or grid.classList.add('single-worker')
+  grid.className = 'single-worker'
+
   const timeCol = document.createElement('div')
   timeCol.className = 'time-col'
-  timeCol.id = 'viewTimeCol'
+  timeCol.id = 'mainTimeCol'
   timeCol.style.cssText = 'width:60px; flex-shrink:0;'
   grid.appendChild(timeCol)
-  drawTimeLabels('viewTimeCol')
+  drawTimeLabels('mainTimeCol')
 
   DAY_NAMES.forEach((day, i) => {
     const headerCell = document.createElement('div')
     headerCell.className = 'header-cell'
-    headerCell.style.cssText = 'width:120px; flex-shrink:0;'
+    headerCell.style.cssText = 'width:120px; flex-shrink:0; position:relative;'
     headerCell.textContent = day
     header.appendChild(headerCell)
 
@@ -93,20 +115,21 @@ function buildSingleWorkerGrid (workerName) {
 }
 
 function buildRoleGrid (workers) {
-  const header = document.getElementById('viewGridHeader')
-  const grid = document.getElementById('viewGrid')
-  const colWidth = Math.floor(getInteractiveColWidth())
+  const header = document.getElementById('mainGridHeader')
+  const grid = document.getElementById('mainGrid')
+  const colWidth = 120 // Fixed width for unified scrolling grid
 
   header.innerHTML =
     '<div class="header-cell time-header" style="width:60px;">Time</div>'
   grid.innerHTML = ''
-  grid.className = '' // resets to default
+  grid.className = ''
+
   const timeCol = document.createElement('div')
   timeCol.className = 'time-col'
-  timeCol.id = 'viewTimeCol'
+  timeCol.id = 'mainTimeCol'
   timeCol.style.cssText = 'width:60px; flex-shrink:0;'
   grid.appendChild(timeCol)
-  drawTimeLabels('viewTimeCol')
+  drawTimeLabels('mainTimeCol')
 
   DAY_NAMES.forEach((dayName, dayIndex) => {
     const groupWidth = workers.length * colWidth
@@ -126,7 +149,6 @@ function buildRoleGrid (workers) {
     workers.forEach(w => {
       const wLabel = document.createElement('div')
       wLabel.style.cssText = `width:${colWidth}px; flex-shrink:0; font-size:10px; font-weight:600; text-align:center; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-right:1px solid #e0e0e0; padding:2px 4px;`
-      // In loadRoleView, when building worker labels
       wLabel.textContent = w.section ? `${w.name} (${w.section})` : w.name
       workerLabels.appendChild(wLabel)
     })
@@ -145,11 +167,15 @@ function buildRoleGrid (workers) {
       grid.appendChild(workerCol)
     })
 
-    // Day separator
     const separator = document.createElement('div')
     separator.style.cssText = 'width:2px; flex-shrink:0; background:#c0c0c0;'
     grid.appendChild(separator)
   })
+}
+
+// Helper we no longer need complex math for
+function getInteractiveColWidth () {
+  return 120
 }
 
 async function loadRoleView (roleId, teamId) {
@@ -254,8 +280,14 @@ function initFilters () {
     btn.dataset.roleId = role.id
 
     btn.onclick = async () => {
-      // Snapshot current grid before switching
       snapshotCurrentGrid()
+
+      // THE FIX: Clear the "Single Worker" highlight when switching to Role View
+      document
+        .querySelectorAll('.worker-item')
+        .forEach(item => item.classList.remove('active'))
+      const workerLabel = document.getElementById('viewingWorkerLabel')
+      if (workerLabel) workerLabel.textContent = 'Role View'
 
       if (activeRoleId === role.id) {
         activeRoleId = null
@@ -272,20 +304,14 @@ function initFilters () {
         clearObstructionBlocks()
         clearInteractiveGrid(false)
 
-        // Load from local store first, fall back to DB
         const localShifts = localSchedule.getForRole(role.id)
         if (localShifts.length > 0) {
+          // MUST await grid building before rendering shifts
+          await loadRoleView(role.id, window.TEAM_ID)
           renderShiftsToGrid(localShifts, true)
-          await Promise.all([
-            loadRoleView(role.id, window.TEAM_ID),
-            loadObstructions(role.id)
-          ])
         } else {
-          await Promise.all([
-            loadRoleView(role.id, window.TEAM_ID),
-            loadObstructions(role.id),
-            loadScheduleShifts()
-          ])
+          await loadRoleView(role.id, window.TEAM_ID)
+          await loadScheduleShifts()
         }
       }
     }
@@ -300,17 +326,29 @@ function snapshotCurrentGrid () {
   const shifts = []
 
   document
-    .querySelectorAll('#interactiveGrid .shift-block:not(.temp)')
+    .querySelectorAll('#mainGrid .shift-block:not(.temp)')
     .forEach(block => {
-      const dayIndex = parseInt(block.parentElement.dataset.day)
+      const col = block.parentElement
+      const dayIndex = parseInt(col.dataset.day)
       const topPx = parseFloat(block.style.top)
       const heightPx = parseFloat(block.style.height)
 
-      const startMin = Math.round(topPx / SLOT_HEIGHT) * 15 + START_HOUR * 60
-      const endMin = startMin + Math.round(heightPx / SLOT_HEIGHT) * 15
+      // --- THE FIX: Try reading exact data first, fallback to pixel math ---
+      let startMin, endMin
+      if (block.dataset.startMin && block.dataset.endMin) {
+        startMin = parseInt(block.dataset.startMin)
+        endMin = parseInt(block.dataset.endMin)
+      } else {
+        startMin = Math.round(topPx / SLOT_HEIGHT) * 15 + START_HOUR * 60
+        endMin = startMin + Math.round(heightPx / SLOT_HEIGHT) * 15
+      }
+      // --------------------------------------------------------------------
+
+      // Get ID safely, whether it's from the specific column or the block itself
+      const finalWorkerId = col.dataset.workerId || block.dataset.workerId
 
       shifts.push({
-        user_id: block.dataset.workerId,
+        user_id: finalWorkerId,
         user_name: block.querySelector('.event-title').textContent,
         role_id: activeRoleId,
         room_id: block.dataset.roomId || null,
@@ -318,57 +356,11 @@ function snapshotCurrentGrid () {
         day: dayNames[dayIndex],
         start_min: startMin,
         end_min: endMin,
-        isSaved: block.classList.contains('saved') // track saved state
+        isSaved: block.classList.contains('saved')
       })
     })
 
   localSchedule.save(activeRoleId, shifts)
-}
-
-function loadObstructions (roleId) {
-  const obstructions =
-    typeof window.OBSTRUCTIONS === 'string'
-      ? JSON.parse(window.OBSTRUCTIONS)
-      : window.OBSTRUCTIONS
-
-  // Get the current worker's section from WORKERS
-  const workers =
-    typeof window.WORKERS === 'string'
-      ? JSON.parse(window.WORKERS)
-      : window.WORKERS
-
-  const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
-
-  obstructions
-    .filter(o => o.role_id === roleId)
-    .forEach(o => {
-      o.days.forEach(day => {
-        const dayIndex = dayMap[day]
-        const col = document.querySelector(
-          `#interactiveGrid .day-col[data-day="${dayIndex}"]`
-        )
-        if (!col) return
-
-        const startOffset = o.start_min - START_HOUR * 60
-        const top = (startOffset / 15) * SLOT_HEIGHT
-        const durationMin = o.end_min - o.start_min
-        const ceiledDuration = Math.ceil(durationMin / 15) * 15 // round up to next 15
-        const height = (ceiledDuration / 15) * SLOT_HEIGHT
-
-        const block = document.createElement('div')
-        block.className = 'event-block obstruction-block'
-        block.style.top = `${top}px`
-        block.style.height = `${height}px`
-        block.innerHTML = `
-    <div class="event-content">
-        <div class="event-title">${o.name}</div>
-        <div class="event-time">${formatMin(o.start_min)} - ${formatMin(
-          o.end_min
-        )}</div>
-    </div>`
-        col.appendChild(block)
-      })
-    })
 }
 
 function clearObstructionBlocks () {
@@ -397,30 +389,30 @@ function drawTimeLabels (containerId) {
 
 /* --- DRAG & DROP LOGIC (Interactive Grid Only) --- */
 function setupDragListeners () {
-  // ONLY select day columns inside the interactive grid
-  const interactiveCols = document.querySelectorAll('#interactiveGrid .day-col')
+  const mainGrid = document.getElementById('mainGrid')
 
-  interactiveCols.forEach(col => {
-    col.addEventListener('mousedown', e => {
-      if (e.target.closest('.event-block')) return
+  // Event Delegation for mousedown
+  mainGrid.addEventListener('mousedown', e => {
+    // Only start drag if we clicked inside a day column, and NOT on an existing event
+    const col = e.target.closest('.day-col')
+    if (!col || e.target.closest('.event-block')) return
 
-      isDragging = true
-      activeCol = col
+    isDragging = true
+    activeCol = col
 
-      const rect = col.getBoundingClientRect()
-      const relativeY = e.clientY - rect.top
+    const rect = col.getBoundingClientRect()
+    const relativeY = e.clientY - rect.top
 
-      // Snap to grid (15 mins = 20px)
-      startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT
+    // Snap to grid (15 mins = SLOT_HEIGHT px)
+    startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT
 
-      activeEvent = document.createElement('div')
-      activeEvent.className = 'event-block shift-block temp'
-      activeEvent.style.top = `${startTop}px`
-      activeEvent.style.height = `${SLOT_HEIGHT}px`
-      activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
+    activeEvent = document.createElement('div')
+    activeEvent.className = 'event-block shift-block temp'
+    activeEvent.style.top = `${startTop}px`
+    activeEvent.style.height = `${SLOT_HEIGHT}px`
+    activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
 
-      col.appendChild(activeEvent)
-    })
+    col.appendChild(activeEvent)
   })
 
   document.addEventListener('mousemove', e => {
@@ -434,6 +426,7 @@ function setupDragListeners () {
       startTop +
       SLOT_HEIGHT
     if (newHeight < SLOT_HEIGHT) newHeight = SLOT_HEIGHT
+
     if (activeRoleId) {
       const maxHeight = getMaxHeightBeforeObstruction(
         activeCol,
@@ -488,7 +481,6 @@ function getMaxHeightBeforeObstruction (col, startTopPx, desiredHeight) {
 function openModal () {
   const modal = document.getElementById('eventModal')
   modal.classList.add('show')
-  console.log(window.ROOMS)
   const workers =
     typeof window.WORKERS === 'string'
       ? JSON.parse(window.WORKERS)
@@ -510,6 +502,14 @@ function openModal () {
     option.textContent = w.name
     workerSelect.appendChild(option)
   })
+
+  // NEW FIX: Grab the worker ID from the block we just clicked and select it!
+  // We check both userId and workerId just to be safe with how your HTML renders.
+  const clickedWorkerId =
+    activeEvent.dataset.userId || activeEvent.dataset.workerId
+  if (clickedWorkerId) {
+    workerSelect.value = clickedWorkerId
+  }
 
   // --- ROLE DROPDOWN ---
   const roleSelect = document.getElementById('modalRoleSelect')
@@ -534,26 +534,38 @@ function openModal () {
   // --- ROOM DROPDOWN ---
   const roomSelect = document.getElementById('modalRoomSelect')
   roomSelect.innerHTML = '<option value="">Select a room...</option>'
-  console.log(rooms)
   rooms.forEach(r => {
     roomSelect.appendChild(new Option(r.name, r.id))
   })
 
+  // NEW FIX: Grab the room ID from the block we just clicked and select it!
+  const clickedRoomId = activeEvent.dataset.roomId
+  if (clickedRoomId) {
+    roomSelect.value = clickedRoomId
+  }
+
   document.getElementById('modalTimeDisplay').textContent = ''
 
-  const topPx = parseFloat(activeEvent.style.top)
-  const heightPx = parseFloat(activeEvent.style.height)
-  const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
-  const slotsCount = Math.round(heightPx / SLOT_HEIGHT)
+  // NEW: Check if the block has exact data saved by the AI, otherwise fallback to pixel math
+  if (activeEvent.dataset.startMin && activeEvent.dataset.endMin) {
+    currentStartMin = parseInt(activeEvent.dataset.startMin)
+    currentEndMin = parseInt(activeEvent.dataset.endMin)
+  } else {
+    const topPx = parseFloat(activeEvent.style.top)
+    const heightPx = parseFloat(activeEvent.style.height)
+    const startSlotIndex = Math.round(topPx / SLOT_HEIGHT)
+    const slotsCount = Math.round(heightPx / SLOT_HEIGHT)
 
-  currentStartMin = startSlotIndex * 15 + START_HOUR * 60
-  currentEndMin = currentStartMin + slotsCount * 15
+    currentStartMin = startSlotIndex * 15 + START_HOUR * 60
+    currentEndMin = currentStartMin + slotsCount * 15
+  }
 
   document.getElementById('modalTimeDisplay').textContent = `${formatMin(
     currentStartMin
   )} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`
+
   const dayIndex = parseInt(activeCol.dataset.day)
-  annotateRoomDropdown(dayIndex)
+  annotateRoomDropdown(dayIndex, clickedRoomId) // Pass it directly!
 }
 
 function closeModal () {
@@ -564,7 +576,8 @@ function closeModal () {
   activeEvent = null
 }
 
-async function annotateRoomDropdown (dayIndex) {
+// NEW: Accept the preselectedRoomId as a second argument
+async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
   if (!activeScheduleId) return
 
   const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
@@ -580,34 +593,29 @@ async function annotateRoomDropdown (dayIndex) {
   const bookingsData = await bookingsRes.json()
   const availData = await availRes.json()
 
-  console.log('bookings:', bookingsData)
-  console.log('availability:', availData)
-  const bookings = bookingsData.bookings
-  const roomAvailability = availData.availability
+  const bookings = bookingsData.bookings || {}
+  const roomAvailability = availData.availability || {}
 
-  // Merge local shifts into bookings
   const allLocalShifts = localSchedule.getAll().filter(s => s.day === day)
   allLocalShifts.forEach(s => {
     if (!s.room_id) return
     const roomId = s.room_id
     if (!bookings[roomId]) {
-      // Find capacity from ROOMS
       const rooms =
         typeof window.ROOMS === 'string'
           ? JSON.parse(window.ROOMS)
           : window.ROOMS
-      const room = rooms.find(r => r.id === roomId)
+      const room = rooms.find(r => r.id == roomId)
       bookings[roomId] = {
         capacity: room ? room.capacity : 1,
         shifts: []
       }
     }
-    // Only add if not already in DB bookings (avoid double counting saved shifts)
     const alreadyExists = bookings[roomId].shifts.some(
       existing =>
         existing.user_name === s.user_name &&
-        existing.start_min === s.start_min &&
-        existing.end_min === s.end_min
+        Number(existing.start_min) === Number(s.start_min) &&
+        Number(existing.end_min) === Number(s.end_min)
     )
     if (!alreadyExists) {
       bookings[roomId].shifts.push({
@@ -619,36 +627,29 @@ async function annotateRoomDropdown (dayIndex) {
     }
   })
 
-  // Rest of the dropdown building stays the same
   const roomSelect = document.getElementById('modalRoomSelect')
   const rooms =
     typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
-  const currentValue = roomSelect.value
+
+  // NEW: Use the passed-in ID, or fallback to whatever the dropdown had
+  const currentValue = preselectedRoomId || roomSelect.value
+
   roomSelect.innerHTML = '<option value="">Select a room...</option>'
-  console.log(
-    'room ids:',
-    rooms.map(r => r.id)
-  )
-  console.log('availability keys:', Object.keys(roomAvailability))
+
+  const workerSelect = document.getElementById('modalWorkerSelect')
+  const editingWorkerName =
+    workerSelect.options[workerSelect.selectedIndex]?.text
+
   rooms.forEach(r => {
     const option = document.createElement('option')
     option.value = r.id
-    console.log('looking up room id:', r.id)
-    console.log('availability keys:', Object.keys(roomAvailability))
-    console.log('direct lookup:', roomAvailability[r.id])
-    console.log('r.id type:', typeof r.id, JSON.stringify(r.id))
-    console.log(
-      'first avail key type:',
-      typeof Object.keys(roomAvailability)[0],
-      JSON.stringify(Object.keys(roomAvailability)[0])
-    )
+
     const availSlots = roomAvailability[r.id] || []
     const isAvailable = availSlots.some(
-      slot => currentStartMin >= slot.start_min && currentEndMin <= slot.end_min
+      slot =>
+        currentStartMin >= Number(slot.start_min) &&
+        currentEndMin <= Number(slot.end_min)
     )
-
-    console.log('currentStartMin:', currentStartMin)
-    console.log('slot.start_min:', availSlots[0]?.start_min)
 
     if (!isAvailable) {
       option.textContent = `${r.name} (Not available)`
@@ -657,9 +658,16 @@ async function annotateRoomDropdown (dayIndex) {
     } else {
       const booking = bookings[r.id]
       if (booking) {
-        const overlapping = booking.shifts.filter(
-          s => currentStartMin < s.end_min && currentEndMin > s.start_min
-        )
+        const overlapping = booking.shifts.filter(s => {
+          const sStart = Number(s.start_min)
+          const sEnd = Number(s.end_min)
+          const isSameDay = s.day === day
+          const overlapsTime = currentStartMin < sEnd && currentEndMin > sStart
+          const isNotCurrentWorker = s.user_name !== editingWorkerName
+
+          return isSameDay && overlapsTime && isNotCurrentWorker
+        })
+
         if (overlapping.length >= booking.capacity) {
           const names = overlapping.map(s => s.user_name).join(', ')
           option.textContent = `${r.name} (Full — ${names})`
@@ -676,7 +684,14 @@ async function annotateRoomDropdown (dayIndex) {
       }
     }
 
-    if (r.id === currentValue) option.selected = true
+    // --- THE FIX: Absolute Override ---
+    // If this is the room the clicked block is assigned to, force it to be selected and enabled!
+    if (r.id == currentValue) {
+      option.selected = true
+      option.disabled = false
+      option.style.color = '' // Remove grey text if it was applied
+    }
+
     roomSelect.appendChild(option)
   })
 }
@@ -705,16 +720,27 @@ function saveEvent () {
 
   if (activeEvent) {
     activeEvent.classList.remove('temp')
-    activeEvent.classList.add('local') // add this
+    activeEvent.classList.add('local')
     activeEvent.dataset.workerId = workerId
     activeEvent.dataset.roleId = roleId
     activeEvent.dataset.roomId = roomId
 
+    // If supervisor changed worker in modal, move shift to the correct column!
+    if (activeCol && activeCol.classList.contains('worker-sub-col')) {
+      const dayIndex = activeCol.dataset.day
+      const targetCol = document.querySelector(
+        `#mainGrid .worker-sub-col[data-day="${dayIndex}"][data-worker-id="${workerId}"]`
+      )
+      if (targetCol && activeEvent.parentElement !== targetCol) {
+        targetCol.appendChild(activeEvent)
+      }
+    }
+
     let html = `
-            <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
-            <div class="event-content">
-                <div class="event-title">${name}</div>
-                <div class="event-time">${timeString}</div>`
+      <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+      <div class="event-content">
+          <div class="event-title">${name}</div>
+          <div class="event-time">${timeString}</div>`
 
     if (!isSmall && roomName) html += `<div class="event-loc">${roomName}</div>`
     html += `</div>`
@@ -735,9 +761,7 @@ function removeEventBlock (e, xButton) {
 
 function clearInteractiveGrid (withConfirm = true) {
   if (withConfirm && !confirm('Clear all assigned shifts?')) return
-  document
-    .querySelectorAll('#interactiveGrid .shift-block')
-    .forEach(el => el.remove())
+  document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
 }
 
 let activeScheduleId = null
@@ -833,20 +857,32 @@ async function loadScheduleShifts () {
     )
     const data = await res.json()
 
+    // --- THE FIX: Enrich DB shifts with names before rendering! ---
+    const workers =
+      typeof window.WORKERS === 'string'
+        ? JSON.parse(window.WORKERS)
+        : window.WORKERS
+    const rooms =
+      typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
+
+    const enrichedShifts = data.shifts.map(shift => {
+      const worker = workers.find(w => w.id == shift.user_id)
+      const room = rooms.find(r => r.id == shift.room_id)
+      return {
+        ...shift,
+        user_name: worker ? worker.name : shift.user_name || 'Unknown',
+        room_name: room ? room.name : shift.room_name || '',
+        isSaved: true
+      }
+    })
+
     // Populate local store with DB data
     if (activeRoleId) {
-      localSchedule.save(
-        activeRoleId,
-        data.shifts.map(s => ({
-          ...s,
-          user_name: s.user_name,
-          room_name: s.room_name,
-          isSaved: true
-        }))
-      )
+      localSchedule.save(activeRoleId, enrichedShifts)
     }
 
-    renderShiftsToGrid(data.shifts, false)
+    renderShiftsToGrid(enrichedShifts, false) // Render the enriched ones!
+    // ---------------------------------------------------------------
   } catch (err) {
     console.error('Error loading shifts:', err)
   }
@@ -951,6 +987,11 @@ function formatTime (topPx) {
 }
 
 async function loadWorker (workerId, teamId, name, element) {
+  activeRoleId = null
+  document
+    .querySelectorAll('.filter-options .btn')
+    .forEach(btn => btn.classList.remove('active'))
+
   document
     .querySelectorAll('.worker-item')
     .forEach(item => item.classList.remove('active'))
@@ -961,7 +1002,9 @@ async function loadWorker (workerId, teamId, name, element) {
 
   // Rebuild grid for single worker
   buildSingleWorkerGrid(name)
+  renderWorkerObstructions(workerId)
 
+  console.log(window.WORKERS)
   const dayMap = {
     sun: '0',
     mon: '1',
@@ -982,7 +1025,7 @@ async function loadWorker (workerId, teamId, name, element) {
     data.availabilityData.forEach(range => {
       const dayIndex = dayMap[range.day]
       const dayCol = document.querySelector(
-        `#viewGrid .day-col[data-day="${dayIndex}"]`
+        `#mainGrid .day-col[data-day="${dayIndex}"]`
       )
       if (!dayCol) return
 
@@ -1001,6 +1044,36 @@ async function loadWorker (workerId, teamId, name, element) {
                 </div>`
       dayCol.appendChild(block)
     })
+    if (activeScheduleId) {
+      const shiftRes = await fetch(
+        `/api/team/${teamId}/schedules/${activeScheduleId}/shifts/`
+      )
+      const shiftData = await shiftRes.json()
+
+      const workers =
+        typeof window.WORKERS === 'string'
+          ? JSON.parse(window.WORKERS)
+          : window.WORKERS
+      const rooms =
+        typeof window.ROOMS === 'string'
+          ? JSON.parse(window.ROOMS)
+          : window.ROOMS
+
+      // Filter for just this worker and enrich with names
+      const workerShifts = shiftData.shifts
+        .filter(s => s.user_id == workerId)
+        .map(shift => {
+          const room = rooms.find(r => r.id == shift.room_id)
+          return {
+            ...shift,
+            user_name: name,
+            room_name: room ? room.name : '',
+            isSaved: true
+          }
+        })
+
+      renderShiftsToGrid(workerShifts, false)
+    }
   } catch (error) {
     console.error('Error loading worker:', error)
   }
@@ -1026,7 +1099,7 @@ function formatMin (totalMinutes) {
 /* --- MOCK DATA --- */
 function mockLoadAvailability () {
   // Draw a fake availability block on Monday (data-day="1") from 9:00 AM to 12:00 PM
-  const dayCol = document.querySelector('#viewGrid .day-col[data-day="1"]')
+  const dayCol = document.querySelector('#mainGrid .day-col[data-day="1"]')
   const startMins = 9 * 60 - START_HOUR * 60 // 9AM relative to 8AM
   const endMins = 12 * 60 - START_HOUR * 60 // 12PM relative to 8AM
 
@@ -1044,91 +1117,31 @@ function mockLoadAvailability () {
                 </div>`
   dayCol.appendChild(block)
 }
-/* --- SYNCHRONIZED HOVER EFFECT --- */
-function setupSyncHover () {
-  const interactiveGrid = document.getElementById('interactiveGrid')
-  const iHighlight = document.createElement('div')
-  iHighlight.className = 'sync-highlight'
-
-  // We'll create highlights dynamically for all view cols
-  let activeViewHighlights = []
-
-  interactiveGrid.addEventListener('mousemove', e => {
-    const col = e.target.closest('#interactiveGrid .day-col')
-    if (!col) {
-      iHighlight.classList.remove('active')
-      activeViewHighlights.forEach(h => h.classList.remove('active'))
-      return
-    }
-
-    const rect = col.getBoundingClientRect()
-    const snappedTop =
-      Math.floor((e.clientY - rect.top) / SLOT_HEIGHT) * SLOT_HEIGHT
-
-    // Interactive grid highlight
-    col.appendChild(iHighlight)
-    iHighlight.style.top = `${snappedTop}px`
-    iHighlight.classList.add('active')
-
-    // Clear previous view highlights
-    activeViewHighlights.forEach(h => h.classList.remove('active'))
-    activeViewHighlights = []
-
-    // Highlight ALL sub-columns for this day in the view grid
-    const dayIndex = col.dataset.day
-    const viewCols = document.querySelectorAll(
-      `#viewGrid .day-col[data-day="${dayIndex}"]`
-    )
-
-    viewCols.forEach(viewCol => {
-      const h = document.createElement('div')
-      h.className = 'sync-highlight active'
-      h.style.top = `${snappedTop}px`
-      viewCol.appendChild(h)
-      activeViewHighlights.push(h)
-    })
-  })
-
-  interactiveGrid.addEventListener('mouseleave', () => {
-    iHighlight.classList.remove('active')
-    activeViewHighlights.forEach(h => h.remove())
-    activeViewHighlights = []
-  })
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const interactiveGrid = document.getElementById('interactiveGrid')
-
-  interactiveGrid.addEventListener('dblclick', e => {
-    const block = e.target.closest('.shift-block')
-    if (block && !block.classList.contains('temp')) {
-      activeEvent = block
-      openModal()
-
-      // Pre-select existing values after modal opens
-      document.getElementById('modalWorkerSelect').value =
-        block.dataset.workerId
-      document.getElementById('modalRoleSelect').value = block.dataset.roleId
-      document.getElementById('modalRoomSelect').value = block.dataset.roomId
-    }
-  })
-})
 
 function renderShiftsToGrid (shifts, isLocal = false) {
   const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
 
   shifts.forEach(s => {
     const dayIndex = typeof s.day === 'string' ? dayMap[s.day] : s.day
-    const col = document.querySelector(
-      `#interactiveGrid .day-col[data-day="${dayIndex}"]`
+
+    // 1. Try to find specific worker column (Role view)
+    let col = document.querySelector(
+      `#mainGrid .worker-sub-col[data-day="${dayIndex}"][data-worker-id="${s.user_id}"]`
     )
+
+    // 2. Fallback to generic day column (Single worker view)
+    if (!col) {
+      col = document.querySelector(
+        `#mainGrid .day-col[data-day="${dayIndex}"]:not(.worker-sub-col)`
+      )
+    }
+
     if (!col) return
 
     const startOffset = s.start_min - START_HOUR * 60
     const top = (startOffset / 15) * SLOT_HEIGHT
     const height = ((s.end_min - s.start_min) / 15) * SLOT_HEIGHT
 
-    // If isLocal is true but the shift itself was saved, honour the saved state
     const colorClass = !isLocal || s.isSaved ? 'saved' : 'local'
 
     const block = document.createElement('div')
@@ -1139,6 +1152,9 @@ function renderShiftsToGrid (shifts, isLocal = false) {
     block.dataset.roleId = s.role_id
     block.dataset.roomId = s.room_id || ''
     block.dataset.shiftId = s.id || ''
+    // NEW: Explicitly stamp the exact start and end minutes!
+    block.dataset.startMin = s.start_min
+    block.dataset.endMin = s.end_min
 
     block.innerHTML = `
       <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
@@ -1155,36 +1171,33 @@ function renderShiftsToGrid (shifts, isLocal = false) {
 }
 
 function scrollToDay (dayIndex) {
-  // Find the first column for this day in the view grid
   const targetCol = document.querySelector(
-    `#viewGrid .day-col[data-day="${dayIndex}"]`
+    `#mainGrid .day-col[data-day="${dayIndex}"]`
   )
   if (!targetCol) return
 
   const scrollArea = targetCol.closest('.scroll-area')
   if (!scrollArea) return
 
-  // Highlight briefly
   targetCol.style.backgroundColor = 'rgba(115, 147, 179, 0.2)'
   setTimeout(() => (targetCol.style.backgroundColor = ''), 1000)
 
-  // Scroll to it
   scrollArea.scrollTo({
-    left: targetCol.offsetLeft - 60, // account for time column
+    left: targetCol.offsetLeft - 60,
     behavior: 'smooth'
   })
 }
 
-function setupHeaderSync () {
-  const viewScrollArea = document.getElementById('viewScrollArea')
-  const viewHeader = document.getElementById('viewGridHeader')
+// function setupHeaderSync () {
+//   const viewScrollArea = document.getElementById('viewScrollArea')
+//   const viewHeader = document.getElementById('viewGridHeader')
 
-  if (viewScrollArea && viewHeader) {
-    viewScrollArea.addEventListener('scroll', () => {
-      viewHeader.scrollLeft = viewScrollArea.scrollLeft
-    })
-  }
-}
+//   if (viewScrollArea && viewHeader) {
+//     viewScrollArea.addEventListener('scroll', () => {
+//       viewHeader.scrollLeft = viewScrollArea.scrollLeft
+//     })
+//   }
+// }
 
 function getInteractiveColWidth () {
   const interactiveGrid = document.getElementById('interactiveGrid')
@@ -1304,5 +1317,158 @@ async function saveWorkerAssignment () {
   } catch (err) {
     console.error(err)
     alert('An error occurred.')
+  }
+}
+
+function renderWorkerObstructions (workerId) {
+  // 1. Clear any existing obstructions from the grid first
+  document
+    .querySelectorAll('#mainGrid .obstruction-block')
+    .forEach(el => el.remove())
+  // 2. Find obstructions relevant to this worker based on role/section
+  const worker = window.WORKERS.find(w => w.id == workerId)
+  const section = worker.section
+  const workerObs = window.OBSTRUCTIONS.filter(o => {
+    const matchesSection = o.section ? o.section == section : true
+    const matchesRole = o.role_id ? o.role_id == worker?.role_id : true
+    return matchesSection && matchesRole
+  })
+
+  console.log('Rendering obstructions for worker:', workerObs)
+
+  // 3. Map day strings to indexes if your data uses strings
+  const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+
+  // 4. Draw them on the grid
+  workerObs.forEach(obs => {
+    for (let day of obs.days) {
+      // Find the generic day column in the single worker view
+      const dayIndex = dayMap[day]
+      const col = document.querySelector(
+        `#mainGrid .day-col[data-day="${dayIndex}"]:not(.worker-sub-col)`
+      )
+
+      console.log(
+        `Trying to place block on day: ${obs.day}, index: ${dayIndex}. Found column:`,
+        col
+      )
+
+      if (!col) continue
+
+      // Calculate grid position
+      const startOffset = obs.start_min - START_HOUR * 60
+      const top = (startOffset / 15) * SLOT_HEIGHT
+      const height = ((obs.end_min - obs.start_min) / 15) * SLOT_HEIGHT
+
+      // Create the visual block
+      const block = document.createElement('div')
+      // NOTE: Make sure 'obstruction-block' matches whatever CSS class you use for greyed-out times!
+      block.className = 'obstruction-block'
+      block.style.top = `${top}px`
+      block.style.height = `${height}px`
+
+      // Optional: Add text if your obstruction data includes a title or type
+      const reason = obs.title || obs.type || 'Unavailable'
+      block.innerHTML = `<div style="padding: 4px; font-size: 11px; color: #555; font-weight: bold;">${reason}</div>`
+
+      col.appendChild(block)
+    }
+  })
+}
+
+function getCookie (name) {
+  let cookieValue = null
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';')
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim()
+      // Does this cookie string begin with the name we want?
+      if (cookie.substring(0, name.length + 1) === name + '=') {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
+        break
+      }
+    }
+  }
+  return cookieValue
+}
+
+async function runAutoScheduler () {
+  const roleId = typeof activeRoleId !== 'undefined' ? activeRoleId : null
+
+  if (!roleId) {
+    alert('Please select a role first!')
+    return
+  }
+
+  const btn = document.getElementById('autoScheduleBtn')
+  if (btn) {
+    btn.dataset.originalText = btn.innerText
+    btn.innerText = '⏳ Calculating...'
+    btn.disabled = true
+  }
+
+  try {
+    const res = await fetch(`/api/team/${window.TEAM_ID}/auto-schedule/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({ role_id: roleId })
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) throw new Error(data.error || 'Failed to generate schedule')
+
+    if (data.shifts.length === 0) {
+      alert(
+        "The algorithm couldn't find any valid slots for this role! Check constraints."
+      )
+      return
+    }
+
+    // --- THE FIX STARTS HERE ---
+
+    // 1. Grab our global workers/rooms lists so we can match IDs to Names
+    const workers =
+      typeof window.WORKERS === 'string'
+        ? JSON.parse(window.WORKERS)
+        : window.WORKERS
+    const rooms =
+      typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
+
+    // 2. Add the names to the backend data
+    const enrichedShifts = data.shifts.map(shift => {
+      const worker = workers.find(w => w.id == shift.user_id)
+      const room = rooms.find(r => r.id == shift.room_id)
+      return {
+        ...shift,
+        user_name: worker ? worker.name : 'Unknown Worker',
+        room_name: room ? room.name : '',
+        isSaved: false // It's generated, not saved to the DB yet!
+      }
+    })
+
+    // 3. Save to our local memory state
+    localSchedule.save(roleId, enrichedShifts)
+
+    // 4. Force the grid to physically redraw!
+    clearInteractiveGrid(false) // Erase whatever was currently on the screen
+    renderShiftsToGrid(enrichedShifts, true) // Draw the new AI blocks!
+
+    // ---------------------------
+
+    alert(
+      `✨ Success! ${enrichedShifts.length} shifts generated. Review and click Save!`
+    )
+  } catch (err) {
+    console.error(err)
+    alert('Error running auto-scheduler: ' + err.message)
+  } finally {
+    if (btn) {
+      btn.innerText = btn.dataset.originalText
+      btn.disabled = false
+    }
   }
 }
