@@ -29,7 +29,7 @@
                 onkeyup="filterWorkers()">
             <div class="worker-list">
                 {% for worker in workers %}
-                <div class="worker-item" 
+                <div class="worker-item"
                     onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
                     <span>{{ worker.get_full_name|default:worker.username }}</span>
                     <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
@@ -54,32 +54,21 @@
     </aside>
 
     <main class="grids-area">
-
-        <div class="scheduler-card">
+        <div class="scheduler-card" style="flex: 1; max-width: 100%;">
             <div class="toolbar">
-                <h3 id="viewingWorkerLabel">Select a worker or filter</h3>
-                <div style="font-size: 13px; color: #666;">Read-Only View</div>
-            </div>
-            <!-- Header and scroll area wrapped together -->
-            <div class="grid-wrapper">
-                <div class="grid-header" id="viewGridHeader">
-                    <div class="header-cell time-header">Time</div>
+                <div>
+                    <h3 id="viewingWorkerLabel">Select a worker or filter</h3>
+                    <div style="font-size: 13px; color: #666;">Interactive Schedule View</div>
                 </div>
-                <div class="scroll-area" id="viewScrollArea">
-                    <div class="grid-body" id="viewGrid">
-                        <div class="time-col" id="viewTimeCol"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <div class="scheduler-card">
-            <div class="toolbar">
-                <h3>Assign Shifts</h3>
                 <div class="toolbar-actions">
                     <select id="scheduleSelect" class="role-selector" onchange="loadScheduleShifts()">
                         <option value="">Select schedule...</option>
                     </select>
+                    <button id="autoScheduleBtn" class="btn btn-save" onclick="runAutoScheduler()"
+                        style="margin-left: 10px;">
+                        Auto-Schedule Role
+                    </button>
                     <button class="btn btn-clear" onclick="openCreateScheduleModal()">+ New</button>
                     <button class="btn btn-clear" onclick="setActiveSchedule()">Set Active</button>
                     <span style="font-size: 13px; color: #888;">Click & drag to add shift</span>
@@ -87,32 +76,18 @@
                     <button class="btn btn-save" onclick="saveAllPreferences()">Save</button>
                 </div>
             </div>
+
             <div class="grid-wrapper">
-                <div class="grid-header" id="interactiveGridHeader">
+                <div class="grid-header" id="mainGridHeader">
                     <div class="header-cell time-header">Time</div>
-                    <div class="header-cell">Sun</div>
-                    <div class="header-cell">Mon</div>
-                    <div class="header-cell">Tue</div>
-                    <div class="header-cell">Wed</div>
-                    <div class="header-cell">Thu</div>
-                    <div class="header-cell">Fri</div>
-                    <div class="header-cell">Sat</div>
                 </div>
-                <div class="scroll-area">
-                    <div class="grid-body interactive-grid" id="interactiveGrid">
-                        <div class="time-col" id="interactiveTimeCol"></div>
-                        <div class="day-col" data-day="0"></div>
-                        <div class="day-col" data-day="1"></div>
-                        <div class="day-col" data-day="2"></div>
-                        <div class="day-col" data-day="3"></div>
-                        <div class="day-col" data-day="4"></div>
-                        <div class="day-col" data-day="5"></div>
-                        <div class="day-col" data-day="6"></div>
+                <div class="scroll-area" id="mainScrollArea">
+                    <div class="grid-body" id="mainGrid">
+                        <div class="time-col" id="mainTimeCol"></div>
                     </div>
                 </div>
             </div>
         </div>
-
     </main>
 </div>
 

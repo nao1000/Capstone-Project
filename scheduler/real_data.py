@@ -1,3 +1,62 @@
+THREE = ["mon", "wed", "fri"]
+TWO = ["tue", "thu"]
+
+COURSES = {
+    "CHEM 131": {
+        "001": {"days": TWO, "time": (1100, 1215)}
+    },
+    "CHEM 151": {
+        "001": {"days": THREE, "time": (1200, 1250)},
+        "002": {"days": TWO, "time": (1400, 1515)},
+        "003": {"days": TWO, "time": (1230, 1345)}
+    },
+    "CHEM 152": {
+        "001": {"days": THREE, "time": (1000, 1050)},
+        "002": {"days": THREE, "time": (1300, 1350)},
+        "003": {"days": THREE, "time": (900, 950)},
+        "004": {"days": TWO, "time": (1230, 1345)}
+    },
+    "CHEM 241A": {
+        "001": {"days": THREE, "time": (1200, 1250)},
+        "002": {"days": TWO, "time": (930, 1045)},
+    },
+    "CHEM 241B": {
+        "001": {"days": THREE, "time": (900, 950)},
+        "002": {"days": THREE, "time": (1300, 1350)},
+        "003": {"days": TWO, "time": (1230, 1345)}
+    },
+    "CHEM 182": {
+        "001": {"days": THREE, "time": (1000, 1050)},
+    },
+    "MCB 181R": {
+        "001": {"days": TWO, "time": (1400, 1515)},
+        "002": {"days": TWO, "time": (930, 1045)},
+        "003": {"days": TWO, "time": (800, 915)},
+    },
+    "PHYS 141": {
+        "001": {"days": ["wed", "fri"], "time": (1100, 1150)},
+    },
+    "PHYS 241": {
+        "001": {"days": ["wed", "fri"], "time": (1300, 1350)},
+    },
+    "PSIO 201": {
+        "001": {"days": THREE, "time": (1100, 1150)},
+        "003": {"days": THREE, "time": (1200, 1250)},  
+    },
+    "PSIO 202": {
+        "001": {"days": THREE, "time": (900, 950)},
+        "002": {"days": THREE, "time": (1000, 1050)},
+    },
+    "NSC 170": {
+        "001": {"days": THREE, "time": (1200, 1250)},
+        "002": {"days": THREE, "time": (1100, 1150)},
+        "003": {"days": TWO, "time": (930, 1045)},
+        "004": {"days": TWO, "time": (1400, 1515)},
+        "005": {"days": TWO, "time": (1530, 1645)},
+    }
+
+}
+
 WORKERS = [
     {
         "first_name": "Ally",

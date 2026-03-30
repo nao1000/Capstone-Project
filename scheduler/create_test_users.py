@@ -11,10 +11,10 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scheduler.settings')
 django.setup()
 
 from django.contrib.auth.models import User
-from scheduler.core.models import Team, AvailabilityRange, Schedule
+from scheduler.core.models import Team, AvailabilityRange, Schedule, Role, RoleSection, FixedObstruction, ObstructionDay
 
 # Import the data you typed out manually (or paste it above this line)
-from real_data import WORKERS 
+from real_data import WORKERS, COURSES
 
 def parse_time_block(block):
     """
@@ -50,6 +50,22 @@ def seed_real_data():
     )
 
     Schedule.objects.get_or_create(team=team, name="Spring 2026", defaults={"is_active": True})
+    
+    for course in COURSES.keys():
+        role = Role.objects.create(team=team, name=course)
+        for section, info in COURSES[course].items():
+            RoleSection.objects.create(role=role, name=section)
+            obstruction = FixedObstruction.objects.create(
+                team=team,
+                role=role,
+                name=f"{course} {section}",
+                start_time=parse_time_block(info["time"])[0],
+                end_time=parse_time_block(info["time"])[1],
+                section=section,
+            )
+            for day in info["days"]:
+                ObstructionDay.objects.create(obstruction=obstruction, day=day)
+        
 
     print(f"Importing {len(WORKERS)} real workers...")
 

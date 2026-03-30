@@ -226,30 +226,6 @@ body {
     overflow: hidden;
 }
 
-/* --- GRID HEADER --- */
-/* View grid header scrolls with the grid via JS */
-#viewGridHeader {
-    display: flex;
-    flex-direction: row;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    scrollbar-gutter: stable;
-    /* controlled by JS sync with scroll area */
-    flex-shrink: 0;
-    height: 40px;
-    background: #f8f9fa;
-    border-bottom: 1px solid var(--grid-line);
-}
-
-/* Interactive grid header is standard CSS grid, no scrolling needed */
-#interactiveGridHeader {
-    display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
-    flex-shrink: 0;
-    height: 40px;
-    background: #f8f9fa;
-    border-bottom: 1px solid var(--grid-line);
-}
 
 .header-cell {
     display: flex;
@@ -284,9 +260,8 @@ body {
 }
 
 /* --- GRID BODIES --- */
-
-/* View grid: flex row, width expands for multi-column role view */
-#viewGrid {
+/* Unified grid: flex row, width expands for multi-column role view */
+#mainGrid {
     display: flex;
     flex-direction: row;
     height: calc(10 * 4 * var(--slot-height));
@@ -294,12 +269,17 @@ body {
     min-width: 100%;
 }
 
-/* Interactive grid: standard 7-column CSS grid, never scrolls horizontally */
-#interactiveGrid {
-    display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
-    height: calc(10 * 4 * var(--slot-height));
-    min-width: 100%;
+/* Unified grid header */
+#mainGridHeader {
+    display: flex;
+    flex-direction: row;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+    flex-shrink: 0;
+    height: 40px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--grid-line);
 }
 
 /* --- COLUMNS --- */
@@ -334,10 +314,6 @@ body {
     background: var(--grid-line-hour);
 }
 
-/* Interactive grid crosshair cursor */
-.interactive-grid .day-col {
-    cursor: crosshair;
-}
 
 /* Zebra striping */
 .day-col {
@@ -441,12 +417,18 @@ body {
 
 /* Obstruction blocks */
 .obstruction-block {
-    background-color: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.5);
-    border-left: 4px solid #ef4444;
-    color: #991b1b;
+    position: absolute;
+    width: 100%;
+    left: 0;
+    background: repeating-linear-gradient(45deg,
+            #da1414,
+            #6d0303 10px);
+    border-left: 3px solid #888;
+    opacity: 0.8;
     pointer-events: none;
-    z-index: 15;
+    /* Let users click through/around it if necessary */
+    z-index: 5;
+    overflow: hidden;
 }
 
 /* Read-only availability blocks */
@@ -639,24 +621,4 @@ body {
     font-size: 13px;
     background: white;
     cursor: pointer;
-}
-
-/* In buildSingleWorkerGrid, the 120px fixed width is the culprit */
-/* Override view grid day cols to stretch when in single-worker mode */
-#viewGridHeader {
-    width: 100%;
-}
-
-/* 2. Force header cells to stretch exactly like the day columns */
-#viewGridHeader .header-cell:not(.time-header) {
-    flex: 1 1 0%; /* The 0% ensures they are mathematically equal regardless of text length */
-}
-
-/* 3. Your existing single-worker overrides (updated for perfect alignment) */
-#viewGrid.single-worker {
-    width: 100%;
-}
-
-#viewGrid.single-worker .day-col {
-    flex: 1 1 0%; /* Matches the header perfectly */
 }
