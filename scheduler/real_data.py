@@ -2,7 +2,7 @@ THREE = ["mon", "wed", "fri"]
 TWO = ["tue", "thu"]
 
 COURSES = {
-    "CHEM 131": {
+    "CHEM 130": {
         "001": {"days": TWO, "time": (1100, 1215)}
     },
     "CHEM 151": {
@@ -62,6 +62,8 @@ WORKERS = [
         "first_name": "Ally",
         "last_name": "Dietrich",
         "username": "ally.dietrich",
+        "role": "MCB 181R",
+        "section": "001",
         "schedule": {
             "sun": [(800,2100, "Busy")],
             "mon": [(800, 850, "Busy"), (900, 950, "NROS 310", "Commons 315"), (1400, 1450, "PHYS 111", "ATMO 212"), (1500, 1615, "CMM 410", "EDU 211")],
@@ -76,6 +78,8 @@ WORKERS = [
         "first_name": "Tessa",
         "last_name": "Callister",
         "username": "tessa.callister",
+        "role": "NSC 170",
+        "section": "005",
         "schedule": {
             "sun": [],
             "mon": [(900,950,"PSIO 202", "ENR2 N120"), (1000, 1050, "CHEM 152", "ENR2 N120")],
@@ -90,6 +94,8 @@ WORKERS = [
         "first_name": "Elise",
         "last_name": "Spalding",
         "username": "elise.spalding",
+        "role": "NSC 170",
+        "section": "003",
         "schedule": {
             "sun": [(1300,1650, "Busy")],
             "mon": [],
@@ -104,6 +110,8 @@ WORKERS = [
         "first_name": "Marissa",
         "last_name": "Contreras",
         "username": "marissa.contreras",
+        "role": "NSC 170",
+        "section": "001",
         "schedule": {
             "sun": [(1300, 1650, "Busy")],
             "mon": [(900, 950, "PSIO-202", "ENR2 N120")],
@@ -118,6 +126,8 @@ WORKERS = [
         "first_name": "Victoria",
         "last_name": "Paulson",
         "username": "victoria.paulson",
+        "role": "NSC 170",
+        "section": "002",
         "schedule": {
             "sun": [(1700, 2100, "Busy")],
             "mon": [(800, 950, "Busy"), (1000, 1050, "PSIO 202", "Social Sciences 100")],
@@ -132,6 +142,8 @@ WORKERS = [
         "first_name": "Harshini",
         "last_name": "R",
         "username": "harshini.r",
+        "role": "CHEM 151",
+        "section": "003",
         "schedule": {
             "sun": [(800, 1800, "Busy")],
             "mon": [(900, 950, "AME 301", "AME"), (1200,1250,"AME 331", "AME"), (1600, 1650, "AME 250", "AME")],
@@ -146,6 +158,8 @@ WORKERS = [
         "first_name": "Michael",
         "last_name": "Halley",
         "username": "michael.halley",
+        "role": "MCB 181R",
+        "section": "003",
         "schedule": {
             "sun": [(1300, 1630, "Busy")],
             "mon": [(800, 850, "Busy"), (900, 950, "BSM 321", "ILC 140"), (1000, 1200, "IMB 401", "Health Sciences Innov 880"), (1400, 1450, "PHYS 111"), (1800, 2100, "Busy")],
@@ -160,6 +174,8 @@ WORKERS = [
         "first_name": "Ella",
         "last_name": "Gordon",
         "username": "ella.gordon",
+        "role": "PSIO 202",
+        "section": "002",
         "schedule": {
             "sun": [(800,1030, "Busy")],
             "mon": [(900, 950, "PSIO 305", "Social Sciences"), (1300, 1350, "PCOL 434", "Chavez"), (1400, 1450, "PHYS 111", "Atmo")],
@@ -174,6 +190,8 @@ WORKERS = [
         "first_name": "Skyller",
         "last_name": "Lopez",
         "username": "skyller.lopez",
+        "role": "PSIO 202",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(1000, 1050, "PSY 200", "CCP 108"), (1100, 1230, "Busy"), (1530, 2100, "Busy")],
@@ -188,6 +206,8 @@ WORKERS = [
         "first_name": "Jazmyne",
         "last_name": "Jackson",
         "username": "jazmyne.jackson",
+        "role": "PSIO 201",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1200, 1250, "PHCL 422", "Chavez 147"), (1300, 1700, "EMD 147", "Health Sci")],
@@ -202,6 +222,8 @@ WORKERS = [
         "first_name": "Brianna",
         "last_name": "Suarez",
         "username": "brianna.suarez",
+        "role": "PSIO 201",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "PSIO 303", "Social Sciences 100"), (1200, 2000, "Busy")],
@@ -216,6 +238,8 @@ WORKERS = [
         "first_name": "Emma",
         "last_name": "Chicco",
         "username": "emma.chicco",
+        "role": "CHEM 241A",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "NROS 307", "The Commons"), (1000, 1050, "Class", "Chavez")],
@@ -230,6 +254,8 @@ WORKERS = [
         "first_name": "Navya",
         "last_name": "Balaji",
         "username": "navya.balaji",
+        "role": "PSIO 202",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "NROS 310", "ENR"), (1400, 1500, "PHYS 111")],
@@ -244,6 +270,8 @@ WORKERS = [
         "first_name": "Subi",
         "last_name": "Adhikari",
         "username": "subi.adhikari",
+        "role": "CHEM 151",
+        "section": "003",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 1050, "Busy"), (1100, 1150, "AME 300", "ILC"), (1200, 1250, "MSE 331", "AME"), (1300, 1350, "AME 302", "AME"), (1400, 1450, "Busy"), (1500, 1550, "AME 324", "AME"), (1600, 2100, "Busy")],
@@ -258,6 +286,8 @@ WORKERS = [
         "first_name": "Abby",
         "last_name": "Tawney",
         "username": "abby.tawney",
+        "role": "CHEM 151",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(800, 1100, "Busy"), (1300, 1350, "NSC 315"), (1530, 1700, "Busy")],
@@ -272,6 +302,8 @@ WORKERS = [
         "first_name": "Namit",
         "last_name": "O",
         "username": "namit.o",
+        "role": "PHYS 241",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1530, 1645, "PHYS 515")],
@@ -286,6 +318,8 @@ WORKERS = [
         "first_name": "Nathan",
         "last_name": "Oswald",
         "username": "nathan.oswald",
+        "role": "CHEM 151",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(800, 1150, "Busy")],
@@ -300,6 +334,8 @@ WORKERS = [
         "first_name": "Nicholas",
         "last_name": "Abeyta",
         "username": "nicholas.abeyta",
+        "role": "CHEM 152",
+        "section": "004",
         "schedule": {
             "sun": [(800, 1330, "Busy")],
             "mon": [(900, 950, "PSIO 305", "Social Sciences 100"), (1200, 1250, "PSIO 420", "McClelland Park 105"), (1300, 1415, "PSY 381", "ILC 120")],
@@ -314,6 +350,8 @@ WORKERS = [
         "first_name": "Erin",
         "last_name": "Riekena",
         "username": "erin.riekena",
+        "role": "MCB 181R",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1400, 1450, "PHYS 111", "PAS 201")],
@@ -328,6 +366,8 @@ WORKERS = [
         "first_name": "Sepher",
         "last_name": "Salamat",
         "username": "sepher.salamat",
+        "role": "PHYS 241",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "MATH 432", "Education"), (1000, 1050, "Class"), (1100, 1215, "Class"), (1500, 1615, "PHYS 515", "PAS")],
@@ -342,6 +382,8 @@ WORKERS = [
         "first_name": "Luke",
         "last_name": "Bender",
         "username": "luke.bender",
+        "role": "CHEM 241B",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(830, 920, "Online class"), (1300, 1430, "PHCL 412", "Health Sci"), (1500, 1615, "Histology", "Education")],
@@ -356,6 +398,8 @@ WORKERS = [
         "first_name": "Emma",
         "last_name": "Razi",
         "username": "emma.razi",
+        "role": "CHEM 241A",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(900, 950, "NROS 307", "Commons 105"), (1000, 1050, "NROS Disc", "Social Sciences 411"), (1100, 1150, "PSIO 201", "ENR2 120"), (1300, 2100, "Busy")],
@@ -370,6 +414,8 @@ WORKERS = [
         "first_name": "Taylor",
         "last_name": "Stanton",
         "username": "taylor.stanton",
+        "role": "MCB 181R",
+        "section": "002",
         "schedule": {
             "sun": [(800, 1030, "Busy")],
             "mon": [(800, 1030, "Busy"), (1100, 1150, "AME", "Engr 107"), (1300, 1350, "CHEM 405", "Chemistr 232"), (1400, 1450, "MCB 305", "Commons 105")],
@@ -384,6 +430,8 @@ WORKERS = [
         "first_name": "Zoe",
         "last_name": "Kaliski",
         "username": "zoe.kaliski",
+        "role": "MCB 181R",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1000, 1050, "CHEM 152", "ENR2 N120"), (1300, 1700, "EM7 147", "Health Sci"), (1800, 2000, "Busy")],
@@ -398,6 +446,8 @@ WORKERS = [
         "first_name": "Alicia",
         "last_name": "Hemingson",
         "username": "alicia.hemingson",
+        "role": "CHEM 152",
+        "section": "004",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(900, 950, "Class", "ENR2"), (1000, 1050, "NSC 255"), (1100, 1150, "Class", "ILC"), (1300, 1350, "Class", "McClelland")],
@@ -412,6 +462,8 @@ WORKERS = [
         "first_name": "Kevin",
         "last_name": "Tran",
         "username": "kevin.tran",
+        "role": "CHEM 151",
+        "section": "003",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "ECE 220", "McClelland Park"), (1100, 1150, "Busy"), (1200, 1250, "Math 243", "Chavez"), (1300, 1530, "ECE 220 Lab", "Engr"), (1600, 1650, "PHYS 143", "Atmo"), (1700, 2100, "Busy")],
@@ -426,6 +478,8 @@ WORKERS = [
         "first_name": "Alexis",
         "last_name": "Schwartzberg",
         "username": "alexis.schwartzberg",
+        "role": "CHEM 182",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(800, 850, "SPAN 102", "Psych"), (900, 950, "BIO 462", "Koffler"), (1100, 1150, "PHYS 140", "Atmo")],
@@ -440,6 +494,8 @@ WORKERS = [
         "first_name": "Rio",
         "last_name": "Lee",
         "username": "rio.lee",
+        "role": "CHEM 152",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(800, 850, "Busy"), (1300, 1550, "MIC 428", "Koffler"), (1700, 2100, "Busy")],
@@ -454,6 +510,8 @@ WORKERS = [
         "first_name": "Nguyni",
         "last_name": "F",
         "username": "nguyni.f",
+        "role": "CHEM 241A",
+        "section": "002",
         "schedule": {
             "sun": [(800, 1900, "Busy")],
             "mon": [(900, 950, "PSIO 305"), (1000, 1200, "IMB 401"), (1400, 1450, "PSIO 429"), (1630, 2100, "Busy")],
@@ -468,6 +526,8 @@ WORKERS = [
         "first_name": "Carlos",
         "last_name": "Nieves",
         "username": "carlos.nieves",
+        "role": "CHEM 152",
+        "section": "003",
         "schedule": {
             "sun": [(800, 1030, "Busy"), (1900, 2100, "Busy")],
             "mon": [(800, 850, "AME 211", "Commons 105"), (1000, 1050, "AME 230", "AME 202"), (1300, 1350, "MATH 313", "Psych 307"), (1600, 1650, "AME 250", "AME 202"), (1900, 2100, "Busy")],
@@ -482,6 +542,8 @@ WORKERS = [
         "first_name": "Cherry Ann",
         "last_name": "Macarang",
         "username": "cherry.macarang",
+        "role": "CHEM 241B",
+        "section": "003",
         "schedule": {
             "sun": [],
             "mon": [(900, 1150, "PHPR 811", "Drachman Hall 111"), (1300, 1450, "PHPR 860", "Drachman Hall 111")],
@@ -496,6 +558,8 @@ WORKERS = [
         "first_name": "Adriane",
         "last_name": "Quach",
         "username": "adriane.quach",
+        "role": "CHEM 152",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(1600, 1830, "Busy")],
@@ -510,6 +574,8 @@ WORKERS = [
         "first_name": "Cadyn",
         "last_name": "Crook",
         "username": "cadyn.crook",
+        "role": "CHEM 241B",
+        "section": "003",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(900, 950, "PSIO 202", "ENR2"), (1100, 1250, "PSIO 202", "Koffler"), (1600, 2100, "Busy")],
@@ -524,6 +590,8 @@ WORKERS = [
         "first_name": "Evie",
         "last_name": "Schmidt",
         "username": "evie.schmidt",
+        "role": "MCB 181R",
+        "section": "002",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [],
@@ -538,6 +606,8 @@ WORKERS = [
         "first_name": "Taylor",
         "last_name": "Raney",
         "username": "taylor.raney",
+        "role": "PSIO 201",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 900, "Busy"), (900, 950, "PSIO 305", "Social Sciecnes 100"), (1300, 1350, "PCOL 434", "Chavez 110"), (1500, 2100, "Busy")],
@@ -552,6 +622,8 @@ WORKERS = [
         "first_name": "Cadence",
         "last_name": "Regan",
         "username": "cadence.regan",
+        "role": "CHEM 182",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(900, 950, "BIOC 462", "Koffler"), (1700, 2100, "Busy")],
@@ -566,6 +638,8 @@ WORKERS = [
         "first_name": "Kayla",
         "last_name": "Bjork",
         "username": "kayla.bjork",
+        "role": "CHEM 152",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1100, 1150, "PSIO 201", "ENR2"), (1800, 1850, "Busy")],
@@ -580,6 +654,8 @@ WORKERS = [
         "first_name": "Alyson",
         "last_name": "Barr",
         "username": "alyson.barr",
+        "role": "NSC 170",
+        "section": "004",
         "schedule": {
             "sun": [(800, 1700, "Busy")],
             "mon": [(1000, 1050, "PSIO 202", "Social Sciences"), (1400, 1550, "PSIO 202", "Koffler"), (1630, 2100, "Busy")],
@@ -594,6 +670,8 @@ WORKERS = [
         "first_name": "Alena",
         "last_name": "Mary",
         "username": "alena.mary",
+        "role": "CHEM 151",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "PSIO 202", "ENR2"), (1300, 1350, "Class", "Koffler")],
@@ -608,6 +686,8 @@ WORKERS = [
         "first_name": "Nina",
         "last_name": "Kosukha",
         "username": "nina.kosukha",
+        "role": "CHEM 241B",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(800, 850, "Busy"), (1400, 1450, "PHYS 111", "Atmo"), (1500, 1650, "PHYS 111 Studio", "Atmo"), (1800, 2000, "Busy")],
@@ -622,6 +702,8 @@ WORKERS = [
         "first_name": "Vibha",
         "last_name": "C",
         "username": "vibha.c",
+        "role": "MCB 181R",
+        "section": "002",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 945, "Busy"), (1200, 1250, "Phys 110", "Atmo"), (1300, 1350, "MATH 313", "Pysch"), (1530, 2100, "Busy")],
@@ -632,24 +714,12 @@ WORKERS = [
             "sat": []
         }
     },
-    {
-        "first_name": "Loren",
-        "last_name": "Dipnarain",
-        "username": "loren.dipnarain",
-        "schedule": {
-            "sun": [(2000, 2100, "Busy")],
-            "mon": [(800, 1200, "NURS 356", "Health Sci 531"), (1200, 1600, "Busy"), (2000, 2100, "Busy")],
-            "tue": [(2000, 2100, "Busy")],
-            "wed": [(2000, 2100, "Busy")],
-            "thu": [(2000, 2100, "Busy")],
-            "fri": [(1000, 1200, "NURS 379", "Nursing 117"), (1300, 1500, "NURS 350", "Health Sci 305"), (2000, 2100, "Busy")],
-            "sat": []
-        }
-    },
         {
         "first_name": "Thida",
         "last_name": "Pookchan",
         "username": "thida.pookchan",
+        "role": "PHYS 141",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(1300, 1350, "AME 302", "AME"), (1700, 1750, "AME 321", "Architecture")],
@@ -664,6 +734,8 @@ WORKERS = [
         "first_name": "Abby",
         "last_name": "Bates",
         "username": "abby.bates",
+        "role": "CHEM 241B",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(1200, 1250, "PHCL 422", "Chavez"), (1400, 1450, "PHYS 111", "Atmo"), (1500, 1550, "CMM 410", "Education"), (1700, 1850, "PHYS 111 Workshop", "Atmo")],
@@ -678,6 +750,8 @@ WORKERS = [
         "first_name": "Nahal",
         "last_name": "O",
         "username": "nahal.o",
+        "role": "CHEM 152",
+        "section": "002",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "PSIO 305", "Social Sciences"), (1000, 1050, "Busy"), (1500, 1550, "Photo Journalism", "Psych")],
@@ -692,6 +766,8 @@ WORKERS = [
         "first_name": "Simone",
         "last_name": "Gazman",
         "username": "simone.gazman",
+        "role": "CHEM 152",
+        "section": "003",
         "schedule": {
             "sun": [],
             "mon": [(1300, 1550, "MIC 428", "Koffler")],
@@ -706,6 +782,8 @@ WORKERS = [
         "first_name": "Maddie",
         "last_name": "Caes",
         "username": "maddie.caes",
+        "role": "CHEM 152",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(900, 950, "PSIO 201", "ENR2"), (1300, 1350, "CHEM 241", "Koffler 204")],
@@ -716,24 +794,12 @@ WORKERS = [
             "sat": []
         }
     },
-        {
-        "first_name": "Faith",
-        "last_name": "Secrest",
-        "username": "faith.secrest",
-        "schedule": {
-            "sun": [(1600, 2100, "Busy")],
-            "mon": [(900, 950, "PSIO 305", "Social Sciences 100"), (1300, 1350, "PCOL 434", "Chavez"), (1400, 1450, "PSIO 429", "Commons 310")],
-            "tue": [(930, 1045, "BIO 384", "Commons 105"), (1245, 1525, "Class", "Pima Community College")],
-            "wed": [(900, 950, "PSIO 305", "Social Sciences 100"), (1400, 1450, "PSIO 429", "Commons 310")],
-            "thu": [(930, 1045, "BIO 384", "Commons 105"), (1245, 1525, "Class", "Pima Community College")],
-            "fri": [(900, 950, "PSIO 305", "Social Sciences 100"), (1400, 1450, "PSIO 429", "Commons 310")],
-            "sat": []
-        }
-    },
     {
         "first_name": "Reece",
         "last_name": "Sandquist",
         "username": "reece.sandquist",
+        "role": "CHEM 241B",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 900, "Busy"), (1400, 1450, "PHYS 111", "Atmo"), (1500, 1645, "CMM 410", "EDU 211"), (1800, 2100, "Busy")],
@@ -748,6 +814,8 @@ WORKERS = [
         "first_name": "Grace",
         "last_name": "Coyne",
         "username": "grace.coyne",
+        "role": "MCB 181R",
+        "section": "003",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(900, 950, "PSIO 305", "Social Sciences"), (1300, 1550, "MIC 205", "Koffler"), (1600, 2100, "Busy")],
@@ -762,6 +830,8 @@ WORKERS = [
         "first_name": "Abbie",
         "last_name": "J",
         "username": "abbie.j",
+        "role": "CHEM 151",
+        "section": "002",
         "schedule": {
             "sun": [(800, 1600, "Busy")],
             "mon": [(800, 900, "Busy"), (900, 950, "PSIO 202", "ENR2")],
@@ -776,6 +846,8 @@ WORKERS = [
         "first_name": "Andrew",
         "last_name": "Dinh",
         "username": "andrew.dinh",
+        "role": "MCB 181R",
+        "section": "003",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(1500, 1900, "Busy")],
@@ -790,6 +862,8 @@ WORKERS = [
         "first_name": "Clara",
         "last_name": "Weigel",
         "username": "clara.weigel",
+        "role": "CHEM 130",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 2100, "Busy")],
@@ -804,6 +878,8 @@ WORKERS = [
         "first_name": "Josiah",
         "last_name": "Rautenberg",
         "username": "josiah.rautenberg",
+        "role": "PSIO 201",
+        "section": "003",
         "schedule": {
             "sun": [(800, 1200, "Busy"), (1700, 1930, "Busy")],
             "mon": [(900, 950, "PSIO 305", "Social Sciences"), (1030, 1130, "Busy"), (1400, 1450, "PHYS 111", "Atmo")],
@@ -818,6 +894,8 @@ WORKERS = [
         "first_name": "Daniella",
         "last_name": "Vogel",
         "username": "daniella.vogel",
+        "role": "PSIO 201",
+        "section": "003",
         "schedule": {
             "sun": [],
             "mon": [(800, 850, "Busy"), (900, 950, "PSIO 305", "Social Sciences 100"), (1800, 1930, "Busy")],
@@ -832,6 +910,8 @@ WORKERS = [
         "first_name": "Olivia",
         "last_name": "Wong",
         "username": "olivia.wong",
+        "role": "CHEM 152",
+        "section": "003",
         "schedule": {
             "sun": [],
             "mon": [],
@@ -846,6 +926,8 @@ WORKERS = [
         "first_name": "Emelina",
         "last_name": "Kuebler",
         "username": "emelina.kuebler",
+        "role": "CHEM 130",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 1000, "Busy"), (1000, 1050, "EDP 200", "CCP"), (1100, 1150, "ENGL 109", "Social Sciences"), (1430, 2100, "Busy")],
@@ -860,6 +942,8 @@ WORKERS = [
         "first_name": "Sophie",
         "last_name": "Singh",
         "username": "sophie.singh",
+        "role": "PSIO 202",
+        "section": "001",
         "schedule": {
             "sun": [],
             "mon": [(1200, 1250, "EDP 301", "EDU 354"), (1300, 1830, "Busy")],
@@ -874,6 +958,8 @@ WORKERS = [
         "first_name": "Gargee",
         "last_name": "Tamboli",
         "username": "gargee.tamboli",
+        "role": "PSIO 202",
+        "section": "001",
         "schedule": {
             "sun": [(800, 2100, "Busy")],
             "mon": [(800, 900, "Busy"), (1200, 1250, "PHYS 110", "Atmo"), (1300, 1700, "Busy"), (1900, 2100, "Busy")],
@@ -888,6 +974,8 @@ WORKERS = [
         "first_name": "Cameron",
         "last_name": "Lewis",
         "username": "cameron.lewis",
+        "role": "CHEM 241A",
+        "section": "002",
         "schedule": {
             "sun": [(800, 1000, "Busy"), (1900, 2100, "Busy")],
             "mon": [(800, 830, "Busy"), (1000, 1100, "Precepting")],
