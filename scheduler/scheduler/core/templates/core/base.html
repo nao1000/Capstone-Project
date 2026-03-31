@@ -34,7 +34,10 @@
                     <i class="fa-regular fa-circle-user"></i>
                 </div>
                 <div class="profile-dropdown">
-                    <a href="#">Account Details</a>
+                    <a href="#">
+                        <span>Account Details</span>
+                        <i class="fa-solid fa-right-from-bracket dropdown-icon-placeholder" aria-hidden="true"></i>
+                    </a>
                     <form method="post" action="{% url 'logout' %}" class="logout-form">
                         {% csrf_token %}
                         <button type="submit">
