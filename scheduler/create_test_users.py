@@ -11,7 +11,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scheduler.settings')
 django.setup()
 
 from django.contrib.auth.models import User
-from scheduler.core.models import Team, AvailabilityRange, Schedule, Role, RoleSection, FixedObstruction, ObstructionDay
+from scheduler.core.models import Team, AvailabilityRange, Schedule, Role, RoleSection, FixedObstruction, ObstructionDay, TeamRoleAssignment
 
 # Import the data you typed out manually (or paste it above this line)
 from real_data import WORKERS, COURSES
@@ -88,6 +88,31 @@ def seed_real_data():
         
         team.members.add(user)
 
+        # --- NEW: Create the Team Role Assignment ---
+        role_name = worker_data.get("role")
+        section_name = worker_data.get("section")
+        
+        if role_name:
+            # Safely query the database for the Role and Section we generated earlier
+            role_obj = Role.objects.filter(team=team, name=role_name).first()
+            
+            section_obj = None
+            if role_obj and section_name:
+                section_obj = RoleSection.objects.filter(role=role_obj, name=section_name).first()
+            
+            # Create or update the worker's assignment!
+            if role_obj:
+                TeamRoleAssignment.objects.update_or_create(
+                    team=team,
+                    user=user,
+                    defaults={
+                        "role": role_obj,
+                        "section": section_obj
+                    }
+                )
+        # --------------------------------------------
+
+    
         # Clear old availability just in case you are re-running the script
         AvailabilityRange.objects.filter(user=user, team=team).delete()
 
