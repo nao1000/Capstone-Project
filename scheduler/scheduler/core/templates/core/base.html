@@ -25,8 +25,18 @@
             <a href="{% url 'dashboard2' %}" aria-label="Home" title="Home">
                 <i class="fa-solid fa-house"></i>
             </a>
-            <div class="icon-group">
-                <i class="fa-regular fa-bell"></i>
+            <div class="icon-group notification-container">
+                <button class="notification-trigger" type="button" aria-label="Notifications" title="Notifications">
+                    <i class="fa-regular fa-bell"></i>
+                </button>
+                <div class="notification-dropdown">
+                    <div class="notification-dropdown-header">
+                        <h3>Notifications</h3>
+                    </div>
+                    <div class="notification-empty">
+                        No notifications yet.
+                    </div>
+                </div>
             </div>
             <div class="user-profile-container">
                 <div class="user-profile">
@@ -58,25 +68,53 @@
             const profileContainer = document.querySelector('.user-profile-container');
             const profileTrigger = document.querySelector('.user-profile');
             const profileDropdown = document.querySelector('.profile-dropdown');
+            const notificationContainer = document.querySelector('.notification-container');
+            const notificationTrigger = document.querySelector('.notification-trigger');
+            const notificationDropdown = document.querySelector('.notification-dropdown');
 
-            if (!profileContainer || !profileTrigger) return;
+            if (profileTrigger && profileContainer) {
+                profileTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    profileContainer.classList.toggle('active');
+                    if (notificationContainer) {
+                        notificationContainer.classList.remove('active');
+                    }
+                });
+            }
 
-            // 1. Only toggle the menu when clicking the profile icon/name
-            profileTrigger.addEventListener('click', (e) => {
-                profileContainer.classList.toggle('active');
-                e.stopPropagation(); // Stop the document click listener from firing
-            });
-
-            // 2. Prevent clicks INSIDE the dropdown from accidentally closing it
             if (profileDropdown) {
                 profileDropdown.addEventListener('click', (e) => {
                     e.stopPropagation();
                 });
             }
 
-            // 3. Close when clicking anywhere else on the page
+            if (notificationTrigger && notificationContainer) {
+                notificationTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    notificationContainer.classList.toggle('active');
+                    notificationTrigger.classList.toggle('opened', notificationContainer.classList.contains('active'));
+                    if (profileContainer) {
+                        profileContainer.classList.remove('active');
+                    }
+                });
+            }
+
+            if (notificationDropdown) {
+                notificationDropdown.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
             document.addEventListener('click', () => {
-                profileContainer.classList.remove('active');
+                if (profileContainer) {
+                    profileContainer.classList.remove('active');
+                }
+                if (notificationContainer) {
+                    notificationContainer.classList.remove('active');
+                }
+                if (notificationTrigger) {
+                    notificationTrigger.classList.remove('opened');
+                }
             });
         });
     </script>

@@ -8,27 +8,99 @@
 body {
     /* Font, margin, and color are now inherited from base.css */
     min-width: 1200px;
+    height: auto;
     overflow-x: auto;
+    overflow-y: auto;
 }
 
 .container {
     display: flex;
     padding: 30px 40px;
-    gap: 40px;
+    gap: 20px;
     width: 1120px;
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .main-content {
     width: 800px;
     flex-shrink: 0;
+    height: auto;
+    padding-right: 15px; /* Adds breathing room for the scrollbar */
 }
 
-.sidebar {
-    width: 280px;
-    height: 600px;
+.events-sidebar {
+    width: 250px;
+    min-height: 550px;
     background-color: var(--gray-light);
     flex-shrink: 0;
+    border-radius: 2.5rem;
+    padding: 24px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 80px;
+    align-self: flex-start;
+    height: auto;
+}
+
+.events-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding: 0 4px;
+    color: #4B5563;
+}
+
+.events-header h3 {
+    font-size: 12px;
+    font-weight: 900;
+    color: #4B5563;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0;
+    border-bottom: none;
+    width: auto;
+}
+
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.event-card {
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    border-radius: 1.8rem;
+    padding: 24px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.event-card:hover {
+    transform: translateY(-2px);
+}
+
+.event-card h4 {
+    font-weight: bold;
+    color: #1F2937;
+    margin-bottom: 8px;
+    font-size: 13px;
+    margin-top: 0;
+}
+
+.event-card-time {
+    font-size: 11px;
+    color: #9CA3AF;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 h2 {
