@@ -168,13 +168,30 @@ function setupDrawListeners () {
   })
 }
 
-function openScheduler () {
-  document.getElementById('schedulerModal').classList.add('show')
-  loadSavedTimes()
+function openScheduler() {
+    // 1. Show the modal
+    document.getElementById('schedulerModal').classList.add('show');
+
+    // 2. Remove the "active" highlight from all rooms in the sidebar
+    document.querySelectorAll('.room-list-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    // 3. Clear the hidden input value so the app knows NO room is selected yet
+    document.getElementById('roomSelect').value = '';
+
+    // 4. Reset the right-side UI text
+    document.getElementById('selectedRoomTitle').textContent = 'New Room (Unsaved) or Select a Room';
+
+    // 5. SHOW the grid immediately!
+    document.getElementById('schedulerGrid').style.display = 'block';
+
+    // 6. Erase any green time blocks that might be left over from the last opened room
+    document.querySelectorAll('.room-block').forEach(block => block.remove());
 }
 
-function closeScheduler () {
-  document.getElementById('schedulerModal').classList.remove('show')
+function closeScheduler() {
+    document.getElementById('schedulerModal').classList.remove('show');
 }
 
 async function addRole () {
@@ -320,11 +337,9 @@ async function addNewRoom () {
   const roomName = prompt('Enter new room name:')
   const roomCapacity = prompt('Enter room capacity:')
 
-  // 1. Basic validation
   if (!roomName) return
 
   try {
-    // 2. Talk to the server first
     const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/create/`, {
       method: 'POST',
       headers: {
@@ -339,29 +354,26 @@ async function addNewRoom () {
 
     const data = await response.json()
 
-    // 3. Only if the server accepts, update the UI and Memory
     if (response.ok) {
-      // Add to roomData array
-      const newRoom = {
-        name: roomName,
-        capacity: parseInt(roomCapacity) || 0,
-        schedule: []
-      }
-      roomData.push(newRoom)
+      // 1. Build the new sidebar card
+      const newRoomId = data.room_id || data.id; // Fallback depending on what your backend sends
+      const newRoomCardHtml = `
+          <div class="room-list-item" data-room-id="${newRoomId}" onclick="selectRoom('${newRoomId}', '${roomName}', this)">
+              <strong>${roomName}</strong><br>
+              <span style="font-size: 12px; color: #666;">Capacity: ${parseInt(roomCapacity) || 0}</span>
+          </div>
+      `;
 
-      // Add to the dropdown
-      const roomSelect = document.getElementById('roomSelect')
-      const option = document.createElement('option')
-      option.value = data.room_id
-      option.textContent = `${roomName} (Cap: ${newRoom.capacity})`
-      roomSelect.appendChild(option)
+      // 2. Inject it into the sidebar
+      const roomListContainer = document.getElementById('roomList');
+      roomListContainer.insertAdjacentHTML('beforeend', newRoomCardHtml);
 
-      // Clear the grid to show the new empty schedule
-      // loadRoomSchedule(currentRoomId);
+      // 3. Automatically click/select the newly created room!
+      const newlyAddedElement = roomListContainer.lastElementChild;
+      selectRoom(newRoomId, roomName, newlyAddedElement);
 
       console.log('Room successfully created and added to UI with ID:', data)
     } else {
-      // If server returns an error (like a duplicate name), show it here
       alert(data.error || 'Failed to add room.')
     }
   } catch (error) {
@@ -454,13 +466,18 @@ async function loadSavedTimes () {
 }
 
 async function saveCurrentRoom() {
-    const openTime = document.querySelectorAll('.room-block');
-    const roomTimeData = [];
     const roomSelect = document.getElementById('roomSelect');
 
-    // Safety check: if there's no room selected, don't try to save
-    if (!roomSelect) return;
+    // 👇 THE NEW SAFETY CHECK GOES HERE 👇
+    // If the hidden input is empty, it means they haven't clicked/created a room yet!
+    if (!roomSelect || !roomSelect.value) {
+        alert("Please click 'New Room' to create and name a room before saving its availability!");
+        return; // Stops the function from trying to save
+    }
+
     const selectedRoomId = roomSelect.value;
+    const openTime = document.querySelectorAll('.room-block');
+    const roomTimeData = [];
 
     const sHeight = SLOT_HEIGHT;
     const sHour = START_HOUR;
@@ -491,7 +508,6 @@ async function saveCurrentRoom() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Changed from 'csrfToken' to the function call to ensure it's defined
                     'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({ times: roomTimeData, room_id: selectedRoomId })
@@ -540,21 +556,14 @@ async function deleteRoom () {
     return
   }
 
-  if (
-    !confirm(
-      'Are you sure you want to delete this room and all its availability?'
-    )
-  )
-    return
+  if (!confirm('Are you sure you want to delete this room and all its availability?')) return
 
   try {
-    const response = await fetch(
-      `/api/team/${window.TEAM_ID}/rooms/delete/`,
-      {
+    const response = await fetch(`/api/team/${window.TEAM_ID}/rooms/delete/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken // Using Django template tag for safety
+          'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({ room_id: selectedRoomId })
       }
@@ -562,17 +571,15 @@ async function deleteRoom () {
 
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
 
-    // 1. Remove the option from the dropdown
-    const optionToRemove = roomSelect.querySelector(
-      `option[value="${selectedRoomId}"]`
-    )
-    if (optionToRemove) optionToRemove.remove()
+    // 1. Find and remove the visual card from the sidebar
+    const cardToRemove = document.querySelector(`.room-list-item[data-room-id="${selectedRoomId}"]`);
+    if (cardToRemove) cardToRemove.remove();
 
     // 2. Decide what to show next
-    if (roomSelect.options.length > 0) {
-      // There are still rooms left, jump to the first one
-      roomSelect.selectedIndex = 0
-      loadSavedTimes()
+    const remainingRooms = document.querySelectorAll('.room-list-item');
+    if (remainingRooms.length > 0) {
+      // If there are rooms left, automatically click the first one
+      remainingRooms[0].click();
     } else {
       // NO ROOMS LEFT: Wipe everything
       clearGrid()
@@ -588,18 +595,13 @@ function clearGrid () {
   const blocks = document.querySelectorAll('.room-block')
   blocks.forEach(block => block.remove())
 
-  // 2. Reset the dropdown to a blank state
+  // 2. Clear the hidden input value
   const roomSelect = document.getElementById('roomSelect')
   roomSelect.value = ''
 
-  // 3. Optional: Add a placeholder option if the list is empty
-  if (roomSelect.options.length === 0) {
-    const placeholder = document.createElement('option')
-    placeholder.textContent = '-- No Rooms Available --'
-    placeholder.value = ''
-    placeholder.disabled = true
-    roomSelect.appendChild(placeholder)
-  }
+  // 3. Hide the grid and update the title
+  document.getElementById('schedulerGrid').style.display = 'none';
+  document.getElementById('selectedRoomTitle').textContent = 'Select a Room';
 }
 
 async function updateMemberRole (selectElement) {
@@ -971,6 +973,31 @@ async function onEventRoleChange (select) {
   await loadSectionsIntoDropdown(roleId, sectionSelect)
   // Override the default "No Section" label for this context
   sectionSelect.options[0].textContent = 'All sections'
+}
+
+function selectRoom(roomId, roomName, element) {
+    // 1. Highlight the clicked room in the sidebar
+    document.querySelectorAll('.room-list-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    element.classList.add('active');
+
+    // 2. Update the Title and reveal the grid
+    document.getElementById('selectedRoomTitle').textContent = `Editing: ${roomName}`;
+    document.getElementById('schedulerGrid').style.display = 'block';
+
+    // 3. Update the hidden input value so your existing save/delete functions still know which room is active
+    const hiddenSelect = document.getElementById('roomSelect');
+    hiddenSelect.value = roomId;
+
+    // 4. Trigger whatever function you previously used to load the room's data!
+    // (If you had an onchange event on your old dropdown like "loadRoomData()", call it here)
+
+    // Example:
+    // loadRoomAvailability(roomId);
+
+    // To trigger an existing "change" event listener if you had one attached to the old dropdown:
+    hiddenSelect.dispatchEvent(new Event('change'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {

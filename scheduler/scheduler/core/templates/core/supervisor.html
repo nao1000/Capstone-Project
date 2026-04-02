@@ -105,7 +105,7 @@
                     <button class="btn btn-secondary" onclick="addRole()">Add</button>
                 </div>
 
-                <div id="roles-list" class="tags-container">
+                <div id="roles-list" class="tags-container" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
                     {% for role in roles %}
                     <div class="role-block" data-role-id="{{ role.id }}">
                         <div class="role-block-header">
@@ -193,7 +193,7 @@
 
                 <button class="btn btn-secondary" onclick="addFixedEvent()">Add Event</button>
 
-                <div id="fixed-events-list" class="tags-container" style="margin-top: 15px;">
+                <div id="fixed-events-list" class="tags-container" style="margin-top: 15px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
                     {% for obs in obstructions %}
                     <span class="role-tag" data-obstruction-id="{{ obs.id }}">
                         <strong>{{ obs.name }}</strong>&nbsp;
@@ -219,52 +219,59 @@
             <button class="close-btn" onclick="closeScheduler()">&times;</button>
         </div>
 
-        <div class="modal-body">
+        <div class="modal-body" style="display: flex; gap: 20px; align-items: flex-start;">
 
-            <div class="room-controls">
-                <select id="roomSelect">
-                    {% for room in rooms %}
-                    <option value="{{ room.id }}" data-capacity="{{ room.capacity }}">
-                        {{ room.name }} (Cap: {{ room.capacity }})
-                    </option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-secondary" onclick="addNewRoom()">
-                    <i class="fa-solid fa-plus"></i> New Room
-                </button>
+    <div class="room-sidebar" style="width: 250px; flex-shrink: 0; border-right: 1px solid #eee; padding-right: 15px;">
+        <button class="btn btn-secondary" onclick="addNewRoom()" style="width: 100%; margin-bottom: 15px;">
+            <i class="fa-solid fa-plus"></i> New Room
+        </button>
+
+        <div id="roomList" style="display: flex; flex-direction: column; gap: 8px; max-height: 500px; overflow-y: auto; padding-right: 5px;">
+            {% for room in rooms %}
+            <div class="room-list-item" data-room-id="{{ room.id }}" onclick="selectRoom('{{ room.id }}', '{{ room.name }}', this)">
+                <strong>{{ room.name }}</strong><br>
+                <span style="font-size: 12px; color: #666;">Capacity: {{ room.capacity }}</span>
             </div>
-
-            <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
-                <i class="fa-regular fa-hand-pointer"></i> Click and drag to mark hours when this room is available
-                for teams.
-            </p>
-
-            <div id="schedulerGrid" class="calendar-container">
-                <div class="calendar-header">
-                    <div class="time-spacer"></div>
-                    <div class="day-header">Sun</div>
-                    <div class="day-header">Mon</div>
-                    <div class="day-header">Tue</div>
-                    <div class="day-header">Wed</div>
-                    <div class="day-header">Thu</div>
-                    <div class="day-header">Fri</div>
-                    <div class="day-header">Sat</div>
-                </div>
-
-                <div class="calendar-body">
-                    <div class="time-col" id="roomTimeCol"></div>
-                    <div class="grid-lines"></div>
-                    <div class="day-col" data-day="0"></div>
-                    <div class="day-col" data-day="1"></div>
-                    <div class="day-col" data-day="2"></div>
-                    <div class="day-col" data-day="3"></div>
-                    <div class="day-col" data-day="4"></div>
-                    <div class="day-col" data-day="5"></div>
-                    <div class="day-col" data-day="6"></div>
-                </div>
-            </div>
-
+            {% endfor %}
         </div>
+
+        <input type="hidden" id="roomSelect" value="">
+    </div>
+
+    <div class="room-grid-area" style="flex-grow: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 id="selectedRoomTitle" style="margin: 0; color: #333;">Select a Room</h3>
+            <p style="font-size: 13px; color: #666; margin: 0; margin-left: 15px;">
+                <i class="fa-regular fa-hand-pointer"></i> Click and drag to mark available hours.
+            </p>
+        </div>
+
+        <div id="schedulerGrid" class="calendar-container" style="display: none;">
+            <div class="calendar-header">
+                <div class="time-spacer"></div>
+                <div class="day-header">Sun</div>
+                <div class="day-header">Mon</div>
+                <div class="day-header">Tue</div>
+                <div class="day-header">Wed</div>
+                <div class="day-header">Thu</div>
+                <div class="day-header">Fri</div>
+                <div class="day-header">Sat</div>
+            </div>
+
+            <div class="calendar-body">
+                <div class="time-col" id="roomTimeCol"></div>
+                <div class="grid-lines"></div>
+                <div class="day-col" data-day="0"></div>
+                <div class="day-col" data-day="1"></div>
+                <div class="day-col" data-day="2"></div>
+                <div class="day-col" data-day="3"></div>
+                <div class="day-col" data-day="4"></div>
+                <div class="day-col" data-day="5"></div>
+                <div class="day-col" data-day="6"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeScheduler()">Close</button>
