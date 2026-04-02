@@ -181,7 +181,7 @@ function openScheduler() {
     document.getElementById('roomSelect').value = '';
 
     // 4. Reset the right-side UI text
-    document.getElementById('selectedRoomTitle').textContent = 'New Room (Unsaved) or Select a Room';
+    document.getElementById('selectedRoomTitle').textContent = 'Click New Room or Select a Room';
 
     // 5. SHOW the grid immediately!
     document.getElementById('schedulerGrid').style.display = 'block';

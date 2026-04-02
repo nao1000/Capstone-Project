@@ -721,4 +721,10 @@ td {
     background-color: #ffe4b5; /* Light orange/yellow */
     color: #8b6508;
 }
-
+.room-list-item.active {
+    background-color: #f0f4f8; /* Very light blue/grey */
+    border-left: 4px solid #007bff;
+}
+.room-list-item.active strong {
+    color: #0056b3; /* Darker blue text */
+}
