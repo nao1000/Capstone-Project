@@ -1004,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.querySelector('.table-card tbody');
     if (!tableBody) return;
 
-    // --- 1. THE ARROW SORTING LOGIC ---
+    // --- 1. THE ARROW SORTING LOGIC (High-Performance Version) ---
     const tableHeaders = document.querySelectorAll('.table-card th');
 
     // Keep track of which way each column is sorted (A-Z or Z-A)
@@ -1015,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
         header.style.cursor = 'pointer';
 
         header.addEventListener('click', () => {
-            // Get fresh list of rows every time in case search is active
             const rows = Array.from(tableBody.querySelectorAll('tr'));
 
             // Toggle direction
@@ -1032,39 +1031,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 clickedIcon.className = isDescending ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort-up';
             }
 
-            // Sort the rows based on the column index clicked
-            rows.sort((a, b) => {
-                // A helper function to grab the right text, even from dropdowns!
-                const getCellValue = (row) => {
-                    const cell = row.querySelectorAll('td')[index];
-                    if (!cell) return '';
+            // 🚀 THE SPEED BOOST: Extract values ONCE before sorting
+            const mappedRows = rows.map(row => {
+                const cell = row.querySelectorAll('td')[index];
+                let combinedText = '';
 
-                    // If this cell has dropdowns (like the Role column), get the selected option's text
+                if (cell) {
+                    // Check if it's a dropdown column (like Roles/Sections)
                     const selects = cell.querySelectorAll('select');
                     if (selects.length > 0) {
-                        let combinedText = '';
                         selects.forEach(select => {
                             if (select.selectedIndex >= 0 && select.value !== '') {
                                 combinedText += select.options[select.selectedIndex].text + ' ';
                             }
                         });
-                        return combinedText.trim().toLowerCase();
+                    } else {
+                        // Otherwise, just get the normal text
+                        combinedText = cell.textContent;
                     }
+                }
 
-                    // Otherwise, just get the normal text
-                    return cell.textContent.trim().toLowerCase();
+                return {
+                    htmlRow: row, // Keep the actual HTML element
+                    value: combinedText.trim().toLowerCase() // Keep the text value
                 };
+            });
 
-                const cellA = getCellValue(a);
-                const cellB = getCellValue(b);
-
-                if (cellA < cellB) return isDescending ? 1 : -1;
-                if (cellA > cellB) return isDescending ? -1 : 1;
+            // 🚀 SORT THE MAPPED DATA (Lightning fast)
+            mappedRows.sort((a, b) => {
+                if (a.value < b.value) return isDescending ? 1 : -1;
+                if (a.value > b.value) return isDescending ? -1 : 1;
                 return 0;
             });
 
-            // Put the sorted rows back into the table
-            rows.forEach(row => tableBody.appendChild(row));
+            // 🚀 THE RENDER BOOST: Use a DocumentFragment to update the screen instantly
+            const fragment = document.createDocumentFragment();
+            mappedRows.forEach(item => fragment.appendChild(item.htmlRow));
+            tableBody.appendChild(fragment);
         });
     });
 
