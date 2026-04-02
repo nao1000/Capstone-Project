@@ -1001,26 +1001,86 @@ function selectRoom(roomId, roomName, element) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 👇 CHANGED: Now looks for the input inside the .search-wrapper div
-    const searchInput = document.querySelector('.search-wrapper input');
+    const tableBody = document.querySelector('.table-card tbody');
+    if (!tableBody) return;
 
-    // Selects all the rows inside your specific table body
-    const tableRows = document.querySelectorAll('.table-card tbody tr');
+    // --- 1. THE ARROW SORTING LOGIC ---
+    const tableHeaders = document.querySelectorAll('.table-card th');
 
+    // Keep track of which way each column is sorted (A-Z or Z-A)
+    let sortDirections = Array.from(tableHeaders).map(() => false);
+
+    tableHeaders.forEach((header, index) => {
+        // Change cursor to pointer so users know they can click the headers
+        header.style.cursor = 'pointer';
+
+        header.addEventListener('click', () => {
+            // Get fresh list of rows every time in case search is active
+            const rows = Array.from(tableBody.querySelectorAll('tr'));
+
+            // Toggle direction
+            const isDescending = sortDirections[index];
+            sortDirections[index] = !isDescending;
+
+            // Update the arrow icons visually
+            tableHeaders.forEach(th => {
+                const icon = th.querySelector('i');
+                if (icon) icon.className = 'fa-solid fa-sort'; // Reset all
+            });
+            const clickedIcon = header.querySelector('i');
+            if (clickedIcon) {
+                clickedIcon.className = isDescending ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort-up';
+            }
+
+            // Sort the rows based on the column index clicked
+            rows.sort((a, b) => {
+                // A helper function to grab the right text, even from dropdowns!
+                const getCellValue = (row) => {
+                    const cell = row.querySelectorAll('td')[index];
+                    if (!cell) return '';
+
+                    // If this cell has dropdowns (like the Role column), get the selected option's text
+                    const selects = cell.querySelectorAll('select');
+                    if (selects.length > 0) {
+                        let combinedText = '';
+                        selects.forEach(select => {
+                            if (select.selectedIndex >= 0 && select.value !== '') {
+                                combinedText += select.options[select.selectedIndex].text + ' ';
+                            }
+                        });
+                        return combinedText.trim().toLowerCase();
+                    }
+
+                    // Otherwise, just get the normal text
+                    return cell.textContent.trim().toLowerCase();
+                };
+
+                const cellA = getCellValue(a);
+                const cellB = getCellValue(b);
+
+                if (cellA < cellB) return isDescending ? 1 : -1;
+                if (cellA > cellB) return isDescending ? -1 : 1;
+                return 0;
+            });
+
+            // Put the sorted rows back into the table
+            rows.forEach(row => tableBody.appendChild(row));
+        });
+    });
+
+    // --- 2. THE SEARCH BAR LOGIC ---
+    const searchInput = document.getElementById('memberSearchInput');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            // Convert search query to lowercase for case-insensitive matching
             const searchTerm = this.value.toLowerCase();
+            const allRows = tableBody.querySelectorAll('tr');
 
-            tableRows.forEach(row => {
-                // Grab all text from the row (Name, Email, Username, Role, etc.)
+            allRows.forEach(row => {
                 const rowText = row.textContent.toLowerCase();
-
-                // If the row contains the search term, show it. Otherwise, hide it.
                 if (rowText.includes(searchTerm)) {
-                    row.style.display = ''; // Shows the row
+                    row.style.display = ''; // Show
                 } else {
-                    row.style.display = 'none'; // Hides the row
+                    row.style.display = 'none'; // Hide
                 }
             });
         });
