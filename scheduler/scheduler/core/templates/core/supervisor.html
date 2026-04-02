@@ -88,6 +88,13 @@
 
         <div class="col-left">
 
+            <div style="margin-bottom: 20px;">
+                <a href="{% url 'scheduler' team.id %}" class="btn-main-action">
+                    <i class="fa-regular fa-calendar-days"></i>
+                    Open Full Scheduler
+                </a>
+            </div>
+
             <div class="card action-card">
                 <h3>Schedule Room Availability</h3>
                 <p>Mark down specific times when your team has access to shared rooms.</p>
@@ -105,8 +112,7 @@
                     <button class="btn btn-secondary" onclick="addRole()">Add</button>
                 </div>
 
-                <div id="roles-list" class="tags-container" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                    {% for role in roles %}
+                <div id="roles-list" class="tags-container" style="overflow-y: auto; padding-right: 5px;">                    {% for role in roles %}
                     <div class="role-block" data-role-id="{{ role.id }}">
                         <div class="role-block-header">
                             <span class="role-name">{{ role.name }}</span>
@@ -141,12 +147,7 @@
         </div>
 
         <div class="col-right">
-            <div class="card placeholder-box">
-                <div class="empty-state">
-                    <i class="fa-solid fa-layer-group"></i>
-                    <p>Select a room to view details or manage existing events.</p>
-                </div>
-            </div>
+
             <div class="card">
                 <h3>Fixed Events</h3>
                 <p class="subtext">Add recurring obligations that block scheduling (e.g. classes, meetings).</p>
@@ -193,8 +194,7 @@
 
                 <button class="btn btn-secondary" onclick="addFixedEvent()">Add Event</button>
 
-                <div id="fixed-events-list" class="tags-container" style="margin-top: 15px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                    {% for obs in obstructions %}
+                <div id="fixed-events-list" class="tags-container" style="margin-top: 15px; overflow-y: auto;">                    {% for obs in obstructions %}
                     <span class="role-tag" data-obstruction-id="{{ obs.id }}">
                         <strong>{{ obs.name }}</strong>&nbsp;
                         {% for d in obs.days.all %}{{ d.day|title }}{% if not forloop.last %}, {% endif %}{% endfor %}
@@ -204,9 +204,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <div>
-                <a href="{% url 'scheduler' team.id %}" class="btn btn-primary">Open Full Scheduler →</a>
-            </div>
+
         </div>
 
     </div>
