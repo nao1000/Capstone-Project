@@ -59,5 +59,8 @@ urlpatterns = [
     path("api/auth-ping/", views.auth_ping, name="auth_ping"),
     
     # AUTOMATIC SCHEDULING
-    path('api/team/<uuid:team_id>/auto-schedule/', views.auto_schedule_role, name='auto_schedule_role')
+    path('api/team/<uuid:team_id>/auto-schedule/', views.auto_schedule_role, name='auto_schedule_role'),
+    
+    # EXPORT
+    path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/export/', views.export_schedule, name='export_schedule'),
 ]

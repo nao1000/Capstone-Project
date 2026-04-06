@@ -16,7 +16,19 @@
     window.ROOMS = JSON.parse('{{ rooms | safe }}')
     console.log(window.ROLES)
 </script>
-<script src="{% static 'js/scheduler.js' %}"></script>
+<script src="{% static 'js/scheduler/auto-scheduler.js' %}"></script>
+<script src="{% static 'js/scheduler/config.js' %}"></script>
+<script src="{% static 'js/scheduler/drag-drop.js' %}"></script>
+<script src="{% static 'js/scheduler/filters.js' %}"></script>
+<script src="{% static 'js/scheduler/grid-builder.js' %}"></script>
+<script src="{% static 'js/scheduler/init.js' %}"></script>
+<script src="{% static 'js/scheduler/local-store.js' %}"></script>
+<script src="{% static 'js/scheduler/modal.js' %}"></script>
+<script src="{% static 'js/scheduler/rendering.js' %}"></script>
+<script src="{% static 'js/scheduler/schedules.js' %}"></script>
+<script src="{% static 'js/scheduler/utils.js' %}"></script>
+<script src="{% static 'js/scheduler/workers.js' %}"></script>
+
 {% endblock %}
 
 {% block content %}
@@ -74,6 +86,7 @@
                     <span style="font-size: 13px; color: #888;">Click & drag to add shift</span>
                     <button class="btn btn-clear" onclick="clearInteractiveGrid()">Clear</button>
                     <button class="btn btn-save" onclick="saveAllPreferences()">Save</button>
+                    <button class="btn btn-clear" onclick="exportSchedule()">Export</button>
                 </div>
             </div>
 

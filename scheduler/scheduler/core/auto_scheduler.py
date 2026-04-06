@@ -7,80 +7,105 @@ from .models import (
     RoomAvailability,
 )
 
-
-def generate_role_schedule(team, role, target_days=["mon", "tue", "wed", "thu", "fri"]):
+def generate_schedule(team, roles=None, target_days=["sun", "mon", "tue", "wed", "thu", "fri"], timeout=30.0):
     model = cp_model.CpModel()
 
     # 1. FETCH DJANGO DATA
-    assignments = TeamRoleAssignment.objects.filter(team=team, role=role)
-    worker_ids = [a.user.id for a in assignments]
-    rooms = list(Room.objects.filter(team=team))
+    # If roles is None, fetch ALL roles for the team. 
+    # If it's a single role or list of roles, filter by it.
+    if roles is None:
+        assignments = TeamRoleAssignment.objects.filter(team=team).select_related('role', 'user')
+    else:
+        # Check if a single role was passed, convert to list
+        try:
+            iter(roles)
+        except TypeError:
+            roles = [roles]
+        assignments = TeamRoleAssignment.objects.filter(team=team, role__in=roles).select_related('role', 'user')
 
-    # Define our start times in "minutes from midnight"
-    # 480 = 8:00 AM, 510 = 8:30 AM, ..., 1020 = 5:00 PM
+    rooms = list(Room.objects.filter(team=team))
     start_times = list(range(480, 1050, 30))
+
+    # Build relational dictionaries so we know which worker has which roles
+    worker_roles = {}  # worker_id -> list of role_ids
+    role_workers = {}  # role_id -> list of worker_ids
+    
+    for a in assignments:
+        w_id = a.user.id
+        r_id = a.role.id
+        worker_roles.setdefault(w_id, []).append(r_id)
+        role_workers.setdefault(r_id, []).append(w_id)
+
+    worker_ids = list(worker_roles.keys())
+    active_role_ids = list(role_workers.keys())
 
     # 2. CREATE THE VARIABLES (Session Start Times)
     shifts = {}
     for d in target_days:
         for t in start_times:
-            for r in rooms:
-                for w in worker_ids:
-                    # Variable: 1 if worker 'w' STARTS a 50-min session at time 't'
-                    shifts[(d, t, r.id, w)] = model.NewBoolVar(
-                        f"shift_{d}_{t}_{r.id}_{w}"
-                    )
+            for rm in rooms:
+                for w_id, r_ids in worker_roles.items():
+                    for r_id in r_ids:
+                        # Variable: 1 if worker 'w_id' STARTS a 50-min session for 'r_id' at time 't'
+                        shifts[(d, t, rm.id, w_id, r_id)] = model.NewBoolVar(
+                            f"shift_{d}_{t}_{rm.id}_{w_id}_{r_id}"
+                        )
 
     # 3. CONSTRAINTS
 
-    # CONSTRAINT A: Shift Limits (3 per week, max 1 per day)
-    for w in worker_ids:
-        # Exactly 3 shifts for the week
-        model.Add(
-            sum(
-                shifts[(d, t, r.id, w)]
-                for d in target_days
-                for t in start_times
-                for r in rooms
+    # CONSTRAINT A: Shift Limits (3 per week per role, max 1 per day across all roles)
+    for w_id, r_ids in worker_roles.items():
+        for r_id in r_ids:
+            # Exactly 3 shifts for the week FOR THIS ROLE
+            model.Add(
+                sum(
+                    shifts[(d, t, rm.id, w_id, r_id)]
+                    for d in target_days
+                    for t in start_times
+                    for rm in rooms
+                ) == 3
             )
-            == 3
-        )
-        # Max 1 shift per day for this worker
+            
+        # Max 1 shift per day for this worker (Across ALL of their roles)
         for d in target_days:
             model.Add(
-                sum(shifts[(d, t, r.id, w)] for t in start_times for r in rooms) <= 1
+                sum(
+                    shifts[(d, t, rm.id, w_id, r_id)] 
+                    for t in start_times 
+                    for rm in rooms
+                    for r_id in r_ids
+                ) <= 1
             )
 
     # CONSTRAINT B: Overlap & Capacity (The 50-Minute Rule)
-    # A shift starting at `t` overlaps with a shift starting at `t-30`.
     for d in target_days:
         for i, t in enumerate(start_times):
 
-            # 1. No Double-Booking Workers
-            for w in worker_ids:
-                active_for_worker = [shifts[(d, t, r.id, w)] for r in rooms]
-                if (
-                    i > 0
-                ):  # If there was a previous 30-min slot, check if a shift started then
+            # 1. No Double-Booking Workers (across all their roles)
+            for w_id, r_ids in worker_roles.items():
+                active_for_worker = [shifts[(d, t, rm.id, w_id, r_id)] for rm in rooms for r_id in r_ids]
+                if i > 0:  
                     prev_t = start_times[i - 1]
                     active_for_worker.extend(
-                        [shifts[(d, prev_t, r.id, w)] for r in rooms]
+                        [shifts[(d, prev_t, rm.id, w_id, r_id)] for rm in rooms for r_id in r_ids]
                     )
-
-                # Worker can only have 1 active session across all rooms during this 30 min window
                 model.Add(sum(active_for_worker) <= 1)
 
-            # 2. Room Capacity
-            for r in rooms:
-                active_in_room = [shifts[(d, t, r.id, w)] for w in worker_ids]
+            # 2. Room Capacity (across all workers and roles)
+            for rm in rooms:
+                active_in_room = [
+                    shifts[(d, t, rm.id, w_id, r_id)] 
+                    for w_id, r_ids in worker_roles.items() 
+                    for r_id in r_ids
+                ]
                 if i > 0:
                     prev_t = start_times[i - 1]
                     active_in_room.extend(
-                        [shifts[(d, prev_t, r.id, w)] for w in worker_ids]
+                        [shifts[(d, prev_t, rm.id, w_id, r_id)] 
+                         for w_id, r_ids in worker_roles.items() 
+                         for r_id in r_ids]
                     )
-
-                # Total active sessions in this room cannot exceed capacity
-                model.Add(sum(active_in_room) <= r.capacity)
+                model.Add(sum(active_in_room) <= rm.capacity)
 
     # CONSTRAINT C: Blockouts (Obstructions & Availability)
     def time_to_mins(tm):
@@ -89,158 +114,132 @@ def generate_role_schedule(team, role, target_days=["mon", "tue", "wed", "thu", 
     # Individual busy times
     busy_times = AvailabilityRange.objects.filter(team=team, user_id__in=worker_ids)
     for busy in busy_times:
-        if busy.day in target_days:
+        if busy.day in target_days and busy.user_id in worker_roles:
             b_start = time_to_mins(busy.start_time)
             b_end = time_to_mins(busy.end_time)
 
             for t in start_times:
                 shift_end = t + 50
-                # Math check: Does this 50 min shift overlap with the busy period?
                 if t < b_end and shift_end > b_start:
-                    for r in rooms:
-                        model.Add(shifts[(busy.day, t, r.id, busy.user.id)] == 0)
+                    for rm in rooms:
+                        for r_id in worker_roles[busy.user_id]:
+                            model.Add(shifts[(busy.day, t, rm.id, busy.user_id, r_id)] == 0)
 
     # Fixed Obstructions (Role-wide)
-    fixed_obs = FixedObstruction.objects.filter(team=team, role=role).prefetch_related(
-        "days"
-    )
+    fixed_obs = FixedObstruction.objects.filter(team=team, role_id__in=active_role_ids).prefetch_related("days")
     for obs in fixed_obs:
         obs_days = [d.day for d in obs.days.all()]
         b_start = time_to_mins(obs.start_time)
         b_end = time_to_mins(obs.end_time)
+        r_id = obs.role_id
 
         for d in obs_days:
             if d in target_days:
                 for t in start_times:
                     shift_end = t + 50
                     if t < b_end and shift_end > b_start:
-                        for r in rooms:
-                            for w in worker_ids:
-                                model.Add(shifts[(d, t, r.id, w)] == 0)
-    # ---------------------------------------------------------
-    # NEW: Room Availability (Doors must be open!)
-    # ---------------------------------------------------------
-    # Fetch all open blocks for the rooms we are looking at
-    room_avails = RoomAvailability.objects.filter(room__in=rooms)
+                        for rm in rooms:
+                            for w_id in role_workers.get(r_id, []):
+                                model.Add(shifts[(d, t, rm.id, w_id, r_id)] == 0)
 
+    # Room Availability (Doors must be open!)
+    room_avails = RoomAvailability.objects.filter(room__in=rooms)
     for d in target_days:
         for t in start_times:
             shift_end = t + 50
-            for r in rooms:
-                # Find if this room is open on this specific day
-                daily_avails = [
-                    ra for ra in room_avails if ra.room_id == r.id and ra.day == d
-                ]
-
+            for rm in rooms:
+                daily_avails = [ra for ra in room_avails if ra.room_id == rm.id and ra.day == d]
                 is_open = False
                 for avail in daily_avails:
                     open_start = time_to_mins(avail.start_time)
                     open_end = time_to_mins(avail.end_time)
-
-                    # Does this 50-minute shift fit entirely inside an open window?
                     if t >= open_start and shift_end <= open_end:
                         is_open = True
                         break
 
-                # If no open window was found that fits this shift, explicitly forbid it!
                 if not is_open:
-                    for w in worker_ids:
-                        model.Add(shifts[(d, t, r.id, w)] == 0)
-    # ---------------------------------------------------------
-    # CONSTRAINT D: Spread Out Sessions (Concurrency Limit)
-    # Prevent the solver from stacking multiple workers for the
-    # same role at the exact same time just to harvest points.
-    # ---------------------------------------------------------
+                    for w_id, r_ids in worker_roles.items():
+                        for r_id in r_ids:
+                            model.Add(shifts[(d, t, rm.id, w_id, r_id)] == 0)
+
+    # CONSTRAINT D: Spread Out Sessions (Concurrency Limit per Role)
     for d in target_days:
         for t in start_times:
-            # The sum of all shifts for this role at this exact minute cannot exceed 1
-            model.Add(
-                sum(shifts[(d, t, r.id, w)] for r in rooms for w in worker_ids) <= 1
-            )
-    # ---------------------------------------------------------
+            for r_id, w_ids in role_workers.items():
+                model.Add(
+                    sum(shifts[(d, t, rm.id, w_id, r_id)] for rm in rooms for w_id in w_ids) <= 1
+                )
+
     # 4. SCORING SYSTEM (Soft Constraints)
-    # ---------------------------------------------------------
     scores = {}
 
-    # Initialize base scores
     for d in target_days:
         for t in start_times:
-            for w in worker_ids:
-                # Base score of 100, minus a tiny penalty for later in the day
-                # (prevents the 5PM clustering tie-breaker)
-                base_score = 100 - ((t - 480) // 30)
-                scores[(d, t, w)] = base_score
+            for w_id, r_ids in worker_roles.items():
+                for r_id in r_ids:
+                    scores[(d, t, w_id, r_id)] = 100 - ((t - 480) // 30)
 
     # Apply The Lecture Bonus (Role Fixed Obstructions)
     for obs in fixed_obs:
         obs_days = [d.day for d in obs.days.all()]
         o_start = time_to_mins(obs.start_time)
         o_end = time_to_mins(obs.end_time)
+        r_id = obs.role_id
 
         for d in obs_days:
             if d in target_days:
                 for t in start_times:
                     shift_end = t + 50
-                    # Is this shift ending right before the lecture? (within 60 mins)
-                    if 0 <= (o_start - shift_end) <= 60:
-                        for w in worker_ids:
-                            scores[(d, t, w)] += 500
-                    # Is this shift starting right after the lecture? (within 60 mins)
-                    elif 0 <= (t - o_end) <= 60:
-                        for w in worker_ids:
-                            scores[(d, t, w)] += 500
+                    if 0 <= (o_start - shift_end) <= 60 or 0 <= (t - o_end) <= 60:
+                        for w_id in role_workers.get(r_id, []):
+                            scores[(d, t, w_id, r_id)] += 500
 
     # Apply The Campus Bonus (Personal Worker Classes/Busy times)
     for busy in busy_times:
-        if busy.day in target_days:
+        if busy.day in target_days and busy.user_id in worker_roles:
             b_start = time_to_mins(busy.start_time)
             b_end = time_to_mins(busy.end_time)
-            w = busy.user.id
+            w_id = busy.user_id
 
             for t in start_times:
                 shift_end = t + 50
-                # Shift ends right before they go to class
-                if 0 <= (b_start - shift_end) <= 60:
-                    scores[(busy.day, t, w)] += 200
-                # Shift starts right after they get out of class
-                elif 0 <= (t - b_end) <= 60:
-                    scores[(busy.day, t, w)] += 200
+                if 0 <= (b_start - shift_end) <= 60 or 0 <= (t - b_end) <= 60:
+                    for r_id in worker_roles[w_id]:
+                        scores[(busy.day, t, w_id, r_id)] += 200
 
-    # ---------------------------------------------------------
     # 5. SOLVE & EXTRACT DATA
-    # ---------------------------------------------------------
-
-    # NEW GOAL: Maximize the total SCORE of the assigned shifts!
     model.Maximize(
         sum(
-            shifts[(d, t, r.id, w)] * scores[(d, t, w)]
+            shifts[(d, t, rm.id, w_id, r_id)] * scores[(d, t, w_id, r_id)]
             for d in target_days
             for t in start_times
-            for r in rooms
-            for w in worker_ids
+            for rm in rooms
+            for w_id, r_ids in worker_roles.items()
+            for r_id in r_ids
         )
     )
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 10.0
+    solver.parameters.max_time_in_seconds = timeout  # Up to 30s by default for big runs
     status = solver.Solve(model)
 
     results = []
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         for d in target_days:
             for t in start_times:
-                for r in rooms:
-                    for w in worker_ids:
-                        if solver.Value(shifts[(d, t, r.id, w)]) == 1:
-                            results.append(
-                                {
-                                    "day": d,
-                                    "start_min": t,
-                                    "end_min": t + 50,
-                                    "room_id": r.id,
-                                    "user_id": w,
-                                    "role_id": role.id,
-                                }
-                            )
+                for rm in rooms:
+                    for w_id, r_ids in worker_roles.items():
+                        for r_id in r_ids:
+                            if solver.Value(shifts[(d, t, rm.id, w_id, r_id)]) == 1:
+                                results.append(
+                                    {
+                                        "day": d,
+                                        "start_min": t,
+                                        "end_min": t + 50,
+                                        "room_id": rm.id,
+                                        "user_id": w_id,
+                                        "role_id": r_id,
+                                    }
+                                )
 
     return results
