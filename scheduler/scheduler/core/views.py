@@ -5,7 +5,7 @@ views.py
 import json
 from datetime import time
 from django.db import models
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponse
 from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.shortcuts import render, get_object_or_404, redirect
@@ -33,8 +33,13 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 
-from .auto_scheduler import generate_role_schedule # Import our new engine
+from .auto_scheduler import generate_schedule # Import our new engine
 import json
+
+import pandas as pd
+import io
+
+
 
 @require_POST
 @login_required
@@ -44,14 +49,14 @@ def auto_schedule_role(request, team_id):
     role_id = data.get("role_id")
     
     if not role_id:
-        return JsonResponse({"error": "role_id is required"}, status=400)
-        
-    role = get_object_or_404(Role, id=role_id, team=team)
+        role=None
+    else:
+        role = get_object_or_404(Role, id=role_id, team=team)
     
     # Run the OR-Tools engine!
     # (Wrapping in try/except is good practice in case the math solver hits an edge case)
     try:
-        generated_shifts = generate_role_schedule(team, role)
+        generated_shifts = generate_schedule(team, roles=role)
         return JsonResponse({"shifts": generated_shifts}, status=200)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -455,6 +460,8 @@ def get_worker_availability(request, team_id, worker_id):
                 "day": r.day.lower(),
                 "start_min": start_min,
                 "end_min": end_min,
+                "building": r.building,
+                "eventName": r.eventName,
                 "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
             }
         )
@@ -1194,3 +1201,51 @@ def delete_obstruction(request, team_id, obstruction_id):
     obstruction = get_object_or_404(FixedObstruction, team=team_id, id=obstruction_id)
     obstruction.delete()
     return JsonResponse({"status": "ok"})
+
+
+
+
+def export_schedule(request, team_id, schedule_id):
+    '''
+    Export a schedule to an Excel file and trigger a download
+    '''
+    schedule = get_object_or_404(Schedule, team=team_id, id=schedule_id)
+    shifts = Shift.objects.filter(schedule=schedule).select_related("user", "role", "room")
+    
+    # 1. Collect all shift data into a list of dictionaries
+    data = []
+    for shift in shifts:
+        data.append({
+            "Worker": shift.user.get_full_name() or shift.user.username,
+            "Role": shift.role.name if shift.role else "Unknown",
+            "Room": shift.room.name if shift.room else "Unknown",
+            "Day": shift.day.capitalize() if hasattr(shift, 'day') else "", # Optional: Add day if your model has it!
+            "Start Time": shift.start_time.strftime("%H:%M"),
+            "End Time": shift.end_time.strftime("%H:%M")
+        })
+        
+    # 2. Convert the list of dictionaries into a Pandas DataFrame
+    df = pd.DataFrame(data)
+
+    # 3. Create an in-memory buffer to hold the Excel file
+    buffer = io.BytesIO()
+    
+    # Write the DataFrame to the buffer using openpyxl
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Schedule')
+        
+    # Rewind the buffer to the beginning so we can read it
+    buffer.seek(0)
+
+    # 4. Create the HTTP response with the proper Excel content type
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    # Set the filename that the user will see when it downloads
+    # (assuming your Schedule model has a 'name' field)
+    safe_name = schedule.name.replace(" ", "_") if hasattr(schedule, 'name') else "export"
+    response['Content-Disposition'] = f'attachment; filename="{safe_name}_schedule.xlsx"'
+
+    return response
