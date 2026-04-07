@@ -47,12 +47,12 @@ def auto_schedule_role(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     data = json.loads(request.body)
     role_id = data.get("role_id")
-    
+
     if not role_id:
         role=None
     else:
         role = get_object_or_404(Role, id=role_id, team=team)
-    
+
     # Run the OR-Tools engine!
     # (Wrapping in try/except is good practice in case the math solver hits an edge case)
     try:
@@ -87,7 +87,7 @@ def signup(request):
     '''
     Handles new registration of users
     '''
-    
+
     # log out user if trying to sign up
     if request.user.is_authenticated:
         logout(request)
@@ -201,12 +201,12 @@ def availability_view(request, team_id):
     The page a user will create their current schedule that supervisors will
     use to when building the work schedule.
     '''
-    
+
     # find the team object and make sure current user should be here
     team = get_object_or_404(Team, id=team_id)
     if request.user not in team.members.all() and request.user != team.owner:
         return HttpResponseForbidden("You are not a member of this team.")
-    
+
     # find any events for a worker that they may have already saved
     availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
 
@@ -252,7 +252,7 @@ def supervisor_view(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     if team.owner != request.user:
         return HttpResponseForbidden("Supervisors only.")
-    
+
     # queries all members pluss their assignments and schedules
     members = team.members.all().prefetch_related(
         Prefetch(
@@ -479,7 +479,7 @@ def get_schedules(request, team_id):
     Get all saved schedules for a team
     '''
     team = get_object_or_404(Team, id=team_id)
-    
+
     # fetch the relevant fields
     schedules = Schedule.objects.filter(team=team).values("id", "name", "is_active")
     return JsonResponse({"schedules": list(schedules)})
@@ -497,7 +497,7 @@ def create_schedule(request, team_id):
     name = data.get("name", "Default")
 
     schedule, created = Schedule.objects.get_or_create(team=team, name=name)
-    
+
     # make sure it is unique
     if not created:
         return JsonResponse(
@@ -527,7 +527,7 @@ def save_role_shifts(request, team_id):
 
     # delete any shifts that existed prior
     Shift.objects.filter(schedule=schedule, role=role).delete()
-    
+
     # get all ids first (fewer queries)
     user_ids = [s["user_id"] for s in shifts]
     room_ids = [s["room_id"] for s in shifts if s.get("room_id")]
@@ -541,9 +541,9 @@ def save_role_shifts(request, team_id):
         start_time = minutes_to_time(s["start_min"])
         end_time = minutes_to_time(s["end_min"])
         day = s["day"]
-        user = users[int(s["user_id"])]                
+        user = users[int(s["user_id"])]
         room = rooms.get(str(s["room_id"])) if s.get("room_id") else None
-        
+
         # make sure room has availability
         if room:
             overlapping_count = Shift.objects.filter(
@@ -1203,15 +1203,13 @@ def delete_obstruction(request, team_id, obstruction_id):
     return JsonResponse({"status": "ok"})
 
 
-
-
 def export_schedule(request, team_id, schedule_id):
     '''
     Export a schedule to an Excel file and trigger a download
     '''
     schedule = get_object_or_404(Schedule, team=team_id, id=schedule_id)
     shifts = Shift.objects.filter(schedule=schedule).select_related("user", "role", "room")
-    
+
     # 1. Collect all shift data into a list of dictionaries
     data = []
     for shift in shifts:
@@ -1223,17 +1221,17 @@ def export_schedule(request, team_id, schedule_id):
             "Start Time": shift.start_time.strftime("%H:%M"),
             "End Time": shift.end_time.strftime("%H:%M")
         })
-        
+
     # 2. Convert the list of dictionaries into a Pandas DataFrame
     df = pd.DataFrame(data)
 
     # 3. Create an in-memory buffer to hold the Excel file
     buffer = io.BytesIO()
-    
+
     # Write the DataFrame to the buffer using openpyxl
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Schedule')
-        
+
     # Rewind the buffer to the beginning so we can read it
     buffer.seek(0)
 
@@ -1242,10 +1240,11 @@ def export_schedule(request, team_id, schedule_id):
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    
+
     # Set the filename that the user will see when it downloads
     # (assuming your Schedule model has a 'name' field)
     safe_name = schedule.name.replace(" ", "_") if hasattr(schedule, 'name') else "export"
     response['Content-Disposition'] = f'attachment; filename="{safe_name}_schedule.xlsx"'
 
     return response
+

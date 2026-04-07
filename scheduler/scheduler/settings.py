@@ -121,6 +121,15 @@ STATIC_URL = 'static/'
 # Where to go after a successful login
 LOGIN_REDIRECT_URL = 'dashboard2'
 
+# Password Reset gmail
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'your-email@gmail.com'
+EMAIL_HOST_PASSWORD = 'your-16-character-app-password' # NOT your regular password!
+DEFAULT_FROM_EMAIL = 'Scheduler Team <your-email@gmail.com>'
+
 # # Where to go after logging out
 # LOGOUT_REDIRECT_URL = 'login'
 

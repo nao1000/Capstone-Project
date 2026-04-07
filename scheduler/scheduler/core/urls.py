@@ -51,16 +51,37 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/roles/<int:role_id>/sections/<int:section_id>/delete/', views.delete_role_section),
     path('api/team/<uuid:team_id>/members/save-assignments/', views.save_member_assignments),
 
+    # PASSWORD RESET
+
+    # 1. Password Reset Form
+    path('password_reset/', auth_views.PasswordResetView.as_view(
+        template_name='core/registration/password_reset_form.html'
+    ), name='password_reset'),
+
+    # 2. Password Reset Done
+    path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(
+        template_name='core/registration/password_reset_done.html'
+    ), name='password_reset_done'),
+
+    # 3. Password Reset Confirm
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='core/registration/password_reset_confirm.html'
+    ), name='password_reset_confirm'),
+
+    # 4. Password Reset Complete
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='core/registration/password_reset_complete.html'
+    ), name='password_reset_complete'),
 
     # AUTHENTICATION
     path('login/', auth_views.LoginView.as_view(template_name='core/auth2.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('signup/', views.signup, name='signup'),
     path("api/auth-ping/", views.auth_ping, name="auth_ping"),
-    
+
     # AUTOMATIC SCHEDULING
     path('api/team/<uuid:team_id>/auto-schedule/', views.auto_schedule_role, name='auto_schedule_role'),
-    
+
     # EXPORT
     path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/export/', views.export_schedule, name='export_schedule'),
 ]
