@@ -90,7 +90,7 @@ function setupRoomGrid () {
     const displayHour = hour % 12 || 12
     const displayMinutes = minutes === 0 ? '00' : '30'
 
-    label.textContent = `${displayHour}:${displayMinutes} ${ampm}`
+    label.textContent = `${displayHour}:${displayMinutes}${ampm}`
     timeCol.appendChild(label)
   }
 
@@ -152,10 +152,9 @@ function setupDrawListeners () {
       currentBlock.style.top = `${finalTop}px`
       currentBlock.style.height = `${finalHeight}px`
 
-      // UPDATE: Find the text span and update the label while dragging
       const timeText = currentBlock.querySelector('.time-range-text')
       if (timeText) {
-        timeText.textContent = `${formatTime(finalTop)} - ${formatTime(
+        timeText.innerHTML = `${formatTime(finalTop)}<br>${formatTime(
           finalTop + finalHeight
         )}`
       }
@@ -305,7 +304,7 @@ function formatTime (pixels) {
   hours = hours % 12 || 12 // Convert 0 to 12
   mins = mins < 10 ? '0' + mins : mins
 
-  return `${hours}:${mins} ${ampm}`
+  return `${hours}:${mins}${ampm}`
 }
 
 function createBlock (day, top, height) {
@@ -315,10 +314,10 @@ function createBlock (day, top, height) {
   block.style.height = `${height}px`
   block.dataset.day = day
 
-  // NEW: Create a span to hold the time text
+  // Create a span to hold the time text
   const timeSpan = document.createElement('span')
   timeSpan.className = 'time-range-text'
-  timeSpan.textContent = `${formatTime(top)} - ${formatTime(top + height)}`
+  timeSpan.innerHTML = `${formatTime(top)}<br>${formatTime(top + height)}`
   block.appendChild(timeSpan)
 
   const delBtn = document.createElement('button')
@@ -666,7 +665,7 @@ function formatMin (totalMinutes) {
   const suffix = h >= 12 ? 'PM' : 'AM'
   const displayH = h > 12 ? h - 12 : h === 0 || h === 12 ? 12 : h
   const displayM = m < 10 ? '0' + m : m
-  return `${displayH}:${displayM} ${suffix}`
+  return `${displayH}:${displayM}${suffix}`
 }
 
 function timeToMin (timeStr) {

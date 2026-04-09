@@ -117,7 +117,7 @@ body {
 .worker-list {
     border: 1px solid var(--grid-line);
     border-radius: 4px;
-    max-height: 250px;
+    max-height: 200px;
     overflow-y: auto;
 }
 
@@ -621,4 +621,43 @@ body {
     font-size: 13px;
     background: white;
     cursor: pointer;
+}
+/* --- SIDEBAR DROPDOWN --- */
+.sidebar-dropdown {
+    width: 100%;
+    padding: 10px 30px 10px 12px; /* Extra padding on the right for the arrow */
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: #444;
+    background-color: #f8f9fa; /* Light grey to match the sidebar vibe */
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease-in-out;
+
+    /* Remove default OS ugly arrow */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    /* Custom, clean SVG arrow */
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23888888%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px top 50%;
+    background-size: 10px auto;
+}
+
+/* Hover and Focus states to match your app's blue accents */
+.sidebar-dropdown:hover {
+    background-color: #ffffff;
+    border-color: #b0b8c1;
+}
+
+.sidebar-dropdown:focus {
+    background-color: #ffffff;
+    border-color: var(--primary-blue);
+    /* Creates the soft blue glow around the input */
+    box-shadow: 0 0 0 3px rgba(115, 147, 179, 0.2);
 }

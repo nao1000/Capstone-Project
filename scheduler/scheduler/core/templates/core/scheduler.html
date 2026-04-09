@@ -50,8 +50,14 @@
                 </div>
                 {% endfor %}
             </div>
-            <h2 class="panel-title">Filters</h2>
-            <div class="filter-options" onload="initFilters('{{team.id }}')"></div>
+            <h2 class="panel-title" style="margin-top: 20px;">Filters </h2>
+
+            <div style="padding: 0 5px 15px 5px;">
+                <select id="courseFilterSelect" class="sidebar-dropdown">
+                    <option value="">All Roles...</option>
+                </select>
+            </div>
+
             <h2 class="panel-title">Days</h2>
             <div class="filter-options" id="dayFilters">
                 <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(0)">Sun</button>
@@ -62,43 +68,77 @@
                 <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(5)">Fri</button>
                 <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(6)">Sat</button>
             </div>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", () => {
+                    if (typeof initFilters === 'function') initFilters();
+                });
+            </script>
         </div>
     </aside>
 
     <main class="grids-area">
         <div class="scheduler-card" style="flex: 1; max-width: 100%;">
-            <div class="toolbar">
+
+            <div class="toolbar" style="height: 55px; padding: 0 20px;">
                 <div>
-                    <h3 id="viewingWorkerLabel">Select a worker or filter</h3>
-                    <div style="font-size: 13px; color: #666;">Interactive Schedule View</div>
+                    <h3 id="viewingWorkerLabel" style="margin: 0; font-size: 20px;">Select a worker or filter</h3>
+                    <div style="font-size: 13px; color: #666; margin-top: 2px;">Interactive Schedule View</div>
                 </div>
 
-                <div class="toolbar-actions">
-                    <select id="scheduleSelect" class="role-selector" onchange="loadScheduleShifts()">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span style="font-size: 13px; color: #888; font-style: italic;">ℹ Click & drag to add shift</span>
+                    <select id="scheduleSelect" class="role-selector" onchange="loadScheduleShifts()"
+                        style="padding: 6px; min-width: 150px;">
                         <option value="">Select schedule...</option>
                     </select>
-                    <button id="autoScheduleBtn" class="btn btn-save" onclick="runAutoScheduler()"
-                        style="margin-left: 10px;">
-                        Auto-Schedule Role
-                    </button>
-                    <button class="btn btn-clear" onclick="openCreateScheduleModal()">+ New</button>
-                    <button class="btn btn-clear" onclick="setActiveSchedule()">Set Active</button>
-                    <span style="font-size: 13px; color: #888;">Click & drag to add shift</span>
-                    <button class="btn btn-clear" onclick="clearInteractiveGrid()">Clear</button>
-                    <button class="btn btn-save" onclick="saveAllPreferences()">Save</button>
-                    <button class="btn btn-clear" onclick="exportSchedule()">Export</button>
                 </div>
             </div>
 
-            <div class="grid-wrapper">
-                <div class="grid-header" id="mainGridHeader">
-                    <div class="header-cell time-header">Time</div>
-                </div>
-                <div class="scroll-area" id="mainScrollArea">
-                    <div class="grid-body" id="mainGrid">
-                        <div class="time-col" id="mainTimeCol"></div>
+            <div style="display: flex; flex: 1; overflow: hidden;">
+
+                <div class="grid-wrapper" style="flex: 1; border-right: 1px solid var(--grid-line);">
+                    <div class="grid-header" id="mainGridHeader">
+                        <div class="header-cell time-header">Time</div>
+                    </div>
+                    <div class="scroll-area" id="mainScrollArea">
+                        <div class="grid-body" id="mainGrid">
+                            <div class="time-col" id="mainTimeCol"></div>
+                        </div>
                     </div>
                 </div>
+
+                <div
+                    style="width: 180px; background: #fcfcfc; padding: 20px 15px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto;">
+
+                    <h4
+                        style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Schedule Actions</h4>
+                    <button class="btn btn-clear" onclick="openCreateScheduleModal()"
+                        style="width: 100%; text-align: left;">+ New Schedule</button>
+                    <button class="btn btn-clear" onclick="setActiveSchedule()"
+                        style="width: 100%; text-align: left;">Set Active</button>
+                    <button id="autoScheduleBtn" class="btn btn-save" onclick="runAutoScheduler()"
+                        style="width: 100%; text-align: left;">Auto-Schedule Role</button>
+
+                    <hr style="width: 100%; border: none; border-top: 1px solid #eaeaea; margin: 10px 0;">
+
+                    <h4
+                        style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Grid Tools</h4>
+                    <button class="btn btn-clear" onclick="clearInteractiveGrid()"
+                        style="width: 100%; text-align: left;">Clear Grid</button>
+                    <button class="btn btn-clear" onclick="exportSchedule()"
+                        style="width: 100%; text-align: left;">Export Data</button>
+
+                    <div style="flex: 1;"></div>
+
+                    <button class="btn btn-save" onclick="saveAllPreferences()"
+                        style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
+                        Save Schedule
+                    </button>
+                </div>
+
             </div>
         </div>
     </main>
