@@ -147,6 +147,7 @@
             grid-template-columns: 50px repeat(7, 1fr);
             height: 100%;
             position: relative;
+            padding-top: 7px;
         }
 
         /* Time Column */

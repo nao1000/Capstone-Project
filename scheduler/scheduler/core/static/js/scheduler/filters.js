@@ -1,47 +1,57 @@
 function initFilters() {
-  const container = document.querySelector('.filter-options')
-  const roles =
-    typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
+  const selectMenu = document.getElementById('courseFilterSelect')
+  if (!selectMenu) return; // Safety check
 
+  const roles = typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
+
+  // 1. Populate the dropdown menu
   roles.forEach(role => {
-    const btn = document.createElement('button')
-    btn.className = 'btn btn-clear'
-    btn.style.margin = '5px'
-    btn.textContent = role.name
-    btn.dataset.roleId = role.id
-
-    btn.onclick = async () => {
-      snapshotCurrentGrid()
-
-      document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'))
-      const workerLabel = document.getElementById('viewingWorkerLabel')
-      if (workerLabel) workerLabel.textContent = 'Role View'
-
-      if (activeRoleId === role.id) {
-        activeRoleId = null
-        btn.classList.remove('active')
-        clearObstructionBlocks()
-        clearInteractiveGrid(false)
-        if (activeScheduleId) loadScheduleShifts()
-      } else {
-        activeRoleId = role.id
-        document.querySelectorAll('.filter-options .btn').forEach(b => b.classList.remove('active'))
-        btn.classList.add('active')
-        clearObstructionBlocks()
-        clearInteractiveGrid(false)
-
-        const localShifts = localSchedule.getForRole(role.id)
-        if (localShifts.length > 0) {
-          await loadRoleView(role.id, window.TEAM_ID)
-          renderShiftsToGrid(localShifts, true)
-        } else {
-          await loadRoleView(role.id, window.TEAM_ID)
-          await loadScheduleShifts()
-        }
-      }
-    }
-    container.appendChild(btn)
+    const option = document.createElement('option')
+    option.value = role.id
+    option.textContent = role.name
+    selectMenu.appendChild(option)
   })
+
+  // 2. Handle what happens when the user picks a role
+  selectMenu.onchange = async (e) => {
+    const selectedValue = e.target.value
+
+    // Save current work before switching views
+    snapshotCurrentGrid()
+
+    // Clean up active UI states
+    document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'))
+    const workerLabel = document.getElementById('viewingWorkerLabel')
+    if (workerLabel) workerLabel.textContent = 'Role View'
+
+    // If they selected "All Roles..." (the default empty option)
+    if (!selectedValue) {
+      activeRoleId = null
+      clearObstructionBlocks()
+      clearInteractiveGrid(false)
+      if (typeof activeScheduleId !== 'undefined' && activeScheduleId) loadScheduleShifts()
+      return
+    }
+
+    // Find the actual role object from our list
+    const role = roles.find(r => String(r.id) === String(selectedValue))
+    if (!role) return
+
+    // Set active state and clear grid for the new role
+    activeRoleId = role.id
+    clearObstructionBlocks()
+    clearInteractiveGrid(false)
+
+    // Load data just like the old button click
+    const localShifts = localSchedule.getForRole(role.id)
+    if (localShifts.length > 0) {
+      await loadRoleView(role.id, window.TEAM_ID)
+      renderShiftsToGrid(localShifts, true)
+    } else {
+      await loadRoleView(role.id, window.TEAM_ID)
+      if (typeof loadScheduleShifts === 'function') await loadScheduleShifts()
+    }
+  }
 }
 
 function snapshotCurrentGrid() {

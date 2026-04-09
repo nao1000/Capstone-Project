@@ -134,11 +134,13 @@ body {
     font-size: 10px;
     color: #166534;
     pointer-events: none;
-    /* Prevents text from interfering with drags */
-    white-space: nowrap;
-    overflow: wrap;
-    text-overflow: ellipsis;
-    padding: 0 4px;
+
+    /* THE FIX: Allow the text to wrap and center it */
+    white-space: normal;
+    text-align: center;
+    line-height: 1.1; /* Keeps the stacked lines tight together */
+    width: 100%; /* Ensures it uses the full width of the block to center */
+    padding: 2px 4px;
 }
 
 h1 {
@@ -581,6 +583,7 @@ td {
 
 .time-col {
     width: 60px;
+    min-width: 60px;
     border-right: 1px solid #ddd;
     position: relative;
     /* Change background to grey for the whole column */
@@ -763,5 +766,6 @@ td {
     max-height: 250px;
     overflow-y: auto;
 }
+
 
 
