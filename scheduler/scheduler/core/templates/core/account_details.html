@@ -1,0 +1,130 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Account Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 1. The Blue-Grey Card Container (Matches Password Screen) */
+    .account-card {
+        background-color: #7a92ac;
+        color: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        max-width: 500px;
+        margin: 60px auto;
+        font-family: sans-serif;
+    }
+
+    .account-card h2 {
+        margin-top: 0;
+        margin-bottom: 30px;
+        font-weight: 500;
+        font-size: 24px;
+        color: white;
+    }
+
+    /* 2. Side-by-side flex layout for First/Last name */
+    .account-card .input-group {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    /* 3. Labels */
+    .account-card .field-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 15px;
+        font-weight: normal;
+        color: white;
+    }
+
+    /* 4. Inputs */
+    .account-card input[type="text"],
+    .account-card input[type="email"] {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 4px;
+        font-size: 15px;
+        box-sizing: border-box;
+    }
+
+    .account-card input:focus {
+        outline: 2px solid white;
+        outline-offset: 2px;
+    }
+
+    /* 5. Full-Width Save Button */
+    .btn-save {
+        width: 100%;
+        background-color: #e2e4e9;
+        color: #2c3e50;
+        border: none;
+        padding: 14px;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        margin-top: 10px;
+    }
+
+    .btn-save:hover {
+        background-color: #d1d4db;
+    }
+
+    /* 6. Subtle Change Password Link centered below */
+    .password-link-wrapper {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .btn-password-link {
+        color: white;
+        text-decoration: none;
+        font-size: 14px;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+    }
+
+    .btn-password-link:hover {
+        text-decoration: underline;
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="account-card">
+    <h2>Account Details</h2>
+
+    <form method="POST" action="{% url 'account_details' %}">
+        {% csrf_token %}
+
+        <div class="input-group">
+            <div style="flex: 1;">
+                <label class="field-label">First Name</label>
+                <input type="text" name="first_name" value="{{ user.first_name }}" placeholder="First Name">
+            </div>
+            <div style="flex: 1;">
+                <label class="field-label">Last Name</label>
+                <input type="text" name="last_name" value="{{ user.last_name }}" placeholder="Last Name">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 25px;">
+            <label class="field-label">Email Address</label>
+            <input type="email" name="email" value="{{ user.email }}" placeholder="Email" required>
+        </div>
+
+        <button type="submit" class="btn-save">Save Changes</button>
+
+        <div class="password-link-wrapper">
+            <a href="{% url 'custom_password_change' %}" class="btn-password-link">Change Password</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

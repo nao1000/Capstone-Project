@@ -1301,3 +1301,26 @@ def export_schedule(request, team_id, schedule_id):
     response['Content-Disposition'] = f'attachment; filename="{safe_name}_schedule.xlsx"'
 
     return response
+
+
+@login_required
+def account_details(request):
+    if request.method == 'POST':
+        # Grab the data from the form
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+
+        # Update the logged-in user
+        user = request.user
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.save()
+
+        # Send a success message (optional, but good UX)
+        messages.success(request, 'Your account details have been updated.')
+        return redirect('account_details') # Refresh the page to show new data
+
+    # If it's a GET request, just show the page
+    return render(request, 'core/account_details.html')

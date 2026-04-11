@@ -43,8 +43,8 @@
                     <span>{{ user.first_name|default:user.username }}</span>
                     <i class="fa-regular fa-circle-user"></i>
                 </div>
-                <div class="profile-dropdown">
-                    <a href="#">
+               <div class="profile-dropdown">
+                    <a href="{% url 'account_details' %}">
                         <span>Account Details</span>
                         <i class="fa-solid fa-right-from-bracket dropdown-icon-placeholder" aria-hidden="true"></i>
                     </a>
