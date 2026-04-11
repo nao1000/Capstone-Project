@@ -98,21 +98,6 @@ class Role(models.Model):
     def __str__(self):
         return f"{self.name} ({self.team.name})"
 
-class UserRolePreference(models.Model):
-    '''
-    FIX: NOT YET IMPLEMETNED
-    '''
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    roles = models.ManyToManyField(Role, blank=True)
-
-    class Meta:
-        unique_together = ("user", "team")
-
-    def __str__(self):
-        return f"{self.user.username} Roles for {self.team.name}"
-
-
 class Schedule(models.Model):
     '''
     Overall schedule for the workers
@@ -190,6 +175,40 @@ class RoleSection(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["role", "name"], name="unique_role_section")
         ]
+
+class UserRolePreference(models.Model):
+    '''
+    Stores a worker's ranked role+section preferences for a team.
+    One row per ranked entry — rank 1 = most preferred.
+    '''
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_preferences')
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='role_preferences')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    section = models.ForeignKey(RoleSection, on_delete=models.SET_NULL, null=True, blank=True)
+    rank = models.PositiveIntegerField()  # 1 = most preferred
+
+    class Meta:
+        unique_together = [("user", "team", "role", "section")]
+        ordering = ["rank"]
+
+    def __str__(self):
+        section_str = f" - {self.section.name}" if self.section else ""
+        return f"{self.user.username}: #{self.rank} {self.role.name}{section_str} ({self.team.name})"
+
+
+class PreferredTime(models.Model):
+    '''
+    Times a worker would ideally like to be scheduled.
+    Distinct from AvailabilityRange (busy/blocked times) — this is positive preference.
+    '''
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='preferred_times')
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='preferred_times')
+    day = models.CharField(max_length=3, choices=DAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.user.username}: preferred {self.day} {self.start_time}-{self.end_time}"
 
 
 class TeamRoleAssignment(models.Model):

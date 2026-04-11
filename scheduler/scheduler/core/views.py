@@ -16,6 +16,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import (
     AvailabilityRange,
+    PreferredTime,
     Role,
     Shift,
     Schedule,
@@ -207,37 +208,57 @@ def availability_view(request, team_id):
     if request.user not in team.members.all() and request.user != team.owner:
         return HttpResponseForbidden("You are not a member of this team.")
 
-    # find any events for a worker that they may have already saved
+    # Busy blocks already saved by this worker
     availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
 
-    # FIX: UNUSED FOR NOW
-    role_prefs = UserRolePreference.objects.filter(user=request.user, team=team).first()
-    selected_role_ids = (
-        list(role_prefs.roles.values_list("id", flat=True)) if role_prefs else []
-    )
+    # Preferred time blocks already saved
+    preferred_times = PreferredTime.objects.filter(user=request.user, team=team)
 
-    # FIX MAY WANT TO CHANGE COLOR
-    # create a list for each time object in the database for this user
-    avail_list = json.dumps([
+    # Ranked role+section preferences
+    role_prefs = UserRolePreference.objects.filter(
+        user=request.user, team=team
+    ).select_related('role', 'section').order_by('rank')
+
+    busy_list = [
         {
             "day": a.day,
             "start": a.start_time.strftime("%H:%M"),
             "end": a.end_time.strftime("%H:%M"),
             "building": a.building,
             "name": a.eventName,
-            "color": "#4a90e2",
+            "mode": "busy",
         }
         for a in availabilities
-    ])
+    ]
 
-    # FIX UNUSED YET
-    all_roles = Role.objects.filter(team=team)
+    preferred_list = [
+        {
+            "day": p.day,
+            "start": p.start_time.strftime("%H:%M"),
+            "end": p.end_time.strftime("%H:%M"),
+            "mode": "preferred",
+        }
+        for p in preferred_times
+    ]
+
+    role_pref_list = [
+        {
+            "rank": rp.rank,
+            "role_id": rp.role.id,
+            "role_name": rp.role.name,
+            "section_id": rp.section.id if rp.section else None,
+            "section_name": rp.section.name if rp.section else None,
+        }
+        for rp in role_prefs
+    ]
+
+    all_roles = Role.objects.filter(team=team).prefetch_related('sections')
 
     context = {
         "team": team,
         "roles": all_roles,
-        "selected_role_ids": selected_role_ids,
-        "existing_availabilities_json": avail_list,
+        "existing_availabilities_json": json.dumps(busy_list + preferred_list),
+        "existing_role_preferences_json": json.dumps(role_pref_list),
     }
     return render(request, "core/availability2.html", context)
 
@@ -268,7 +289,8 @@ def supervisor_view(request, team_id):
     )
 
     # query all rooms, roles, and fixed events for the team
-    roles = Role.objects.filter(team=team)
+    # This fetches all roles AND all their sections in just 2 database hits total
+    roles = Role.objects.filter(team=team).prefetch_related('sections')
     rooms = Room.objects.filter(team=team)
     obstructions = FixedObstruction.objects.filter(team=team)
 
@@ -394,7 +416,14 @@ def scheduler_view(request, team_id):
 @require_http_methods(["POST"])
 def save_availability(request, team_id):
     '''
-    Save the events a team member creates for their personal schedule
+    Save a worker's busy blocks, preferred time blocks, and ranked role preferences.
+
+    Expected payload:
+    {
+        "busy":             [{ "day": 1, "start_min": 480, "end_min": 960, "name": "...", "location": "..." }],
+        "preferred":        [{ "day": 3, "start_min": 600, "end_min": 720 }],
+        "role_preferences": [{ "rank": 1, "role_id": 12, "section_id": 34 }]
+    }
     '''
     try:
         data = json.loads(request.body)
@@ -402,38 +431,63 @@ def save_availability(request, team_id):
         if request.user not in team.members.all() and request.user != team.owner:
             return HttpResponseForbidden("You are not a member of this team.")
 
-        events_data = data.get("events", [])
-        role_ids = data.get("role_ids", [])
+        busy_data    = data.get("busy", [])
+        preferred_data = data.get("preferred", [])
+        role_pref_data = data.get("role_preferences", [])
 
         with transaction.atomic():
+            # --- Busy blocks ---
             AvailabilityRange.objects.filter(user=request.user, team=team).delete()
-
-            for item in events_data:
-                start_val = minutes_to_string(item.get("start_min"))
-                end_val = minutes_to_string(item.get("end_min"))
-
-                day_int = item.get("day")
-                day_str = DAY_MAP.get(day_int, "mon")
-
+            for item in busy_data:
+                day_str = DAY_MAP.get(item.get("day"), "mon")
                 AvailabilityRange.objects.create(
                     user=request.user,
                     team=team,
                     day=day_str,
-                    start_time=start_val,
-                    end_time=end_val,
+                    start_time=minutes_to_string(item.get("start_min")),
+                    end_time=minutes_to_string(item.get("end_min")),
                     building=item.get("location", ""),
                     eventName=item.get("name", ""),
                 )
 
-            if role_ids:
-                role_prefs, _ = UserRolePreference.objects.get_or_create(
-                    user=request.user, team=team
-                )
-                role_prefs.roles.set(
-                    Role.objects.filter(id__in=role_ids, team=team)
+            # --- Preferred time blocks ---
+            PreferredTime.objects.filter(user=request.user, team=team).delete()
+            for item in preferred_data:
+                day_str = DAY_MAP.get(item.get("day"), "mon")
+                PreferredTime.objects.create(
+                    user=request.user,
+                    team=team,
+                    day=day_str,
+                    start_time=minutes_to_string(item.get("start_min")),
+                    end_time=minutes_to_string(item.get("end_min")),
                 )
 
-        return JsonResponse({"status": "success", "count": len(events_data)})
+            # --- Ranked role+section preferences ---
+            UserRolePreference.objects.filter(user=request.user, team=team).delete()
+            for item in role_pref_data:
+                role_id    = item.get("role_id")
+                section_id = item.get("section_id")
+                rank       = item.get("rank")
+
+                role = get_object_or_404(Role, id=role_id, team=team)
+                section = None
+                if section_id:
+                    section = get_object_or_404(RoleSection, id=section_id, role=role)
+
+                UserRolePreference.objects.create(
+                    user=request.user,
+                    team=team,
+                    role=role,
+                    section=section,
+                    rank=rank,
+                )
+
+        return JsonResponse({
+            "status": "success",
+            "busy_count": len(busy_data),
+            "preferred_count": len(preferred_data),
+            "role_pref_count": len(role_pref_data),
+        })
 
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
@@ -1247,4 +1301,3 @@ def export_schedule(request, team_id, schedule_id):
     response['Content-Disposition'] = f'attachment; filename="{safe_name}_schedule.xlsx"'
 
     return response
-
