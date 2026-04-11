@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views
 
@@ -52,7 +52,6 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/members/save-assignments/', views.save_member_assignments),
 
     # PASSWORD RESET
-
     # 1. Password Reset Form
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='core/registration/password_reset_form.html'
@@ -72,6 +71,14 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='core/registration/password_reset_complete.html'
     ), name='password_reset_complete'),
+
+    # ACCOUNT DETAILS
+    path('account/', views.account_details, name='account_details'),
+    # Explicitly tell Django where your custom template is!
+    path('password-change/', auth_views.PasswordChangeView.as_view(
+        template_name='core/registration/password_change_form.html',
+        success_url='/account/' # Redirects back to account details when done
+    ), name='custom_password_change'),
 
     # AUTHENTICATION
     path('login/', auth_views.LoginView.as_view(template_name='core/auth2.html'), name='login'),

@@ -289,7 +289,7 @@ header {
     border-color: #f59e0b;
     /* Amber outline */
     border-left: 4px solid #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
     z-index: 12;
     /* Keep it on top */
 }
@@ -475,15 +475,18 @@ header {
 
 .preference-card {
     width: 280px;
-    height: 85vh; /* MUST match .scheduler-card height */
+
+    margin-top: 50px;
+    height: calc(85vh - 50px);
+
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 12px;
     padding: 20px;
     display: flex;
-    flex-direction: column; /* This allows the role section to expand/scroll */
-    box-sizing: border-box; 
-    overflow: hidden; /* Prevents the whole card from expanding */
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .group-label {
