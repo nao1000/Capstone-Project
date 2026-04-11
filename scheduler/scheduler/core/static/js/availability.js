@@ -1,5 +1,3 @@
-
-
 // STATE
 let isDragging = false
 let startY = 0
@@ -27,6 +25,8 @@ let resizingEvent = null
 let resizeOriginalTop = 0
 let resizeOriginalHeight = 0
 let resizeStartY = 0
+
+let currentGridMode = 'busy'
 
 document.addEventListener('DOMContentLoaded', () => {
   initLayout()
@@ -119,6 +119,7 @@ document.addEventListener('keydown', e => {
       // Build Element
       const newEvent = document.createElement('div')
       newEvent.className = 'event-block'
+      newEvent.dataset.mode = currentGridMode
       newEvent.style.top = `${topPx}px`
       newEvent.style.height = `${clipboardData.heightPx}px`
 
@@ -195,7 +196,11 @@ document.addEventListener('mouseup', () => {
   // Scenario 2: We were drawing a NEW event
   if (isDragging) {
     isDragging = false
-    openModal()
+    if (currentGridMode === 'preferred') {
+      finalizePreferredEvent()
+    } else {
+      openModal()
+    }
   }
 })
 
@@ -248,29 +253,48 @@ function openEditModal (block) {
 }
 
 async function saveAllPreferences () {
-  const events = document.querySelectorAll('.event-block:not(.temp)')
-  const eventData = []
-  events.forEach(ev => {
+  const busyData = []
+  const preferredData = []
+
+  document.querySelectorAll('.event-block:not(.temp)').forEach(ev => {
     const day = ev.parentElement.dataset.day
     const topPx = parseFloat(ev.style.top)
     const heightPx = parseFloat(ev.style.height)
-
     const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
     const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
-
     const startMin = startSlotIndex * 15 + window.START_HOUR * 60
     const endMin = startMin + slotsCount * 15
+    const mode = ev.dataset.mode || 'busy'
 
-    eventData.push({
-      name: ev.querySelector('.event-title').textContent,
-      location: ev.querySelector('.event-loc')
-        ? ev.querySelector('.event-loc').textContent
-        : '',
+    const entry = {
       day: parseInt(day),
       start_min: startMin,
-      end_min: endMin
-    })
+      end_min: endMin,
+    }
+
+    if (mode === 'preferred') {
+      preferredData.push(entry)
+    } else {
+      busyData.push({
+        ...entry,
+        name: ev.querySelector('.event-title')?.textContent || '',
+        location: ev.querySelector('.event-loc')?.textContent || '',
+      })
+    }
   })
+
+  // Collect role/section preferences in ranked order
+  const rolePreferences = selectedRanking.map(({ roleId, sectionId }, index) => ({
+    rank: index + 1,
+    role_id: roleId,
+    section_id: sectionId || null,
+  }))
+
+  const payload = {
+    busy: busyData,
+    preferred: preferredData,
+    role_preferences: rolePreferences,
+  }
 
   try {
     const response = await fetch(
@@ -281,17 +305,16 @@ async function saveAllPreferences () {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify({ events: eventData })
+        body: JSON.stringify(payload)
       }
     )
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    // SHOW THE POPUP ON SUCCESS
     document.getElementById('savePopupModal').classList.add('show')
   } catch (error) {
-    console.error('Error saving events:', error)
+    console.error('Error saving preferences:', error)
     alert('There was an error saving the schedule. Please try again.')
   }
 }
@@ -365,6 +388,7 @@ function addSavedEventsToGrid () {
     // 4. Create the Element
     const eventBlock = document.createElement('div')
     eventBlock.className = 'event-block'
+    eventBlock.dataset.mode = 'busy'
     eventBlock.style.top = `${topPx}px`
     eventBlock.style.height = `${heightPx}px`
 
@@ -466,6 +490,7 @@ function setupDragListeners () {
       // Visual feedback
       activeEvent = document.createElement('div')
       activeEvent.className = 'event-block temp'
+      activeEvent.dataset.mode = currentGridMode
       activeEvent.style.top = `${startTop}px`
       activeEvent.style.height = `${SLOT_HEIGHT}px`
       activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
@@ -578,6 +603,7 @@ function saveEvent () {
 
   if (activeEvent) {
     activeEvent.classList.remove('temp')
+    // mode class (mode-busy / mode-preferred) is already on the element
 
     // UPDATED HTML STRING BELOW:
     let html = `
@@ -598,6 +624,28 @@ function saveEvent () {
   activeEvent = null
 }
 
+function finalizePreferredEvent () {
+  if (!activeEvent) return
+
+  const topPx = parseFloat(activeEvent.style.top)
+  const heightPx = parseFloat(activeEvent.style.height)
+  const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+  const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
+  const startMin = startSlotIndex * 15 + window.START_HOUR * 60
+  const endMin = startMin + slotsCount * 15
+  const timeString = `${formatMin(startMin)} - ${formatMin(endMin)}`
+
+  activeEvent.classList.remove('temp')
+  activeEvent.innerHTML = `
+    <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+    <div class="event-content">
+      <div class="event-title">Preferred</div>
+      <div class="event-time">${timeString}</div>
+    </div>`
+
+  activeEvent = null
+}
+
 function formatMin (totalMinutes) {
   const h = Math.floor(totalMinutes / 60)
   const m = totalMinutes % 60
@@ -605,4 +653,72 @@ function formatMin (totalMinutes) {
   const displayH = h > 12 ? h - 12 : h === 0 || h === 12 || h === 24 ? 12 : h
   const displayM = m < 10 ? '0' + m : m
   return `${displayH}:${displayM} ${suffix}`
+}
+
+
+// Each entry: { key, roleId, sectionId: string|null }
+let selectedRanking = [];
+
+function toggleSections(checkbox, sectionsDivId) {
+    const sectionDiv = document.getElementById(sectionsDivId);
+    const roleId = checkbox.value;
+    const hasSections = sectionDiv.querySelectorAll('.section-check').length > 0;
+
+    if (checkbox.checked) {
+        if (hasSections) {
+            // Show sections dropdown — ranking happens when sections are individually picked
+            sectionDiv.style.display = 'block';
+        } else {
+            // No sections: rank the role itself
+            selectedRanking.push({ key: `role-${roleId}`, roleId, sectionId: null });
+        }
+    } else {
+        sectionDiv.style.display = 'none';
+        // Remove this role and all its sections from ranking
+        selectedRanking = selectedRanking.filter(item => item.roleId !== roleId);
+        sectionDiv.querySelectorAll('.section-check').forEach(sc => sc.checked = false);
+    }
+    updateRankDisplay();
+}
+
+function toggleSection(checkbox) {
+    const sectionId = checkbox.value;
+    const roleId = checkbox.dataset.parentRole;
+    const key = `section-${sectionId}`;
+
+    if (checkbox.checked) {
+        selectedRanking.push({ key, roleId, sectionId });
+    } else {
+        selectedRanking = selectedRanking.filter(item => item.key !== key);
+    }
+    updateRankDisplay();
+}
+
+function updateRankDisplay() {
+    document.querySelectorAll('.rank-badge').forEach(badge => badge.innerText = '');
+
+    selectedRanking.forEach(({ roleId, sectionId }, index) => {
+        const badgeId = sectionId ? `rank-section-${sectionId}` : `rank-${roleId}`;
+        const badge = document.getElementById(badgeId);
+        if (badge) badge.innerText = `#${index + 1}`;
+    });
+}
+let gridMode = 'busy'
+
+function setGridMode(mode) {
+  currentGridMode = mode
+  document.getElementById('btnBusy').classList.toggle('active', mode === 'busy')
+  document.getElementById('btnPreferred').classList.toggle('active', mode === 'preferred')
+
+  const hint = document.getElementById('toolbarHint')
+  if (hint) {
+    hint.textContent = mode === 'preferred'
+      ? 'Drag to mark times you want to work • Click × to remove'
+      : 'Click & Drag to add • Double-click to Edit • Ctrl+C/V to Copy/Paste'
+  }
+}
+
+function clearLocalGrid() {
+  if (!confirm('Clear all shifts from the grid?')) return
+  document.querySelectorAll('.event-block:not(.temp)').forEach(el => el.remove())
 }
