@@ -41,7 +41,7 @@
                 </thead>
                 <tbody>
                     {% for entry in member_list %}
-                    <tr>
+                    <tr data-user-id="{{ entry.user.id }}"> 
                         <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
                         <td>{{ entry.user.email }}</td>
                         <td>{{ entry.user.username }}</td>
@@ -72,8 +72,26 @@
                                 </select>
                             </div>
                         </td>
-                        <td><button class="btn-icon"><i class="fa-solid fa-ellipsis"></i></button></td>
-                    </tr>
+                       <td class="actions-cell">
+                        <div class="dropdown">
+                            <button class="action-dots" onclick="toggleActionMenu(event, this)">⋮</button>
+                            <div class="dropdown-content">
+                                <a href="{% url 'scheduler' team.id %}?worker_id={{ entry.user.id }}">
+                                    <i class="fa-solid fa-calendar-days"></i> View Schedule
+                                </a>
+
+                                <a href="#" onclick="resetMember('{{ entry.user.id }}', '{{ entry.user.username|escapejs }}')">
+                                    <i class="fa-solid fa-arrows-rotate"></i> Reset Assignments
+                                </a>
+
+                                <hr>
+
+                                <a href="#" class="text-danger" onclick="removeUserFromTeam('{{ entry.user.id }}', '{{ entry.user.username|escapejs }}')">
+                                    <i class="fa-solid fa-user-minus"></i> Remove from Team
+                                </a>
+                            </div>
+                        </div>
+                    </td>                 </tr>
                     {% endfor %}
                 </tbody>
             </table>
