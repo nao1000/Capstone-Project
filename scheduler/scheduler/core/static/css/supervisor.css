@@ -458,6 +458,7 @@ td {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     animation: slideDown 0.3s ease;
+    height: 95vh;
 }
 
 @keyframes slideDown {

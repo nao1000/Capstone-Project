@@ -514,14 +514,12 @@ async function saveCurrentRoom() {
         );
 
         if (response.ok) {
-            // THE BASIC ALERT
+            // Success! We just alert and stay on the page.
             alert('Room availability saved successfully!');
 
-            // Optional: close the scheduler modal if the function exists
-            if (typeof closeScheduler === 'function') {
-                closeScheduler();
-            }
+            // The closeScheduler call is gone, so the user stays here.
         } else {
+            // This 'else' now correctly attaches to 'if (response.ok)'
             alert(`Error: Save failed with status ${response.status}`);
         }
     } catch (error) {
@@ -731,7 +729,7 @@ async function addFixedEvent () {
       const tag = document.createElement('span')
       tag.className = 'role-tag'
       tag.dataset.obstructionId = data.obstruction_id // store the ID
-      
+
       tag.innerHTML = `
     <strong>${name}</strong>&nbsp;
     <em>${location}</em>&nbsp;
