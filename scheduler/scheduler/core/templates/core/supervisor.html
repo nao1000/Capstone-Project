@@ -154,6 +154,7 @@
 
                 <div class="input-group">
                     <input type="text" id="eventNameInput" placeholder="Event name (e.g. CHEM 151-001)">
+                    <input type="text" id="eventLocationInput" placeholder="Event location (e.g. Gittings 109B)">
                 </div>
 
                 <div class="input-group">
@@ -197,6 +198,7 @@
                 <div id="fixed-events-list" class="tags-container" style="margin-top: 15px; overflow-y: auto;">                    {% for obs in obstructions %}
                     <span class="role-tag" data-obstruction-id="{{ obs.id }}">
                         <strong>{{ obs.name }}</strong>&nbsp;
+                        <em>{{ obs.location }}</em>&nbsp;
                         {% for d in obs.days.all %}{{ d.day|title }}{% if not forloop.last %}, {% endif %}{% endfor %}
                         &bull; {{ obs.start_time|time:"g:i A" }} - {{ obs.end_time|time:"g:i A" }}
                         <i class="fa-solid fa-xmark" onclick="deleteObstruction(this)"></i>

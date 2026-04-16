@@ -32,8 +32,9 @@
             <div class="toolbar">
                 <h3>Team Schedule</h3>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <div class="hint" id="toolbarHint">Click & Drag to add • Double-click to Edit • Ctrl+C/V to Copy/Paste</div> <button
-                        class="btn btn-save" onclick="saveAllPreferences()">Save Schedule</button>
+                    <div class="hint" id="toolbarHint">Click & Drag to add • Double-click to Edit • Ctrl+C/V to
+                        Copy/Paste</div> <button class="btn btn-save" onclick="saveAllPreferences()">Save
+                        Schedule</button>
                 </div>
             </div>
 
@@ -118,34 +119,36 @@
         <div class="pref-group role-section">
             <label class="group-label">ROLES & SECTIONS</label>
             <div class="role-scroll-container">
-            <div class="role-selection-list">
-            {% for role in roles %}
-            <div class="role-item-group" data-role-id="{{ role.id }}">
-                <label class="role-pill">
-                    <input type="checkbox" name="roles" value="{{ role.id }}" class="role-check"
-                        onchange="toggleSections(this, 'sections-{{ role.id }}')">
-                    <span class="pill-content">
-                        <span class="role-name">{{ role.name }}</span>
-                        <span class="rank-badge" id="rank-{{ role.id }}"></span> <span class="check-icon">✓</span>
-                    </span>
-                </label>
+                <div class="role-selection-list">
+                    {% for role in roles %}
+                    <div class="role-item-group" data-role-id="{{ role.id }}">
+                        <label class="role-pill">
+                            <input type="checkbox" name="roles" value="{{ role.id }}" class="role-check"
+                                onchange="toggleSections(this, 'sections-{{ role.id }}')">
+                            <span class="pill-content">
+                                <span class="role-name">{{ role.name }}</span>
+                                <span class="rank-badge" id="rank-{{ role.id }}"></span> <span
+                                    class="check-icon">✓</span>
+                            </span>
+                        </label>
 
-                <div class="sections-dropdown" id="sections-{{ role.id }}" style="display: none;">
-                    <p class="section-instruction">Select specific sections (Optional):</p>
-                    {% for section in role.sections.all %}
-                    <label class="section-option">
-                        <input type="checkbox" name="sections" value="{{ section.id }}" data-parent-role="{{ role.id }}"
-                            class="section-check" onchange="toggleSection(this)">
-                        <span class="section-name">{{ section.name }}</span>
-                        <span class="rank-badge" id="rank-section-{{ section.id }}"></span>
-                    </label>
-                    {% empty %}
-                    <p class="hint-text">No sections available.</p>
+                        <div class="sections-dropdown" id="sections-{{ role.id }}" style="display: none;">
+                            <p class="section-instruction">Select specific sections (Optional):</p>
+                            {% for section in role.sections.all %}
+                            <label class="section-option">
+                                <input type="checkbox" name="sections" value="{{ section.id }}"
+                                    data-parent-role="{{ role.id }}" class="section-check"
+                                    onchange="toggleSection(this)">
+                                <span class="section-name">{{ section.name }}</span>
+                                <span class="rank-badge" id="rank-section-{{ section.id }}"></span>
+                            </label>
+                            {% empty %}
+                            <p class="hint-text">No sections available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
                     {% endfor %}
                 </div>
-            </div>
-            {% endfor %}
-            </div>
             </div>
         </div>
 

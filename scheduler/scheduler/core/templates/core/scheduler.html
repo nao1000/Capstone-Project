@@ -14,6 +14,7 @@
     window.ROLES = JSON.parse('{{ roles|safe }}')
     window.WORKERS = JSON.parse('{{ workers_json|safe }}')
     window.ROOMS = JSON.parse('{{ rooms | safe }}')
+    window.TEMPLATES = JSON.parse('{{ templates_json|safe }}')
     console.log(window.ROLES)
 </script>
 <script src="{% static 'js/scheduler/auto-scheduler.js' %}"></script>
@@ -96,7 +97,6 @@
             </div>
 
             <div style="display: flex; flex: 1; overflow: hidden;">
-
                 <div class="grid-wrapper" style="flex: 1; border-right: 1px solid var(--grid-line);">
                     <div class="grid-header" id="mainGridHeader">
                         <div class="header-cell time-header">Time</div>
@@ -108,37 +108,73 @@
                     </div>
                 </div>
 
-                <div
-                    style="width: 180px; background: #fcfcfc; padding: 20px 15px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto;">
+                <div id="for-worker" style="display: none; width: 200px;">
 
-                    <h4
-                        style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
-                        Schedule Actions</h4>
-                    <button class="btn btn-clear" onclick="openCreateScheduleModal()"
-                        style="width: 100%; text-align: left;">+ New Schedule</button>
-                    <button class="btn btn-clear" onclick="setActiveSchedule()"
-                        style="width: 100%; text-align: left;">Set Active</button>
-                    <button id="autoScheduleBtn" class="btn btn-save" onclick="runAutoScheduler()"
-                        style="width: 100%; text-align: left;">Auto-Schedule Role</button>
+                    <div
+                        style="width: 200px; background: #fcfcfc; padding: 20px 15px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto;">
 
-                    <hr style="width: 100%; border: none; border-top: 1px solid #eaeaea; margin: 10px 0;">
+                        <h4
+                            style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Preferred Roles
+                        </h4>
+                        <p style="font-size: 11px; color: #aaa; margin: 0;">
+                            Click a role to preview its obstructions on the grid.
+                        </p>
 
-                    <h4
-                        style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
-                        Grid Tools</h4>
-                    <button class="btn btn-clear" onclick="clearInteractiveGrid()"
-                        style="width: 100%; text-align: left;">Clear Grid</button>
-                    <button class="btn btn-clear" onclick="exportSchedule()"
-                        style="width: 100%; text-align: left;">Export Data</button>
+                        <div id="preferredRoleButtons" style="display: flex; flex-direction: column; gap: 6px;">
 
-                    <div style="flex: 1;"></div>
+                        </div>
 
-                    <button class="btn btn-save" onclick="saveAllPreferences()"
-                        style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
-                        Save Schedule
-                    </button>
+                        <hr style="width: 100%; border: none; border-top: 1px solid #eaeaea; margin: 8px 0;">
+
+                        <div style="flex: 1;"></div>
+
+                        <div id="workerRoleAssignInfo"
+                            style="font-size: 11px; color: #888; text-align: center; display: none;">
+                            Previewing: <strong id="previewingRoleLabel"></strong>
+                        </div>
+
+                        <button id="assignRoleBtn" class="btn btn-save" onclick="assignPreviewedRole()" disabled
+                            style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; opacity: 0.5; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
+                            Assign Role
+                        </button>
+                    </div>
+
                 </div>
 
+                <div id="for-filter" style="display: flex; width: 200px;">
+
+                    <div
+                        style="width: 180px; background: #fcfcfc; padding: 20px 15px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto;">
+
+                        <h4
+                            style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Schedule Actions</h4>
+                        <button class="btn btn-clear" onclick="openCreateScheduleModal()"
+                            style="width: 100%; text-align: left;">+ New Schedule</button>
+                        <button class="btn btn-clear" onclick="setActiveSchedule()"
+                            style="width: 100%; text-align: left;">Set Active</button>
+                        <button id="autoScheduleBtn" class="btn btn-save" onclick="openAutoScheduleModal()"
+                            style="width: 100%; text-align: left;">Auto-Schedule Configs</button>
+
+                        <hr style="width: 100%; border: none; border-top: 1px solid #eaeaea; margin: 10px 0;">
+
+                        <h4
+                            style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Grid Tools</h4>
+                        <button class="btn btn-clear" onclick="clearInteractiveGrid()"
+                            style="width: 100%; text-align: left;">Clear Grid</button>
+                        <button class="btn btn-clear" onclick="exportSchedule()"
+                            style="width: 100%; text-align: left;">Export Data</button>
+
+                        <div style="flex: 1;"></div>
+
+                        <button class="btn btn-save" onclick="saveAllPreferences()"
+                            style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
+                            Save Schedule
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -214,6 +250,85 @@
         <div class="modal-footer">
             <button class="btn btn-clear" onclick="closeWorkerEditModal()">Cancel</button>
             <button class="btn btn-save" onclick="saveWorkerAssignment()">Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="autoScheduleConfigModal">
+    <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-header">Configure Auto-Scheduler</div>
+        <div class="modal-body">
+
+            <div
+                style="background: #f4f6f8; padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #e1e4e8;">
+                <label style="font-weight: 600; margin-bottom: 5px; display: block; color: #333;">Saved
+                    Templates</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="configTemplateSelect" style="flex: 1; padding: 8px;"
+                        onchange="loadTemplate(this.value)">
+                        <option value="">-- Custom Configuration --</option>
+                        <option value="1">Standard SI (3x 50min)</option>
+                        <option value="2">Drop-in Tutoring (1hr slots, max 3)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4
+                style="margin: 0 0 10px 0; font-size: 13px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                Shift Parameters</h4>
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Shift Duration (mins)</label>
+                    <input type="number" id="configDuration" value="50" step="5" min="15"
+                        style="width: 100%; padding: 8px;">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>Start Intervals</label>
+                    <select id="configInterval" style="width: 100%; padding: 8px;">
+                        <option value="15">Every 15 mins (e.g., 1:00, 1:15)</option>
+                        <option value="30" selected>Every 30 mins (e.g., 1:00, 1:30)</option>
+                        <option value="60">Top of the hour (e.g., 1:00, 2:00)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4
+                style="margin: 0 0 10px 0; font-size: 13px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                Worker Constraints</h4>
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Shifts per Week (Quota)</label>
+                    <input type="number" id="configWeeklyQuota" value="3" min="1" style="width: 100%; padding: 8px;">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>Max Shifts per Day</label>
+                    <input type="number" id="configDailyMax" value="1" min="1" style="width: 100%; padding: 8px;">
+                </div>
+            </div>
+
+            <h4
+                style="margin: 0 0 10px 0; font-size: 13px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                Coverage Rules</h4>
+            <div class="input-group" style="margin-bottom: 15px;">
+                <label>Max Concurrent Workers</label>
+                <div style="font-size: 11px; color: #888; margin-bottom: 5px;">How many people can work this role at the
+                    exact same time?</div>
+                <input type="number" id="configMaxConcurrent" value="1" min="1" style="width: 100%; padding: 8px;">
+            </div>
+
+            <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="saveAsTemplateCheck" onchange="toggleTemplateNameInput(this)">
+                <label for="saveAsTemplateCheck" style="font-size: 13px;">Save this setup as a new template</label>
+            </div>
+            <div id="newTemplateNameDiv" style="display: none; margin-top: 10px;">
+                <input type="text" id="newTemplateName" placeholder="Template Name (e.g., Exam Review Week)"
+                    style="width: 100%; padding: 8px;">
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-clear" onclick="closeAutoScheduleModal()">Cancel</button>
+            <button class="btn btn-save" onclick="executeAutoScheduler()">Run Algorithm</button>
         </div>
     </div>
 </div>

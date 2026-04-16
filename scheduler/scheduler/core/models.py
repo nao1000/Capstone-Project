@@ -261,6 +261,7 @@ class FixedObstruction(models.Model):
     
     # name of obstruction and length
     name = models.CharField(max_length=100)
+    location = models.CharField(max_length=100, default="Unknown")
     start_time = models.TimeField()
     end_time = models.TimeField()
 
@@ -327,3 +328,23 @@ class AvailabilityRange(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.day} {self.start_time}-{self.end_time}"
+    
+class ScheduleTemplate(models.Model):
+    '''
+    Saves auto-scheduler configurations so supervisors don't have to manually 
+    type in rules for common scenarios (like SI vs. Drop-in Tutoring).
+    '''
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="schedule_templates")
+    name = models.CharField(max_length=100)
+    
+    # Event Shape
+    duration = models.IntegerField(default=50, help_text="Duration in minutes")
+    interval = models.IntegerField(default=30, help_text="Start time intervals in minutes")
+    
+    # Constraints
+    weekly_quota = models.IntegerField(default=3, help_text="Target shifts per week per worker")
+    daily_max = models.IntegerField(default=1, help_text="Max shifts per day per worker")
+    max_concurrent = models.IntegerField(default=1, help_text="Max workers scheduled at the exact same time")
+
+    def __str__(self):
+        return f"{self.name} ({self.team.name})"
