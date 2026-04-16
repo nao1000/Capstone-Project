@@ -76,8 +76,8 @@ function renderWorkerObstructions(workerId) {
       block.style.top = `${top}px`
       block.style.height = `${height}px`
 
-      const reason = obs.title || obs.type || 'Unavailable'
-      block.innerHTML = `<div style="padding: 4px; font-size: 11px; color: #555; font-weight: bold;">${reason}</div>`
+      const reason = obs.name || obs.type || 'Unavailable'
+      block.innerHTML = `<div style="padding: 4px; font-size: 11px; font-weight: bold;">${reason}</div>`
 
       col.appendChild(block)
     }

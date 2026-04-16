@@ -3,7 +3,7 @@ function initFilters() {
   if (!selectMenu) return; // Safety check
 
   const roles = typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
-
+  console.log(roles)
   // 1. Populate the dropdown menu
   roles.forEach(role => {
     const option = document.createElement('option')
@@ -15,7 +15,8 @@ function initFilters() {
   // 2. Handle what happens when the user picks a role
   selectMenu.onchange = async (e) => {
     const selectedValue = e.target.value
-
+    document.getElementById('for-worker').style.display = 'none'
+    document.getElementById('for-filter').style.display = 'flex'
     // Save current work before switching views
     snapshotCurrentGrid()
 

@@ -1,7 +1,7 @@
 // State variables and constants for the scheduler
 
 const START_HOUR = 8
-const END_HOUR = 18
+const END_HOUR = 21
 const SLOT_HEIGHT = 15
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

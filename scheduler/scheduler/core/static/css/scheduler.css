@@ -420,13 +420,13 @@ body {
     position: absolute;
     width: 100%;
     left: 0;
-    background: repeating-linear-gradient(45deg,
-            #da1414,
-            #6d0303 10px);
-    border-left: 3px solid #888;
+    background-color: #E6A494;
+    border: 1px solid #C67D6B;
+    border-left: 4px solid #C67D6B;
+    border-radius: 4px; /* Adds the rounded corners */
+    color: #4A322D;
     opacity: 0.8;
     pointer-events: none;
-    /* Let users click through/around it if necessary */
     z-index: 5;
     overflow: hidden;
 }
@@ -434,6 +434,15 @@ body {
 /* Read-only availability blocks */
 .avail-block {
     background-color: var(--avail-bg);
+    border: 1px solid var(--avail-border);
+    border-left: 4px solid var(--avail-border);
+    color: var(--avail-text);
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.prefer-block {
+    background-color: orange;
     border: 1px solid var(--avail-border);
     border-left: 4px solid var(--avail-border);
     color: var(--avail-text);

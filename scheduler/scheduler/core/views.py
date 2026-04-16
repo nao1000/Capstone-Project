@@ -28,7 +28,8 @@ from .models import (
     RoomAvailability,
     FixedObstruction,
     ObstructionDay,
-    RoleSection
+    RoleSection,
+    ScheduleTemplate
 )
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
@@ -306,15 +307,15 @@ def supervisor_view(request, team_id):
         has_availability = len(member.team_availabilities) > 0
 
         # FIX: ADD TO PREFETCH
-        role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
-        preferred_roles = list(role_prefs.roles.all()) if role_prefs else []
+        # role_prefs = UserRolePreference.objects.filter(user=member, team=team).first()
+        # preferred_roles = list(role_prefs.roles.all()) if role_prefs else []
 
-        status = "Submitted" if (has_availability or preferred_roles) else "Pending"
+        status = "Submitted" if has_availability else "Pending"
 
         member_list.append({
             "user": member,
             "status": status,
-            "preferred_roles": preferred_roles,
+            # "preferred_roles": preferred_roles,
             "current_role_id": assignment.role_id if assignment else None,
             "current_section_id": assignment.section_id if assignment else None,
         })
@@ -348,6 +349,11 @@ def scheduler_view(request, team_id):
             "availabilityrange_set",
             queryset=AvailabilityRange.objects.filter(team=team),
             to_attr="team_availability",
+        ),
+        Prefetch(
+            "preferred_times",
+            queryset=PreferredTime.objects.filter(team=team),
+            to_attr="preferred"
         )
     )
 
@@ -393,6 +399,18 @@ def scheduler_view(request, team_id):
         }
         for o in obstructions
     ])
+    
+    templates = ScheduleTemplate.objects.filter(team=team)
+    templates_dict = {
+        str(t.id): {
+            "name": t.name,
+            "duration": t.duration,
+            "interval": t.interval,
+            "weeklyQuota": t.weekly_quota,
+            "dailyMax": t.daily_max,
+            "maxConcurrent": t.max_concurrent
+        } for t in templates
+    }
 
     return render(
         request,
@@ -404,6 +422,7 @@ def scheduler_view(request, team_id):
             "roles": roles_json,
             "rooms": rooms_json,
             "obstructions": obstructions_json,
+            'templates_json': json.dumps(templates_dict)
         },
     )
 
@@ -520,7 +539,54 @@ def get_worker_availability(request, team_id, worker_id):
             }
         )
 
-    return JsonResponse({"availabilityData": availability_list})
+    preferred = PreferredTime.objects.filter(user=target_user, team=team)
+    preferred_list = []
+    for p in preferred:
+        start_min = time_to_minutes(p.start_time)
+        end_min = time_to_minutes(p.end_time)
+
+        preferred_list.append(
+            {
+                "day":p.day.lower(),
+                "start_min": start_min,
+                "end_min": end_min,
+                "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
+            }
+        )
+        
+    preferred_roles = UserRolePreference.objects.filter(
+        user=target_user, team=team
+    ).select_related('role', 'section').prefetch_related(
+        Prefetch(
+            'role__fixedobstruction_set',
+            queryset=FixedObstruction.objects.filter(team=team).prefetch_related('days'),
+        )
+    ).order_by('rank')
+
+    pRole_list = [
+        {
+            "rank": pRole.rank,
+            "role_id": pRole.role.id,
+            "role_name": pRole.role.name,
+            "section_id": pRole.section.id if pRole.section else None,
+            "section_name": pRole.section.name if pRole.section else None,
+            "obstructions": [
+                {
+                    "name": o.name,
+                    "section": o.section,
+                    "start_min": time_to_minutes(o.start_time),
+                    "end_min": time_to_minutes(o.end_time),
+                    "days": [d.day for d in o.days.all()],
+                }
+                for o in pRole.role.fixedobstruction_set.all()
+                if o.section is None or o.section == (pRole.section.name if pRole.section else None)
+            ]
+        }
+        for pRole in preferred_roles
+    ]
+
+
+    return JsonResponse({"availabilityData": availability_list, "preferredData": preferred_list, "roleData": pRole_list})
 
 
 # =============================================================================
@@ -1222,6 +1288,7 @@ def create_obstruction(request, team_id):
 
         start_min = data["start_min"]
         end_min = data["end_min"]
+        location = data["location"]
         start_time = time(start_min // 60, start_min % 60)
         end_time = time(end_min // 60, end_min % 60)
         section_id = data.get('section', None)
@@ -1230,6 +1297,7 @@ def create_obstruction(request, team_id):
 
         obstruction = FixedObstruction.objects.create(
             team=team,
+            location=location,
             role=role,
             name=data["name"],
             start_time=start_time,
@@ -1324,3 +1392,50 @@ def account_details(request):
 
     # If it's a GET request, just show the page
     return render(request, 'core/account_details.html')
+
+@require_POST
+@login_required
+def auto_schedule_role(request, team_id):
+    team = get_object_or_404(Team, id=team_id)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    config_data = data.get("config", {})
+    save_template = data.get("saveTemplate", False)
+    template_name = data.get("templateName", "")
+
+    # 1. Save as a new template if requested
+    if save_template and template_name:
+        ScheduleTemplate.objects.create(
+            team=team,
+            name=template_name,
+            duration=config_data.get("duration", 50),
+            interval=config_data.get("interval", 30),
+            weekly_quota=config_data.get("weeklyQuota", 3),
+            daily_max=config_data.get("dailyMax", 1),
+            max_concurrent=config_data.get("maxConcurrent", 1)
+        )
+
+    # 2. Extract engine parameters
+    role_id = config_data.get("roleId")
+    roles_to_schedule = [role_id] if role_id else None
+
+    # Prepare configuration dictionary for the Python solver
+    engine_config = {
+        "duration": config_data.get("duration", 50),
+        "interval": config_data.get("interval", 30),
+        "weekly_quota": config_data.get("weeklyQuota", 3),
+        "daily_max": config_data.get("dailyMax", 1),
+        "max_concurrent": config_data.get("maxConcurrent", 1)
+    }
+
+    # 3. Run the solver
+    try:
+        # We now pass engine_config into our generate_schedule function
+        results = generate_schedule(team, roles=roles_to_schedule, config=engine_config)
+        return JsonResponse({"success": True, "shifts": results})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)

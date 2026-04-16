@@ -679,6 +679,7 @@ function timeToMin (timeStr) {
 
 async function addFixedEvent () {
   const name = document.getElementById('eventNameInput').value.trim()
+  const location = document.getElementById('eventLocationInput').value.trim()
   const roleId = document.getElementById('eventRoleInput').value
   const section = document.getElementById('eventSectionInput').value || null
   const startMin = timeToMin(document.getElementById('eventStartTime').value)
@@ -715,6 +716,7 @@ async function addFixedEvent () {
         },
         body: JSON.stringify({
           name: name,
+          location: location,
           role_id: roleId,
           section: section,
           start_min: startMin,
@@ -729,8 +731,10 @@ async function addFixedEvent () {
       const tag = document.createElement('span')
       tag.className = 'role-tag'
       tag.dataset.obstructionId = data.obstruction_id // store the ID
+      
       tag.innerHTML = `
     <strong>${name}</strong>&nbsp;
+    <em>${location}</em>&nbsp;
     ${dayLabel} &bull; ${formatMin(startMin)} - ${formatMin(endMin)}
     <i class="fa-solid fa-xmark" onclick="deleteObstruction(this)"></i>
 `
