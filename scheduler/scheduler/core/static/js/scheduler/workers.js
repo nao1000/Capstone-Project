@@ -6,7 +6,9 @@ async function loadWorker (workerId, teamId, name, element) {
   document
     .querySelectorAll('.worker-item')
     .forEach(item => item.classList.remove('active'))
-  element.classList.add('active')
+  if (element) {
+    element.classList.add('active')
+  }
   document.getElementById(
     'viewingWorkerLabel'
   ).textContent = `${name} - Availability`
@@ -31,7 +33,6 @@ async function loadWorker (workerId, teamId, name, element) {
     if (!response.ok) throw new Error('Failed to fetch worker availability')
     const data = await response.json()
 
-    
     renderWorkerPanel(workerId, data.roleData)
 
     data.availabilityData.forEach(range => {
@@ -67,7 +68,8 @@ async function loadWorker (workerId, teamId, name, element) {
 
       const startOffset = preferred.start_min - START_HOUR * 60
       const top = (startOffset / 15) * SLOT_HEIGHT
-      const height = ((preferred.end_min - preferred.start_min) / 15) * SLOT_HEIGHT
+      const height =
+        ((preferred.end_min - preferred.start_min) / 15) * SLOT_HEIGHT
 
       const block = document.createElement('div')
       block.className = 'event-block prefer-block'
@@ -226,14 +228,14 @@ async function saveWorkerAssignment () {
 // =============================================================================
 
 // Tracks which preferred role the supervisor is currently previewing
-let previewedRole = null   // { role_id, role_name, section_id, section_name, obstructions }
-let activeWorkerId = null  // set when loadWorker() is called
+let previewedRole = null // { role_id, role_name, section_id, section_name, obstructions }
+let activeWorkerId = null // set when loadWorker() is called
 
 // -----------------------------------------------------------------------------
 // Called by loadWorker() after fetching availability data.
 // Populates the preferred role buttons in the worker panel.
 // -----------------------------------------------------------------------------
-function renderWorkerPanel(workerId, preferredRoles) {
+function renderWorkerPanel (workerId, preferredRoles) {
   activeWorkerId = workerId
   previewedRole = null
   console.log(preferredRoles)
@@ -249,7 +251,8 @@ function renderWorkerPanel(workerId, preferredRoles) {
   container.innerHTML = ''
 
   if (!preferredRoles || preferredRoles.length === 0) {
-    container.innerHTML = '<p style="font-size:11px; color:#bbb;">No preferences set.</p>'
+    container.innerHTML =
+      '<p style="font-size:11px; color:#bbb;">No preferences set.</p>'
     return
   }
 
@@ -260,7 +263,8 @@ function renderWorkerPanel(workerId, preferredRoles) {
 
     const btn = document.createElement('button')
     btn.className = 'btn btn-clear'
-    btn.style.cssText = 'width: 100%; text-align: left; font-size: 12px; padding: 8px 10px;'
+    btn.style.cssText =
+      'width: 100%; text-align: left; font-size: 12px; padding: 8px 10px;'
     btn.textContent = label
     btn.dataset.roleId = pRole.role_id
     btn.onclick = () => previewPreferredRole(pRole, btn)
@@ -273,7 +277,7 @@ function renderWorkerPanel(workerId, preferredRoles) {
 // Highlights the selected role button, draws its obstructions on the grid,
 // and enables the Assign button.
 // -----------------------------------------------------------------------------
-function previewPreferredRole(pRole, clickedBtn) {
+function previewPreferredRole (pRole, clickedBtn) {
   // Highlight the active button
   document.querySelectorAll('#preferredRoleButtons .btn').forEach(b => {
     b.style.background = ''
@@ -307,7 +311,7 @@ function previewPreferredRole(pRole, clickedBtn) {
 // Uses the same DOM approach as renderWorkerObstructions but takes the data
 // directly rather than filtering window.OBSTRUCTIONS.
 // -----------------------------------------------------------------------------
-function renderObstructionsForRole(obstructions) {
+function renderObstructionsForRole (obstructions) {
   const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
 
   obstructions.forEach(obs => {
@@ -319,12 +323,12 @@ function renderObstructionsForRole(obstructions) {
       if (!col) return
 
       const startOffset = obs.start_min - START_HOUR * 60
-      const top    = (startOffset / 15) * SLOT_HEIGHT
+      const top = (startOffset / 15) * SLOT_HEIGHT
       const height = ((obs.end_min - obs.start_min) / 15) * SLOT_HEIGHT
 
       const block = document.createElement('div')
       block.className = 'obstruction-block'
-      block.style.top    = `${top}px`
+      block.style.top = `${top}px`
       block.style.height = `${height}px`
       block.innerHTML = `
         <div style="padding:4px; font-size:11px; color:#555; font-weight:bold;">
@@ -339,7 +343,7 @@ function renderObstructionsForRole(obstructions) {
 // Assigns the previewed role+section to the worker via the existing API.
 // Updates window.WORKERS in memory so the sidebar reflects the change.
 // -----------------------------------------------------------------------------
-async function assignPreviewedRole() {
+async function assignPreviewedRole () {
   if (!previewedRole || !activeWorkerId) return
 
   const label = previewedRole.section_name
@@ -349,20 +353,25 @@ async function assignPreviewedRole() {
   if (!confirm(`Assign "${label}" to this worker?`)) return
 
   try {
-    const res = await fetch(`/api/team/${window.TEAM_ID}/members/save-assignments/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCookie('csrftoken')
-      },
-      body: JSON.stringify({
-        assignments: [{
-          user_id: activeWorkerId,
-          role_id: previewedRole.role_id,
-          section_id: previewedRole.section_id || null
-        }]
-      })
-    })
+    const res = await fetch(
+      `/api/team/${window.TEAM_ID}/members/save-assignments/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+          assignments: [
+            {
+              user_id: activeWorkerId,
+              role_id: previewedRole.role_id,
+              section_id: previewedRole.section_id || null
+            }
+          ]
+        })
+      }
+    )
 
     if (!res.ok) {
       alert('Failed to save assignment.')
@@ -370,8 +379,10 @@ async function assignPreviewedRole() {
     }
 
     // Update window.WORKERS in memory so other parts of the UI stay in sync
-    const workers = typeof window.WORKERS === 'string'
-      ? JSON.parse(window.WORKERS) : window.WORKERS
+    const workers =
+      typeof window.WORKERS === 'string'
+        ? JSON.parse(window.WORKERS)
+        : window.WORKERS
     const worker = workers.find(w => String(w.id) === String(activeWorkerId))
     if (worker) {
       worker.role_id = previewedRole.role_id
@@ -385,10 +396,41 @@ async function assignPreviewedRole() {
 
     const assignBtn = document.getElementById('assignRoleBtn')
     assignBtn.textContent = '✓ Assigned'
-    setTimeout(() => { assignBtn.textContent = 'Assign Role' }, 2000)
-
+    setTimeout(() => {
+      assignBtn.textContent = 'Assign Role'
+    }, 2000)
   } catch (err) {
     console.error(err)
     alert('An error occurred.')
   }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const workerId = params.get('worker_id');
+
+    if (workerId) {
+        // Increase delay to 800ms to ensure Sidebar and window.WORKERS are ready
+        setTimeout(() => {
+            const workersData = typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS;
+            const worker = workersData.find(w => String(w.id) === String(workerId));
+
+            if (worker) {
+                // Try to find the sidebar element, but it's okay if we don't
+                const element = document.querySelector(`.worker-item[data-id="${workerId}"]`);
+
+                console.log("Deep link: Loading grid for", worker.name);
+
+                // Call the loader. We pass 'element' which might be null,
+                // but our fix in Step 1 prevents the crash.
+                loadWorker(worker.id, window.TEAM_ID, worker.name, element);
+
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                console.error("Deep link: Worker ID", workerId, "not found in window.WORKERS");
+            }
+        }, 800);
+    }
+});

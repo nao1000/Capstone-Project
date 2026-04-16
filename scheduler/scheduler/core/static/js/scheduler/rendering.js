@@ -108,3 +108,58 @@ function scrollToDay(dayIndex) {
     behavior: 'smooth'
   })
 }
+
+// Add this to the very bottom of render.js
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const workerId = params.get('worker_id');
+
+    if (workerId) {
+        // We check every 500ms for up to 5 seconds to see if blocks have loaded
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+            // Note: Using [data-worker-id] to match your block.dataset.workerId logic
+            const blocks = document.querySelectorAll(`.shift-block[data-worker-id="${workerId}"]`);
+
+            if (blocks.length > 0) {
+                blocks.forEach(b => {
+                    b.style.outline = "4px solid #007bff";
+                    b.style.zIndex = "1000";
+                    b.style.boxShadow = "0 0 15px rgba(0,123,255,0.6)";
+                });
+
+                blocks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                clearInterval(checkInterval); // Stop looking once found
+            }
+
+            attempts++;
+            if (attempts > 10) clearInterval(checkInterval); // Stop after 5 seconds if nothing found
+        }, 500);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const workerId = params.get('worker_id');
+
+    if (workerId) {
+        // 1. Wait a moment for the sidebar to load the worker list
+        setTimeout(() => {
+            // 2. Find the worker element in the sidebar
+            // Adjust the selector below to match your sidebar's HTML structure
+            const workerElement = document.querySelector(`.worker-item[data-id="${workerId}"]`) ||
+                                 document.querySelector(`.worker-list-item[data-worker-id="${workerId}"]`);
+
+            if (workerElement) {
+                // 3. Simulate a click to trigger the grid rendering logic
+                workerElement.click();
+
+                // 4. Highlight the worker in the sidebar so you know who you're looking at
+                workerElement.classList.add('active');
+                workerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                console.warn(`Worker with ID ${workerId} not found in sidebar.`);
+            }
+        }, 500); // Small delay to ensure the sidebar list is rendered
+    }
+});

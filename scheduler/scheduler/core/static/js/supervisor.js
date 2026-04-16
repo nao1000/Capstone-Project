@@ -1090,3 +1090,160 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Toggle the menu
+function toggleActionMenu(event, button) {
+    event.stopPropagation(); // Prevents immediate closing
+    const parent = button.parentElement;
+
+    // Close other menus
+    document.querySelectorAll('.dropdown').forEach(d => {
+        if (d !== parent) d.classList.remove('active');
+    });
+
+    parent.classList.toggle('active');
+}
+
+// Close menu if clicking outside
+window.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+});
+
+// Reset Logic
+async function resetMember(userId, userName) {
+    if (!confirm(`Reset all Roles and Sections for ${userName}?`)) return;
+
+    try {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/members/${userId}/reset/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            // Find the selects in the table row and clear them
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (row) {
+                row.querySelectorAll('select').forEach(select => select.value = "");
+                // Also clear any visual tags if you use them
+                const tags = row.querySelector('.section-tags-container');
+                if (tags) tags.innerHTML = '';
+            }
+            alert(`Assignments for ${userName} have been cleared.`);
+        }
+    } catch (error) {
+        console.error('Reset error:', error);
+    }
+}
+
+// Inside the loop in supervisor.js that builds your table rows:
+// 1. Construct the URL properly using backticks ``
+const teamId = window.TEAM_ID;
+const workerId = user.id;
+const viewUrl = `/team/${teamId}/scheduler/?worker_id=${workerId}`;
+
+// 2. Insert that variable into your HTML string
+const actionsHtml = `
+    <div class="dropdown">
+        <button class="action-dots" onclick="toggleActionMenu(event, this)">⋮</button>
+        <div class="dropdown-content">
+            <a href="${viewUrl}"> <i class="fa-solid fa-calendar-days"></i> View Schedule
+            </a>
+            <a href="#" onclick="resetMember('${user.id}')">Reset Assignments</a>
+            <hr>
+            <a href="#" class="text-danger" onclick="removeUser('${user.id}')">Remove from Team</a>
+        </div>
+    </div>
+`;
+
+async function removeUserFromTeam(userId, username) {
+    if (!confirm(`Are you sure you want to remove ${username} from the team?`)) return;
+
+    try {
+        // We are going to send 0 or -1 for role_id if 'null' is being rejected
+        const payload = {
+            worker_id: parseInt(userId),
+            role_id: 0 // Using 0 often bypasses "required" checks for integer fields
+        };
+
+        const response = await fetch(`/api/team/${window.TEAM_ID}/roles/unassign/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        });
+
+        // Get the raw text first to avoid the "Unexpected token" crash
+        const rawText = await response.text();
+        let data = {};
+        try {
+            data = JSON.parse(rawText);
+        } catch (e) {
+            console.log("Response was not JSON:", rawText);
+        }
+
+        if (response.ok) {
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (row) {
+                row.style.opacity = '0';
+                setTimeout(() => row.remove(), 300);
+            }
+            console.log("Success:", data);
+        } else {
+            // Show the raw text error if JSON parsing failed
+            alert(`Error: ${data.error || rawText || 'Check Network tab for details'}`);
+        }
+    } catch (error) {
+        console.error('Fetch Error:', error);
+    }
+}
+
+async function resetMember(userId, userName) {
+    if (!confirm(`Clear all current assignments for ${userName}?`)) return;
+
+    try {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/members/save-assignments/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                assignments: [{
+                    user_id: userId,
+                    role_id: null,
+                    section_id: null
+                }]
+            })
+        });
+
+        if (response.ok) {
+            // Find the row using the data-user-id we just added to the HTML
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+
+            if (row) {
+                // 1. Reset the Role Select
+                const roleSelect = row.querySelector('.member-role-select');
+                if (roleSelect) roleSelect.value = "";
+
+                // 2. Reset and Hide the Section Select
+                const sectionSelect = row.querySelector('.member-section-select');
+                if (sectionSelect) {
+                    sectionSelect.value = "";
+                    sectionSelect.style.display = 'none'; // Hide it since no role is selected
+                }
+
+                // 3. Visual feedback: Flash the row
+                row.style.backgroundColor = '#d4edda';
+                setTimeout(() => row.style.backgroundColor = '', 800);
+            }
+            console.log(`Reset successful for ${userName}`);
+        }
+    } catch (error) {
+        console.error('Reset error:', error);
+    }
+}

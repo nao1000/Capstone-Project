@@ -768,5 +768,62 @@ td {
     overflow-y: auto;
 }
 
+.actions-cell {
+    position: relative;
+    text-align: center;
+}
 
+.action-dots {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 10px;
+    top: 30px;
+    background-color: white;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.dropdown.active .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: #333;
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.dropdown-content a:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-content hr {
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+.text-danger { color: #d9534f !important; }
+.text-danger:hover { background-color: #fff5f5 !important; }
+
+.dropdown-content i {
+    width: 20px;
+    margin-right: 8px;
+}
 
