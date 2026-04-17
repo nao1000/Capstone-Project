@@ -40,17 +40,20 @@
             <h2 class="panel-title">Team Members</h2>
             <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
                 onkeyup="filterWorkers()">
-            <div class="worker-list">
-                {% for worker in workers %}
-                <div class="worker-item"
-                    onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
-                    <span>{{ worker.get_full_name|default:worker.username }}</span>
-                    <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
-                        onclick="event.stopPropagation(); openWorkerEditModal('{{ worker.id }}', '{{ worker.get_full_name|default:worker.username }}')">
-                    </i>
+                <div class="worker-list">
+                    {% for worker in workers %}
+                    <div class="worker-item" 
+                        data-worker-id="{{ worker.id }}"
+                        data-team-id="{{ team.id }}"
+                        onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
+                        
+                        <span>{{ worker.get_full_name|default:worker.username }}</span>
+                        <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
+                            onclick="event.stopPropagation(); openWorkerEditModal('{{ worker.id }}', '{{ worker.get_full_name|default:worker.username }}')">
+                        </i>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
             <h2 class="panel-title" style="margin-top: 20px;">Filters </h2>
 
             <div style="padding: 0 5px 15px 5px;">
