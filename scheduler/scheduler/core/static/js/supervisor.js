@@ -1159,46 +1159,35 @@ const actionsHtml = `
 `;
 
 async function removeUserFromTeam(userId, username) {
-    if (!confirm(`Are you sure you want to remove ${username} from the team?`)) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY remove ${username} from ${window.TEAM_NAME}?`)) return;
 
     try {
-        // We are going to send 0 or -1 for role_id if 'null' is being rejected
-        const payload = {
-            worker_id: parseInt(userId),
-            role_id: 0 // Using 0 often bypasses "required" checks for integer fields
-        };
-
-        const response = await fetch(`/api/team/${window.TEAM_ID}/roles/unassign/`, {
+        const response = await fetch(`/api/team/${window.TEAM_ID}/members/remove/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                user_id: userId
+            })
         });
 
-        // Get the raw text first to avoid the "Unexpected token" crash
-        const rawText = await response.text();
-        let data = {};
-        try {
-            data = JSON.parse(rawText);
-        } catch (e) {
-            console.log("Response was not JSON:", rawText);
-        }
-
         if (response.ok) {
+            // Success! Remove from table visually
             const row = document.querySelector(`tr[data-user-id="${userId}"]`);
             if (row) {
+                row.style.transition = 'all 0.3s ease';
                 row.style.opacity = '0';
                 setTimeout(() => row.remove(), 300);
             }
-            console.log("Success:", data);
+            console.log("Database updated: Member removed.");
         } else {
-            // Show the raw text error if JSON parsing failed
-            alert(`Error: ${data.error || rawText || 'Check Network tab for details'}`);
+            const data = await response.json();
+            alert("Error: " + (data.message || "Failed to remove member."));
         }
     } catch (error) {
-        console.error('Fetch Error:', error);
+        console.error("Network error:", error);
     }
 }
 

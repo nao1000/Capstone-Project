@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/shifts/', views.get_schedule_shifts, name='get_schedule_shifts'),
     path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/room-bookings/', views.get_room_bookings, name='get_room_bookings'),
     path('api/team/<uuid:team_id>/room-availability/', views.get_room_availability, name='get_room_availability'),
+    path('api/team/<uuid:team_id>/members/remove/', views.remove_member_from_team, name='remove_member'),
 
     # --- API ENDPOINTS ---
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
