@@ -17,7 +17,16 @@
     console.log("DJANGO SENT ID:", window.TEAM_ID);
     console.log(window.SAVED_AVAILABILITY)
 </script>
-<script src="{% static 'js/availability.js' %}"></script>
+<script src="{% static 'js/availability/config.js' %}"></script>
+<script src="{% static 'js/availability/clipboard.js' %}"></script>
+<script src="{% static 'js/availability/drag-drop.js' %}"></script>
+<script src="{% static 'js/availability/init.js' %}"></script>
+<script src="{% static 'js/availability/layout.js' %}"></script>
+<script src="{% static 'js/availability/modal.js' %}"></script>
+<script src="{% static 'js/availability/prefs.js' %}"></script>
+<script src="{% static 'js/availability/utils.js' %}"></script>
+<script src="{% static 'js/availability/events.js' %}"></script>
+<script src="{% static 'js/availability/grid.js' %}"></script>
 {% endblock %}
 
 {% block content %}

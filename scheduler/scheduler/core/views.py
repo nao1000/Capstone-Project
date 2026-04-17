@@ -367,6 +367,27 @@ def scheduler_view(request, team_id):
             "name": w.get_full_name() or w.username,
             "role_id": role_map.get(w.id),
             "section": section_map.get(str(w.id)),
+            
+            # --- NEW: Pack the prefetched data into the JSON! ---
+            # Note: Double check that 'day', 'start_time', 'end_time', etc. match your exact Django model field names
+            "availabilityData": [
+                {
+                    "day": a.day, 
+                    "start_min": time_to_minutes(a.start_time),
+                    "end_min": time_to_minutes(a.end_time),
+                    "eventName": getattr(a, 'eventName', ''), # Use getattr in case these fields don't exist on your model
+                    "building": getattr(a, 'building', ''),
+                } for a in w.team_availability # Uses the 'to_attr' from your prefetch
+            ],
+            "preferredData": [
+                {
+                    "day": p.day,
+                    "start_min": time_to_minutes(p.start_time),
+                    "end_min": time_to_minutes(p.end_time),
+                } for p in w.preferred # Uses the 'to_attr' from your prefetch
+            ],
+            # If your JS needs specific roleData, you can include that here too
+            "roleData": [{"id": role_map.get(w.id)}] if role_map.get(w.id) else []
         }
         for w in workers
     ])
