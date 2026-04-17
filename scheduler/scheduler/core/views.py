@@ -367,12 +367,12 @@ def scheduler_view(request, team_id):
             "name": w.get_full_name() or w.username,
             "role_id": role_map.get(w.id),
             "section": section_map.get(str(w.id)),
-            
+
             # --- NEW: Pack the prefetched data into the JSON! ---
             # Note: Double check that 'day', 'start_time', 'end_time', etc. match your exact Django model field names
             "availabilityData": [
                 {
-                    "day": a.day, 
+                    "day": a.day,
                     "start_min": time_to_minutes(a.start_time),
                     "end_min": time_to_minutes(a.end_time),
                     "eventName": getattr(a, 'eventName', ''), # Use getattr in case these fields don't exist on your model
@@ -420,7 +420,7 @@ def scheduler_view(request, team_id):
         }
         for o in obstructions
     ])
-    
+
     templates = ScheduleTemplate.objects.filter(team=team)
     templates_dict = {
         str(t.id): {
@@ -574,7 +574,7 @@ def get_worker_availability(request, team_id, worker_id):
                 "label": f"{r.start_time.strftime('%H:%M')} - {r.end_time.strftime('%H:%M')}",
             }
         )
-        
+
     preferred_roles = UserRolePreference.objects.filter(
         user=target_user, team=team
     ).select_related('role', 'section').prefetch_related(
@@ -1460,3 +1460,42 @@ def auto_schedule_role(request, team_id):
         return JsonResponse({"success": True, "shifts": results})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+def remove_member(request, team_id):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+
+        # 1. Find the team
+        team = get_object_or_404(Team, id=team_id)
+
+        # 2. Find the membership record and DELETE it
+        member_record = TeamMember.objects.filter(team=team, user_id=user_id).first()
+
+        if member_record:
+            member_record.delete()
+            return JsonResponse({'status': 'success', 'message': 'Member removed'})
+
+        return JsonResponse({'status': 'error', 'message': 'Member not found'}, status=404)
+
+@require_POST
+def remove_member_from_team(request, team_id):
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+
+        # 1. Get the Team
+        team = Team.objects.get(id=team_id)
+
+        # 2. Remove from Many-to-Many 'members' list
+        # This is what makes them disappear from "joined_teams"
+        team.members.remove(user_id)
+
+        # 3. Delete the Role Assignment
+        # This cleans up their specific role/section for this team
+        TeamRoleAssignment.objects.filter(team=team, user_id=user_id).delete()
+
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
