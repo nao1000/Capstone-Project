@@ -12,7 +12,7 @@
 <script>
     window.TEAM_ID = "{{ team.id }}";  // Make team ID available in JS
 </script>
-<script src="{% static 'js/supervisor.js'%}"></script>
+<script type="module" src="{% static 'js/supervisor/init.js' %}"></script>
 {% endblock %}
 </head>
 {% block content %}
