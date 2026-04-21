@@ -54,6 +54,44 @@ function addSavedEventsToGrid () {
 
     dayCol.appendChild(eventBlock)
   })
+  console.log(window.SAVED_PREF)
+
+  window.SAVED_PREF.forEach(item => {
+  const dayKey = (item.day || '').toLowerCase()
+  const dayIndex = dayStringToInt[dayKey]
+
+  if (dayIndex === undefined) return
+  const dayCol = document.querySelector(`.day-col[data-day="${dayIndex}"]`)
+  if (!dayCol) return
+
+  const startParts = item.start.split(':')
+  const endParts = item.end.split(':')
+
+  const startMin = parseInt(startParts[0]) * 60 + parseInt(startParts[1])
+  const endMin = parseInt(endParts[0]) * 60 + parseInt(endParts[1])
+
+  const totalStartMin = startMin - window.START_HOUR * 60
+  const totalEndMin = endMin - window.START_HOUR * 60
+
+  if (totalStartMin < 0) return
+
+  const topPx = (totalStartMin / 15) * SLOT_HEIGHT
+  const heightPx = ((totalEndMin - totalStartMin) / 15) * SLOT_HEIGHT
+
+  const eventBlock = document.createElement('div')
+  eventBlock.className = 'event-block'
+  eventBlock.dataset.mode = 'preferred'
+  eventBlock.style.top = `${topPx}px`
+  eventBlock.style.height = `${heightPx}px`
+  eventBlock.innerHTML = `
+    <div class="delete-x" onclick="removeEventBlock(event, this)">×</div>
+    <div class="event-content">
+      <div class="event-title">Preferred</div>
+      <div class="event-time">${formatMin(startMin)} - ${formatMin(endMin)}</div>
+    </div>`
+
+  dayCol.appendChild(eventBlock)
+})
 }
 
 function removeEventBlock (e, xButton) {

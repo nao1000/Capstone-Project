@@ -264,7 +264,7 @@ body {
 #mainGrid {
     display: flex;
     flex-direction: row;
-    height: calc(10 * 4 * var(--slot-height));
+    height: calc(13 * 4 * var(--slot-height));
     width: max-content;
     min-width: 100%;
 }
@@ -277,7 +277,8 @@ body {
     overflow-y: hidden;
     scrollbar-gutter: stable;
     flex-shrink: 0;
-    height: 40px;
+    height: auto;
+    min-height: 40px;
     background: #f8f9fa;
     border-bottom: 1px solid var(--grid-line);
 }

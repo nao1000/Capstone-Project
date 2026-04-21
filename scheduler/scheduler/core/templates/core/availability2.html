@@ -14,8 +14,8 @@
     window.SLOT_HEIGHT = 25
     window.TEAM_ID = '{{ team.id|escapejs }}';
     window.SAVED_AVAILABILITY = JSON.parse('{{ existing_availabilities_json | safe }}')
-    console.log("DJANGO SENT ID:", window.TEAM_ID);
-    console.log(window.SAVED_AVAILABILITY)
+    window.SAVED_PREF = JSON.parse('{{ existing_preferred_json | safe}}')
+    window.SAVED_ROLES = JSON.parse('{{ existing_role_preferences_json | safe}}')
 </script>
 <script src="{% static 'js/availability/config.js' %}"></script>
 <script src="{% static 'js/availability/clipboard.js' %}"></script>

@@ -1,88 +1,4 @@
-// async function runAutoScheduler () {
-//   // 1. Allow massive runs by removing the strict role requirement
-//   const roleId = typeof activeRoleId !== 'undefined' ? activeRoleId : null
-
-//   const btn = document.getElementById('autoScheduleBtn')
-//   if (btn) {
-//     btn.dataset.originalText = btn.innerText
-//     btn.innerText = '⏳ Calculating...'
-//     btn.disabled = true
-//   }
-
-//   try {
-//     const res = await fetch(`/api/team/${window.TEAM_ID}/auto-schedule/`, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'X-CSRFToken': getCookie('csrftoken')
-//       },
-//       body: JSON.stringify({ role_id: roleId }) // Sends null if no role selected (Massive Run)
-//     })
-
-//     const data = await res.json()
-
-//     if (!res.ok) throw new Error(data.error || 'Failed to generate schedule')
-
-//     if (data.shifts.length === 0) {
-//       alert("The algorithm couldn't find any valid slots! Check constraints.")
-//       return
-//     }
-
-//     // Enrich with names
-//     const workers =
-//       typeof window.WORKERS === 'string'
-//         ? JSON.parse(window.WORKERS)
-//         : window.WORKERS
-//     const rooms =
-//       typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
-
-//     const enrichedShifts = data.shifts.map(shift => {
-//       const worker = workers.find(w => w.id == shift.user_id)
-//       const room = rooms.find(r => r.id == shift.room_id)
-//       return {
-//         ...shift,
-//         user_name: worker ? worker.name : 'Unknown Worker',
-//         room_name: room ? room.name : '',
-//         isSaved: false
-//       }
-//     })
-
-//     // --- THE FIX: The Mailroom Sorting ---
-//     // Group the 174 shifts into their respective roles
-//     const shiftsByRole = {}
-//     enrichedShifts.forEach(shift => {
-//       if (!shiftsByRole[shift.role_id]) {
-//         shiftsByRole[shift.role_id] = []
-//       }
-//       shiftsByRole[shift.role_id].push(shift)
-//     })
-
-//     // Save each bucket to local memory so they are there when you switch tabs!
-//     for (const [rId, shifts] of Object.entries(shiftsByRole)) {
-//       localSchedule.save(rId, shifts)
-//     }
-
-//     clearInteractiveGrid(false)
-
-//     // ONLY draw the shifts that belong to the role you are currently looking at
-//     if (activeRoleId) {
-//       const shiftsToRender = shiftsByRole[activeRoleId] || []
-//       renderShiftsToGrid(shiftsToRender, true)
-//     }
-
-//     alert(
-//       `✨ Success! ${enrichedShifts.length} total shifts generated. Click your role filters to review them, then click Save!`
-//     )
-//   } catch (err) {
-//     console.error(err)
-//     alert('Error running auto-scheduler: ' + err.message)
-//   } finally {
-//     if (btn) {
-//       btn.innerText = btn.dataset.originalText
-//       btn.disabled = false
-//     }
-//   }
-// }
+const { act } = require("react")
 
 // Dummy templates for now (We will eventually pass these from Django via window.TEMPLATES)
 const SAVED_TEMPLATES = {
@@ -174,121 +90,136 @@ document.addEventListener('DOMContentLoaded', setupCustomListeners)
 // EXECUTION LOGIC
 // ---------------------------------------------------------
 
-async function executeAutoScheduler() {
-    // 1. Gather all configuration variables
-    const config = {
-        roleId: typeof activeRoleId !== 'undefined' ? activeRoleId : null,
-        duration: parseInt(document.getElementById('configDuration').value, 10),
-        interval: parseInt(document.getElementById('configInterval').value, 10),
-        weeklyQuota: parseInt(document.getElementById('configWeeklyQuota').value, 10),
-        dailyMax: parseInt(document.getElementById('configDailyMax').value, 10),
-        maxConcurrent: parseInt(document.getElementById('configMaxConcurrent').value, 10)
-    };
+async function executeAutoScheduler () {
+  // 1. Gather all configuration variables
+  const config = {
+    roleId: typeof activeRoleId !== 'undefined' ? activeRoleId : null,
+    duration: parseInt(document.getElementById('configDuration').value, 10),
+    interval: parseInt(document.getElementById('configInterval').value, 10),
+    weeklyQuota: parseInt(
+      document.getElementById('configWeeklyQuota').value,
+      10
+    ),
+    dailyMax: parseInt(document.getElementById('configDailyMax').value, 10),
+    maxConcurrent: parseInt(
+      document.getElementById('configMaxConcurrent').value,
+      10
+    )
+  }
 
-    // 2. Gather Template Saving Data
-    const saveAsTemplate = document.getElementById('saveAsTemplateCheck').checked;
-    const newTemplateName = document.getElementById('newTemplateName').value;
+  // 2. Gather Template Saving Data
+  const saveAsTemplate = document.getElementById('saveAsTemplateCheck').checked
+  const newTemplateName = document.getElementById('newTemplateName').value
 
-    if (saveAsTemplate && !newTemplateName.trim()) {
-        alert('Please provide a name to save your new template.');
-        return;
+  if (saveAsTemplate && !newTemplateName.trim()) {
+    alert('Please provide a name to save your new template.')
+    return
+  }
+
+  const payload = {
+    config: config,
+    saveTemplate: saveAsTemplate,
+    templateName: newTemplateName
+  }
+
+  // 3. UI Feedback (Show loading state on the modal's save button)
+  const btn = document.querySelector('#autoScheduleConfigModal .btn-save')
+  const originalText = btn.textContent
+  btn.textContent = '⏳ Running Algorithm...'
+  btn.disabled = true
+
+  try {
+    console.log('Sending payload to backend:', payload)
+
+    const res = await fetch(`/api/team/${window.TEAM_ID}/auto-schedule/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(payload)
+    })
+
+    const data = await res.json()
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to generate schedule')
     }
 
-    const payload = {
-        config: config,
-        saveTemplate: saveAsTemplate,
-        templateName: newTemplateName
-    };
-
-    // 3. UI Feedback (Show loading state on the modal's save button)
-    const btn = document.querySelector('#autoScheduleConfigModal .btn-save');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ Running Algorithm...';
-    btn.disabled = true;
-
-    try {
-        console.log('Sending payload to backend:', payload);
-
-        const res = await fetch(`/api/team/${window.TEAM_ID}/auto-schedule/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Failed to generate schedule');
-        }
-
-        if (data.shifts.length === 0) {
-            alert("The algorithm couldn't find any valid slots! Check your constraints.");
-            closeAutoScheduleModal();
-            return;
-        }
-
-        // --- ENRICHMENT & MAILROOM SORTING ---
-        const workers = typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS;
-        const rooms = typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS;
-
-        const enrichedShifts = data.shifts.map(shift => {
-            const worker = workers.find(w => w.id == shift.user_id);
-            const room = rooms.find(r => r.id == shift.room_id);
-            return {
-                ...shift,
-                user_name: worker ? worker.name : 'Unknown Worker',
-                room_name: room ? room.name : '',
-                isSaved: false
-            };
-        });
-
-        // Group the shifts into their respective roles
-        const shiftsByRole = {};
-        enrichedShifts.forEach(shift => {
-            if (!shiftsByRole[shift.role_id]) {
-                shiftsByRole[shift.role_id] = [];
-            }
-            shiftsByRole[shift.role_id].push(shift);
-        });
-
-        // Save each bucket to local memory so they persist across role tab switches
-        for (const [rId, shifts] of Object.entries(shiftsByRole)) {
-            localSchedule.save(rId, shifts);
-        }
-
-        if (typeof clearInteractiveGrid === 'function') {
-            clearInteractiveGrid(false);
-        }
-
-        // ONLY draw the shifts that belong to the role you are currently looking at
-        if (typeof activeRoleId !== 'undefined' && activeRoleId) {
-            const shiftsToRender = shiftsByRole[activeRoleId] || [];
-            if (typeof renderShiftsToGrid === 'function') {
-                renderShiftsToGrid(shiftsToRender, true);
-            }
-        }
-
-        // --- SUCCESS ALERTS ---
-        let successMsg = `✨ Success! ${enrichedShifts.length} total shifts generated. Click your role filters to review them, then click Save!`;
-        if (payload.saveTemplate) {
-            successMsg += `\n\n(Also saved "${payload.templateName}" as a new template for next time!)`;
-        }
-        alert(successMsg);
-
-        // Close the modal upon total success
-        closeAutoScheduleModal();
-
-    } catch (err) {
-        console.error(err);
-        alert('Error running auto-scheduler: ' + err.message);
-    } finally {
-        // Revert button state
-        if (btn) {
-            btn.textContent = originalText;
-            btn.disabled = false;
-        }
+    if (data.shifts.length === 0) {
+      alert(
+        "The algorithm couldn't find any valid slots! Check your constraints."
+      )
+      closeAutoScheduleModal()
+      return
     }
+
+    // --- ENRICHMENT & MAILROOM SORTING ---
+    const workers =
+      typeof window.WORKERS === 'string'
+        ? JSON.parse(window.WORKERS)
+        : window.WORKERS
+    const rooms =
+      typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
+
+    const enrichedShifts = data.shifts.map(shift => {
+      const worker = workers.find(w => w.id == shift.user_id)
+      const room = rooms.find(r => r.id == shift.room_id)
+      return {
+        ...shift,
+        user_name: worker ? worker.name : 'Unknown Worker',
+        room_name: room ? room.name : '',
+        isSaved: false
+      }
+    })
+
+    // Group the shifts into their respective roles
+    const shiftsByRole = {}
+    enrichedShifts.forEach(shift => {
+      if (!shiftsByRole[shift.role_id]) {
+        shiftsByRole[shift.role_id] = []
+      }
+      shiftsByRole[shift.role_id].push(shift)
+    })
+
+    // Save each bucket to local memory so they persist across role tab switches
+    for (const [rId, shifts] of Object.entries(shiftsByRole)) {
+      localSchedule.save(rId, shifts)
+    }
+
+    if (typeof clearInteractiveGrid === 'function') {
+      clearInteractiveGrid(false)
+    }
+
+    // ONLY draw the shifts that belong to the role you are currently looking at
+    console.log(activeRoleId)
+    if (typeof activeRoleId !== 'undefined' && activeRoleId) {
+      const shiftsToRender = shiftsByRole[activeRoleId] || []
+      if (typeof renderShiftsToGrid === 'function') {
+        renderShiftsToGrid(shiftsToRender, true)
+      }
+    } else {
+      // Master view — render all roles
+      await loadMasterView()
+    }
+
+    // --- SUCCESS ALERTS ---
+    let successMsg = `✨ Success! ${enrichedShifts.length} total shifts generated. Click your role filters to review them, then click Save!`
+    if (payload.saveTemplate) {
+      successMsg += `\n\n(Also saved "${payload.templateName}" as a new template for next time!)`
+    }
+    alert(successMsg)
+
+    // Close the modal upon total success
+    closeAutoScheduleModal()
+  } catch (err) {
+    console.error(err)
+    alert('Error running auto-scheduler: ' + err.message)
+  } finally {
+    // Revert button state
+    if (btn) {
+      btn.textContent = originalText
+      btn.disabled = false
+    }
+  }
 }

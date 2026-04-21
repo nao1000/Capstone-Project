@@ -29,7 +29,6 @@
 <script src="{% static 'js/scheduler/schedules.js' %}"></script>
 <script src="{% static 'js/scheduler/utils.js' %}"></script>
 <script src="{% static 'js/scheduler/workers.js' %}"></script>
-
 {% endblock %}
 
 {% block content %}
@@ -37,6 +36,9 @@
 
     <aside class="sidebar">
         <div class="panel">
+            <button class="btn btn-save" style="width:100%; margin-bottom:12px;" onclick="loadMasterView()">
+                ⊞ Master View
+            </button>
             <h2 class="panel-title">Team Members</h2>
             <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
                 onkeyup="filterWorkers()">

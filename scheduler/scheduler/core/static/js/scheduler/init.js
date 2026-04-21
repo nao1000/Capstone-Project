@@ -2,11 +2,11 @@ const csrfToken = document
   .querySelector('meta[name="csrf-token"]')
   .getAttribute('content')
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   drawTimeLabels('mainTimeCol')
   setupDragListeners()
   initFilters()
-  initSchedules()
+  await initSchedules()
 
   const scrollArea = document.getElementById('mainScrollArea')
   const header = document.getElementById('mainGridHeader')
@@ -28,4 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('modalRoomSelect').value = block.dataset.roomId
     }
   })
+
+  // --- Default view on page load ---
+  const workerId = sessionStorage.getItem('loadWorkerId')
+  const workerName = sessionStorage.getItem('loadWorkerName')
+  if (workerId) {
+    sessionStorage.removeItem('loadWorkerId')
+    sessionStorage.removeItem('loadWorkerName')
+    const element = document.querySelector(`.worker-item[data-worker-id="${workerId}"]`)
+    loadWorker(workerId, window.TEAM_ID, workerName, element)
+  } else {
+    loadMasterView()  // default when arriving normally
+  }
 })

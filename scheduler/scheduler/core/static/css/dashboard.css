@@ -15,18 +15,27 @@ body {
 
 .container {
     display: flex;
+    justify-content: center;
     padding: 30px 40px;
     gap: 20px;
-    width: 1120px;
+    max-width: 1200px;
     margin: 0 auto;
     box-sizing: border-box;
 }
 
 .main-content {
-    width: 800px;
+    width: 100%;
+    max-width: 800px;
     flex-shrink: 0;
-    height: auto;
-    padding-right: 15px; /* Adds breathing room for the scrollbar */
+    padding-right: 15px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--dash-border);
+    padding-bottom: 5px;
+ /* was hardcoded 750px */
 }
 
 .events-sidebar {
@@ -103,13 +112,7 @@ body {
     gap: 8px;
 }
 
-h2 {
-    font-size: 1.8rem;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--dash-border);
-    padding-bottom: 5px;
-    width: 750px;
-}
+
 
 /* Teams - Scroll Logic */
 .teams-scroll-wrapper {

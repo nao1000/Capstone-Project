@@ -1,11 +1,20 @@
-export const START_HOUR = 8;
-export const END_HOUR = 19;
-export const HOURS_TOTAL = END_HOUR - START_HOUR;
-export const SLOT_HEIGHT = 10;
-export const PIXELS_PER_HOUR = 40;
+// CONFIG
 
-export const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+const START_HOUR = 8        // 8 AM
+const END_HOUR = 19         // 7 PM
+const HOURS_TOTAL = END_HOUR - START_HOUR
 
-// Mutable shared state
-export let roomData = [];
-export const setRoomData = (data) => { roomData = data; };
+const SLOT_HEIGHT = 10      // 10px = 15 mins
+const PIXELS_PER_HOUR = 40  // 40px = 1 hour
+
+const csrfToken = document
+  .querySelector('meta[name="csrf-token"]')
+  .getAttribute('content')
+
+// Pull room data from hidden HTML elements rendered by Django
+const roomElements = document.querySelectorAll('.room-info')
+let roomData = Array.from(roomElements).map(el => ({
+  id: el.dataset.id,
+  name: el.dataset.name,
+  schedule: [] // { day: 0, top: 0, height: 60 }
+}))

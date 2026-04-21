@@ -12,7 +12,16 @@
 <script>
     window.TEAM_ID = "{{ team.id }}";  // Make team ID available in JS
 </script>
-<script type="module" src="{% static 'js/supervisor/init.js' %}"></script>
+<script src="{% static 'js/supervisor/config.js' %}"></script>
+<script src="{% static 'js/supervisor/drag-drop.js' %}"></script>
+<script src="{% static 'js/supervisor/fixed-events.js' %}"></script>
+<script src="{% static 'js/supervisor/layout.js' %}"></script>
+<script src="{% static 'js/supervisor/members-table.js' %}"></script>
+<script src="{% static 'js/supervisor/members.js' %}"></script>
+<script src="{% static 'js/supervisor/roles.js' %}"></script>
+<script src="{% static 'js/supervisor/room-scheduler.js' %}"></script>
+<script src="{% static 'js/supervisor/utils.js' %}"></script>
+<script src="{% static 'js/supervisor/init.js' %}"></script>
 {% endblock %}
 </head>
 {% block content %}
@@ -76,7 +85,8 @@
                         <div class="dropdown">
                             <button class="action-dots" onclick="toggleActionMenu(event, this)">⋮</button>
                             <div class="dropdown-content">
-                                <a href="{% url 'scheduler' team.id %}?worker_id={{ entry.user.id }}">
+                                <a href="{% url 'scheduler' team.id %}" onclick="sessionStorage.setItem('loadWorkerId', '{{ entry.user.id }}');
+                                                                                sessionStorage.setItem('loadWorkerName', '{{ entry.user.get_full_name|default:entry.user.username|escapejs }}')">
                                     <i class="fa-solid fa-calendar-days"></i> View Schedule
                                 </a>
 
