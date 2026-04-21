@@ -1,5 +1,3 @@
-const { act } = require("react")
-
 // Dummy templates for now (We will eventually pass these from Django via window.TEMPLATES)
 const SAVED_TEMPLATES = {
   1: {

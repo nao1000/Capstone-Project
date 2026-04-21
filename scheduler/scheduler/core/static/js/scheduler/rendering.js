@@ -19,7 +19,7 @@ function renderShiftsToGrid (shifts, isLocal = false) {
     const top = (startOffset / 15) * SLOT_HEIGHT
     const height = ((s.end_min - s.start_min) / 15) * SLOT_HEIGHT
 
-    const colorClass = !isLocal || s.isSaved ? 'saved' : 'local'
+    const colorClass = s.isSaved ? 'saved' : 'local'
 
     const block = document.createElement('div')
     block.className = `event-block shift-block ${colorClass}`
@@ -214,7 +214,9 @@ async function loadMasterView () {
   })
   }
   // --- Shifts ---
+console.log("AM2 I HERE?", activeScheduleId)
   if (activeScheduleId) {
+    console.log("AM I HERE?", activeScheduleId)
     let shiftData = scheduleShiftCache[activeScheduleId]
     if (!shiftData) {
       const res = await fetch(
@@ -226,7 +228,8 @@ async function loadMasterView () {
 
     const rooms =
       typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
-    const enriched = shiftData.shifts.map(s => {
+
+    const savedShifts = shiftData.shifts.map(s => {
       const worker = sortedWorkers.find(w => String(w.id) === String(s.user_id))
       const room = rooms.find(r => String(r.id) === String(s.room_id))
       return {
@@ -236,6 +239,23 @@ async function loadMasterView () {
         isSaved: true
       }
     })
-    renderShiftsToGrid(enriched, false)
+
+    // Merge in any local unsaved shifts
+    const localShifts = localSchedule.getAll().map(s => {
+      const worker = sortedWorkers.find(w => String(w.id) === String(s.user_id))
+      const room = rooms.find(r => String(r.id) === String(s.room_id))
+      return {
+        ...s,
+        user_name: worker ? worker.name : s.user_name || 'Unknown',
+        room_name: room ? room.name : '',
+        isSaved: false
+      }
+    })
+
+    // Deduplicate — if a shift exists in both, prefer the saved version
+    const savedIds = new Set(savedShifts.map(s => s.id).filter(Boolean))
+    const uniqueLocalShifts = localShifts.filter(s => !s.id || !savedIds.has(s.id))
+
+    renderShiftsToGrid([...savedShifts, ...uniqueLocalShifts], false)
   }
 }
