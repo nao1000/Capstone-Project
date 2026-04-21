@@ -1,4 +1,4 @@
-async function initSchedules() {
+async function initSchedules () {
   const res = await fetch(`/api/team/${window.TEAM_ID}/schedules/`)
   const data = await res.json()
 
@@ -15,23 +15,33 @@ async function initSchedules() {
     }
     select.appendChild(option)
   })
+  // const workerId = sessionStorage.getItem('loadWorkerId')
+  // const workerName = sessionStorage.getItem('loadWorkerName')
+  // if (workerId && activeScheduleId) {
+  //   sessionStorage.removeItem('loadWorkerId')
+  //   sessionStorage.removeItem('loadWorkerName')
 
-  if (activeScheduleId) {
-    loadScheduleShifts()
-  }
+  //   const element = document.querySelector(
+  //     `.worker-item[data-worker-id="${workerId}"]`
+  //   )
+  //   loadWorker(workerId, window.TEAM_ID, workerName, element)
+  // }
+  // // if (activeScheduleId) {
+  // //   await loadScheduleShifts()  // wait for shifts before returning
+  // // }
 }
 
-function openCreateScheduleModal() {
+function openCreateScheduleModal () {
   document.getElementById('createScheduleModal').classList.add('show')
   document.getElementById('newScheduleName').value = ''
   document.getElementById('newScheduleName').focus()
 }
 
-function closeCreateScheduleModal() {
+function closeCreateScheduleModal () {
   document.getElementById('createScheduleModal').classList.remove('show')
 }
 
-async function createSchedule() {
+async function createSchedule () {
   const name = document.getElementById('newScheduleName').value.trim()
   if (!name) {
     alert('Please enter a schedule name.')
@@ -71,7 +81,7 @@ async function createSchedule() {
   }
 }
 
-async function loadScheduleShifts() {
+async function loadScheduleShifts () {
   const select = document.getElementById('scheduleSelect')
   activeScheduleId = select.value
   if (!activeScheduleId) return
@@ -87,7 +97,9 @@ async function loadScheduleShifts() {
     const data = await res.json()
 
     const workers =
-      typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS
+      typeof window.WORKERS === 'string'
+        ? JSON.parse(window.WORKERS)
+        : window.WORKERS
     const rooms =
       typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
 
@@ -118,21 +130,24 @@ async function loadScheduleShifts() {
   }
 }
 
-async function setActiveSchedule() {
+async function setActiveSchedule () {
   if (!activeScheduleId) {
     alert('Please select a schedule first.')
     return
   }
 
   try {
-    const res = await fetch(`/api/team/${window.TEAM_ID}/schedules/set-active/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken
-      },
-      body: JSON.stringify({ schedule_id: activeScheduleId })
-    })
+    const res = await fetch(
+      `/api/team/${window.TEAM_ID}/schedules/set-active/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ schedule_id: activeScheduleId })
+      }
+    )
 
     if (res.ok) {
       const select = document.getElementById('scheduleSelect')
@@ -149,110 +164,118 @@ async function setActiveSchedule() {
   }
 }
 
-async function saveAllPreferences() {
+async function saveAllPreferences () {
   if (!activeScheduleId) {
     alert('Please select or create a schedule first.')
     return
   }
 
   // 1. Determine our save mode (All Roles vs. Single Role)
-  let saveAll = false;
-  
+  let saveAll = false
+
   if (activeRoleId) {
     // If they have a role selected, ask them what they want to do
     saveAll = confirm(
-      "Would you like to save shifts for ALL roles?\n\n" +
-      "• Click OK to save ALL generated shifts across all roles.\n" +
-      "• Click Cancel to save ONLY the current role filter."
-    );
+      'Would you like to save shifts for ALL roles?\n\n' +
+        '• Click OK to save ALL generated shifts across all roles.\n' +
+        '• Click Cancel to save ONLY the current role filter.'
+    )
   } else {
     // If no role is selected, assume they want to save everything
-    saveAll = true; 
+    saveAll = true
   }
 
-  snapshotCurrentGrid();
+  snapshotCurrentGrid()
 
   try {
-    let totalSaved = 0;
-    let allConflicts = [];
+    let totalSaved = 0
+    let allConflicts = []
 
     if (!saveAll) {
       // --- SAVE SINGLE ROLE ---
-      const shifts = localSchedule.getForRole(activeRoleId) || [];
-      const data = await saveRoleShifts(activeRoleId, shifts);
-      
-      totalSaved = data.saved || 0;
-      if (data.conflicts) allConflicts.push(...data.conflicts);
+      const shifts = localSchedule.getForRole(activeRoleId) || []
+      const data = await saveRoleShifts(activeRoleId, shifts)
 
+      totalSaved = data.saved || 0
+      if (data.conflicts) allConflicts.push(...data.conflicts)
     } else {
       // --- SAVE ALL ROLES ---
-      const allShifts = localSchedule.getAll(); // Returns a flat array of everything
-      
+      const allShifts = localSchedule.getAll() // Returns a flat array of everything
+
       // Group the flat array into buckets by role_id
-      const shiftsByRole = {};
+      const shiftsByRole = {}
       allShifts.forEach(shift => {
-        const rId = shift.role_id;
-        if (!shiftsByRole[rId]) shiftsByRole[rId] = [];
-        shiftsByRole[rId].push(shift);
-      });
+        const rId = shift.role_id
+        if (!shiftsByRole[rId]) shiftsByRole[rId] = []
+        shiftsByRole[rId].push(shift)
+      })
 
       // Map over every grouped bucket and create a save request for each
-      const promises = Object.entries(shiftsByRole).map(async ([rId, shifts]) => {
-        const data = await saveRoleShifts(rId, shifts);
-        totalSaved += (data.saved || 0);
-        if (data.conflicts && data.conflicts.length > 0) {
-          allConflicts.push(...data.conflicts);
+      const promises = Object.entries(shiftsByRole).map(
+        async ([rId, shifts]) => {
+          const data = await saveRoleShifts(rId, shifts)
+          totalSaved += data.saved || 0
+          if (data.conflicts && data.conflicts.length > 0) {
+            allConflicts.push(...data.conflicts)
+          }
         }
-      });
+      )
 
       // Wait for all the individual role saves to finish simultaneously!
-      await Promise.all(promises);
+      await Promise.all(promises)
     }
 
     // 2. Report the results
     if (allConflicts.length > 0) {
-      const messages = allConflicts.map(c => `⚠️ ${c.message}`).join('\n');
-      alert(`Saved ${totalSaved} total shifts, but with conflicts:\n\n${messages}`);
+      const messages = allConflicts.map(c => `⚠️ ${c.message}`).join('\n')
+      alert(
+        `Saved ${totalSaved} total shifts, but with conflicts:\n\n${messages}`
+      )
     } else {
-      alert(`✓ Successfully saved ${totalSaved} shifts!`);
+      alert(`✓ Successfully saved ${totalSaved} shifts!`)
     }
 
     // 3. Visually update the blocks on the screen
-    document.querySelectorAll('#interactiveGrid .shift-block.local').forEach(block => {
-      block.classList.remove('local');
-      block.classList.add('saved');
-    });
-
+    document
+      .querySelectorAll('#interactiveGrid .shift-block.local')
+      .forEach(block => {
+        block.classList.remove('local')
+        block.classList.add('saved')
+      })
   } catch (err) {
-    console.error('Error saving shifts:', err);
-    alert('An error occurred while saving. Check the console.');
+    console.error('Error saving shifts:', err)
+    alert('An error occurred while saving. Check the console.')
   }
 }
 
 // Helper function remains exactly the same as before
-async function saveRoleShifts(roleId, shifts) {
-  const res = await fetch(`/api/team/${window.TEAM_ID}/schedules/save-shifts/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': typeof csrfToken !== 'undefined' ? csrfToken : getCookie('csrftoken')
-    },
-    body: JSON.stringify({
-      schedule_id: activeScheduleId,
-      role_id: roleId,
-      shifts: shifts || []
-    })
-  });
+async function saveRoleShifts (roleId, shifts) {
+  const res = await fetch(
+    `/api/team/${window.TEAM_ID}/schedules/save-shifts/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':
+          typeof csrfToken !== 'undefined' ? csrfToken : getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        schedule_id: activeScheduleId,
+        role_id: roleId,
+        shifts: shifts || []
+      })
+    }
+  )
 
   if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Failed to save role ${roleId}`);
+    const errData = await res.json().catch(() => ({}))
+    throw new Error(errData.error || `Failed to save role ${roleId}`)
   }
-  
-  return await res.json();
+
+  return await res.json()
 }
 
-function exportSchedule() {
+function exportSchedule () {
   if (!activeScheduleId) {
     alert('Please select a schedule to export.')
     return

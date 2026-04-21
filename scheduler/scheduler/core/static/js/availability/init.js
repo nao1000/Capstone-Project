@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSelectionListeners()
   setupDoubleClickEdit()
   setupKeyboardShortcuts()
+  restoreSavedRolePreferences()
 
   // Restore saved events from server
   addSavedEventsToGrid()

@@ -1,109 +1,136 @@
-async function loadWorker (workerId, teamId, name, element) {
-  activeRoleId = null
-  document
-    .querySelectorAll('.filter-options .btn')
-    .forEach(btn => btn.classList.remove('active'))
-  document
-    .querySelectorAll('.worker-item')
-    .forEach(item => item.classList.remove('active'))
-  if (element) {
-    element.classList.add('active')
-  }
-  document.getElementById(
-    'viewingWorkerLabel'
-  ).textContent = `${name} - Availability`
+const scheduleShiftCache = {};
 
-  buildSingleWorkerGrid(name)
-  renderWorkerObstructions(workerId)
+// Note: We need 'async' here so we can fetch and filter the shifts!
+async function loadWorker(workerId, teamId, name, element) {
+  activeRoleId = null;
+  document.querySelectorAll('.filter-options .btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'));
+  
+  if (element) element.classList.add('active');
+  document.getElementById('viewingWorkerLabel').textContent = `${name} - Availability`;
 
-  const dayMap = {
-    sun: '0',
-    mon: '1',
-    tue: '2',
-    wed: '3',
-    thu: '4',
-    fri: '5',
-    sat: '6'
-  }
+  // Clear grid immediately
+  buildSingleWorkerGrid(name);
+  renderWorkerObstructions(workerId);
+
+  const dayMap = { sun: '0', mon: '1', tue: '2', wed: '3', thu: '4', fri: '5', sat: '6' };
 
   try {
-    const response = await fetch(
-      `/api/team/${teamId}/get-availability/${workerId}/`
-    )
-    if (!response.ok) throw new Error('Failed to fetch worker availability')
-    const data = await response.json()
+    // ==========================================
+    // 1. PULL AVAILABILITY LOCALLY (Zero Delay)
+    // ==========================================
+    const workersList = typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS;
+    const workerLocalData = workersList.find(w => String(w.id) === String(workerId));
 
-    renderWorkerPanel(workerId, data.roleData)
+    if (!workerLocalData) {
+        console.error("Worker not found in local data");
+        return;
+    }
+    console.log(window.WORKERS)
+    const availData = workerLocalData.availabilityData || [];
+    const prefData = workerLocalData.preferredData || [];
+    const roleData = workerLocalData.rolePreferences || [];
 
-    data.availabilityData.forEach(range => {
-      const dayIndex = dayMap[range.day]
-      const dayCol = document.querySelector(
-        `#mainGrid .day-col[data-day="${dayIndex}"]`
-      )
-      if (!dayCol) return
+    renderWorkerPanel(workerId, roleData);
 
-      const startOffset = range.start_min - START_HOUR * 60
-      const top = (startOffset / 15) * SLOT_HEIGHT
-      const height = ((range.end_min - range.start_min) / 15) * SLOT_HEIGHT
+    // ==========================================
+    // 2. Setup Document Fragments for instant rendering
+    // ==========================================
+    const fragments = { '0': document.createDocumentFragment(), '1': document.createDocumentFragment(), '2': document.createDocumentFragment(), '3': document.createDocumentFragment(), '4': document.createDocumentFragment(), '5': document.createDocumentFragment(), '6': document.createDocumentFragment() };
 
-      const block = document.createElement('div')
-      block.className = 'event-block avail-block'
-      block.style.top = `${top}px`
-      block.style.height = `${height}px`
+    // ==========================================
+    // 3. Render Availability 
+    // ==========================================
+    availData.forEach(range => {
+      const dayIndex = dayMap[range.day];
+      if (!fragments[dayIndex]) return;
+
+      const startOffset = range.start_min - START_HOUR * 60;
+      const top = (startOffset / 15) * SLOT_HEIGHT;
+      const height = ((range.end_min - range.start_min) / 15) * SLOT_HEIGHT;
+
+      const block = document.createElement('div');
+      block.className = 'event-block avail-block';
+      block.style.top = `${top}px`;
+      block.style.height = `${height}px`;
+// This will check eventName, then event_name, then name. 
+      // It will also calculate the time string automatically!
+
       block.innerHTML = `
         <div class="event-content">
-          <div class="event-title">${range.eventName}</div>
-          <div class="event-building">${range.building}</div>
-          <div class="event-time">${range.label}</div>
+          <div class="event-title">${range.eventName || range.event_name || range.name || ''}</div>
+          <div class="event-building">${range.building || range.location || ''}</div>
+          <div class="event-time">${range.label || `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`}</div>
         </div>`
-      dayCol.appendChild(block)
-    })
+      fragments[dayIndex].appendChild(block);
+    });
 
-    data.preferredData.forEach(preferred => {
-      const dayIndex = (day = dayMap[preferred.day])
-      const dayCol = document.querySelector(
-        `#mainGrid .day-col[data-day="${dayIndex}"]`
-      )
-      if (!dayCol) return
+    // ==========================================
+    // 4. Render Preferences
+    // ==========================================
+    prefData.forEach(preferred => {
+      const dayIndex = dayMap[preferred.day];
+      if (!fragments[dayIndex]) return;
 
-      const startOffset = preferred.start_min - START_HOUR * 60
-      const top = (startOffset / 15) * SLOT_HEIGHT
-      const height =
-        ((preferred.end_min - preferred.start_min) / 15) * SLOT_HEIGHT
+      const startOffset = preferred.start_min - START_HOUR * 60;
+      const top = (startOffset / 15) * SLOT_HEIGHT;
+      const height = ((preferred.end_min - preferred.start_min) / 15) * SLOT_HEIGHT;
 
-      const block = document.createElement('div')
-      block.className = 'event-block prefer-block'
-      block.style.top = `${top}px`
-      block.style.height = `${height}px`
-      dayCol.appendChild(block)
-    })
+      const block = document.createElement('div');
+      block.className = 'event-block prefer-block';
+      block.style.top = `${top}px`;
+      block.style.height = `${height}px`;
+      fragments[dayIndex].appendChild(block);
+    });
 
-    if (activeScheduleId) {
-      const shiftRes = await fetch(
-        `/api/team/${teamId}/schedules/${activeScheduleId}/shifts/`
-      )
-      const shiftData = await shiftRes.json()
+    // ==========================================
+    // 5. Attach to DOM instantly
+    // ==========================================
+    Object.keys(fragments).forEach(dayIndex => {
+        const dayCol = document.querySelector(`#mainGrid .day-col[data-day="${dayIndex}"]`);
+        if (dayCol && fragments[dayIndex].children.length > 0) {
+            dayCol.appendChild(fragments[dayIndex]);
+        }
+    });
 
-      const rooms =
-        typeof window.ROOMS === 'string'
-          ? JSON.parse(window.ROOMS)
-          : window.ROOMS
+    // ==========================================
+    // 6. HANDLE SHIFTS (Filtered to ONLY this worker)
+    // ==========================================
+    if (typeof activeScheduleId !== 'undefined' && activeScheduleId) {
+        let shiftData;
+        
+        // Check if we already downloaded this schedule's shifts
+        if (scheduleShiftCache[activeScheduleId]) {
+            shiftData = scheduleShiftCache[activeScheduleId];
+        } else {
+            // If not, download them and save to cache
+            const shiftRes = await fetch(`/api/team/${teamId}/schedules/${activeScheduleId}/shifts/`);
+            shiftData = await shiftRes.json();
+            scheduleShiftCache[activeScheduleId] = shiftData;
+        }
 
-      const workerShifts = shiftData.shifts
-        .filter(s => s.user_id == workerId)
-        .map(shift => {
-          const room = rooms.find(r => r.id == shift.room_id)
-          return {
-            ...shift,
-            user_name: name,
-            room_name: room ? room.name : '',
-            isSaved: true
-          }
-        })
-      renderShiftsToGrid(workerShifts, false)
+        const rooms = typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS;
+
+        // FILTER: Only grab the shifts belonging to the clicked worker!
+        const workerShifts = shiftData.shifts
+            .filter(s => String(s.user_id) === String(workerId))
+            .map(shift => {
+                const room = rooms.find(r => String(r.id) === String(shift.room_id));
+                return {
+                    ...shift,
+                    user_name: name,
+                    room_name: room ? room.name : '',
+                    isSaved: true
+                };
+            });
+
+        // Render ONLY this worker's shifts
+        console.log("empty", workerShifts)
+        renderShiftsToGrid(workerShifts, false);
     }
+
   } catch (error) {
-    console.error('Error loading worker:', error)
+    console.error('Error loading worker locally:', error);
   }
 }
 
@@ -249,13 +276,12 @@ function renderWorkerPanel (workerId, preferredRoles) {
 
   const container = document.getElementById('preferredRoleButtons')
   container.innerHTML = ''
-
   if (!preferredRoles || preferredRoles.length === 0) {
     container.innerHTML =
       '<p style="font-size:11px; color:#bbb;">No preferences set.</p>'
     return
   }
-
+  console.log("HERE",preferredRoles)
   preferredRoles.forEach(pRole => {
     const label = pRole.section_name
       ? `#${pRole.rank} ${pRole.role_name} — ${pRole.section_name}`
@@ -277,8 +303,16 @@ function renderWorkerPanel (workerId, preferredRoles) {
 // Highlights the selected role button, draws its obstructions on the grid,
 // and enables the Assign button.
 // -----------------------------------------------------------------------------
-function previewPreferredRole (pRole, clickedBtn) {
+function previewPreferredRole (p, clickedBtn) {
   // Highlight the active button
+  console.log("obs", window.OBSTRUCTIONS)
+  console.log("p", p)
+  const obstructions = window.OBSTRUCTIONS.filter(o => {
+    const matchesSection = o.section ? o.section == p.section_name : true
+    const matchesRole = o.role_id ? o.role_id == p?.role_id : true
+    return matchesSection && matchesRole
+  })
+
   document.querySelectorAll('#preferredRoleButtons .btn').forEach(b => {
     b.style.background = ''
     b.style.color = ''
@@ -290,18 +324,18 @@ function previewPreferredRole (pRole, clickedBtn) {
   // Draw obstructions for this specific role using the embedded data
   // (avoids depending on window.OBSTRUCTIONS which filters by assigned role)
   clearObstructionBlocks()
-  console.log(pRole.obstructions)
-  renderObstructionsForRole(pRole.obstructions || [])
+  console.log("here", obstructions)
+  renderObstructionsForRole(obstructions || [])
 
   // Track selection and enable assign
-  previewedRole = pRole
+  previewedRole = p
   const assignBtn = document.getElementById('assignRoleBtn')
   assignBtn.disabled = false
   assignBtn.style.opacity = '1'
 
-  const label = pRole.section_name
-    ? `${pRole.role_name} — ${pRole.section_name}`
-    : pRole.role_name
+  const label = p.section_name
+    ? `${p.role_name} — ${p.section_name}`
+    : p.role_name
   document.getElementById('previewingRoleLabel').textContent = label
   document.getElementById('workerRoleAssignInfo').style.display = 'block'
 }
@@ -406,31 +440,40 @@ async function assignPreviewedRole () {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
-    const workerId = params.get('worker_id');
+  const params = new URLSearchParams(window.location.search)
+  const workerId = params.get('worker_id')
 
-    if (workerId) {
-        // Increase delay to 800ms to ensure Sidebar and window.WORKERS are ready
-        setTimeout(() => {
-            const workersData = typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS;
-            const worker = workersData.find(w => String(w.id) === String(workerId));
+  if (workerId) {
+    // Increase delay to 800ms to ensure Sidebar and window.WORKERS are ready
+    setTimeout(() => {
+      const workersData =
+        typeof window.WORKERS === 'string'
+          ? JSON.parse(window.WORKERS)
+          : window.WORKERS
+      const worker = workersData.find(w => String(w.id) === String(workerId))
 
-            if (worker) {
-                // Try to find the sidebar element, but it's okay if we don't
-                const element = document.querySelector(`.worker-item[data-id="${workerId}"]`);
+      if (worker) {
+        // Try to find the sidebar element, but it's okay if we don't
+        const element = document.querySelector(
+          `.worker-item[data-id="${workerId}"]`
+        )
 
-                console.log("Deep link: Loading grid for", worker.name);
+        console.log('Deep link: Loading grid for', worker.name)
 
-                // Call the loader. We pass 'element' which might be null,
-                // but our fix in Step 1 prevents the crash.
-                loadWorker(worker.id, window.TEAM_ID, worker.name, element);
+        // Call the loader. We pass 'element' which might be null,
+        // but our fix in Step 1 prevents the crash.
+        loadWorker(worker.id, window.TEAM_ID, worker.name, element)
 
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            } else {
-                console.error("Deep link: Worker ID", workerId, "not found in window.WORKERS");
-            }
-        }, 800);
-    }
-});
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      } else {
+        console.error(
+          'Deep link: Worker ID',
+          workerId,
+          'not found in window.WORKERS'
+        )
+      }
+    }, 800)
+  }
+})

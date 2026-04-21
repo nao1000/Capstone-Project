@@ -50,3 +50,16 @@ function mockLoadAvailability() {
     </div>`
   dayCol.appendChild(block)
 }
+
+function createObstructionBlock (obs) {
+  const startOffset = obs.start_min - START_HOUR * 60
+  const top = (startOffset / 15) * SLOT_HEIGHT
+  const height = ((obs.end_min - obs.start_min) / 15) * SLOT_HEIGHT
+
+  const block = document.createElement('div')
+  block.className = 'obstruction-block'
+  block.style.top = `${top}px`
+  block.style.height = `${height}px`
+  block.innerHTML = `<div style="padding:4px; font-size:11px; font-weight:bold;">${obs.name || 'Unavailable'}<br>${obs.location || ''}</div>`
+  return block
+}

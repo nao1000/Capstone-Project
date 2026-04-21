@@ -93,10 +93,10 @@ function snapshotCurrentGrid() {
 }
 
 async function loadRoleView(roleId, teamId) {
-  const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
-  const data = await response.json()
-  const workers = data.workers
-
+  // const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
+  // const data = await response.json()
+  const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
+  console.log("HERE", workers)
   buildRoleGrid(workers)
 
   const obstructions =
@@ -111,8 +111,9 @@ async function loadRoleView(roleId, teamId) {
       )
       if (!workerCol) return
 
-      const shifts = worker.availability.filter(a => a.day.toLowerCase() === dayKey)
-      shifts.forEach(range => {
+      const busy = worker.availabilityData.filter(a => a.day.toLowerCase() === dayKey)
+      console.log(worker)
+      busy.forEach(range => {
         const startOffset = range.start_min - START_HOUR * 60
         const top = (startOffset / 15) * SLOT_HEIGHT
         const height = ((range.end_min - range.start_min) / 15) * SLOT_HEIGHT
@@ -121,7 +122,12 @@ async function loadRoleView(roleId, teamId) {
         block.className = 'event-block avail-block'
         block.style.top = `${top}px`
         block.style.height = `${height}px`
-        block.innerHTML = `<div class="event-title" style="font-size:9px;">${worker.name}</div>`
+        block.innerHTML = `
+        <div class="event-content">
+          <div class="event-title">${range.eventName || range.event_name || range.name || ''}</div>
+          <div class="event-building">${range.building || range.location || ''}</div>
+          <div class="event-time">${range.label || `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`}</div>
+        </div>`
         workerCol.appendChild(block)
       })
 
@@ -136,19 +142,7 @@ async function loadRoleView(roleId, teamId) {
         if (!o.days.includes(dayKey)) return
         if (o.section && workerData?.section !== o.section) return
 
-        const startOffset = o.start_min - START_HOUR * 60
-        const top = (startOffset / 15) * SLOT_HEIGHT
-        const height = ((o.end_min - o.start_min) / 15) * SLOT_HEIGHT
-
-        const block = document.createElement('div')
-        block.className = 'event-block obstruction-block'
-        block.style.top = `${top}px`
-        block.style.height = `${height}px`
-        block.innerHTML = `
-          <div class="event-content">
-            <div class="event-title" style="font-size:9px;">${o.name}</div>
-          </div>`
-        workerCol.appendChild(block)
+        workerCol.appendChild(createObstructionBlock(o))
       })
     })
   })
