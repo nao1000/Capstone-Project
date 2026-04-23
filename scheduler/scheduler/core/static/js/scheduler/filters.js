@@ -95,8 +95,23 @@ function snapshotCurrentGrid() {
 async function loadRoleView(roleId, teamId) {
   // const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
   // const data = await response.json()
-  const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
-  console.log("HERE", workers)
+  // const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
+  // console.log("HERE", workers)
+    const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
+  const data = await response.json()
+  const workers = data.workers
+
+  if (workers.length === 0) {
+    console.log("HERE")
+    document.getElementById('viewingWorkerLabel').textContent = 'No workers assigned to this role'
+    // Clear the grid and show empty state
+    document.getElementById('mainGridHeader').innerHTML = 
+      '<div class="header-cell time-header">Time</div>'
+    document.getElementById('mainGrid').innerHTML = 
+      '<div class="time-col" id="mainTimeCol"></div>'
+    drawTimeLabels('mainTimeCol')
+    return
+  }
   buildRoleGrid(workers)
 
   const obstructions =

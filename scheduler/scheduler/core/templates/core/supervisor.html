@@ -140,7 +140,7 @@
                     <button class="btn btn-secondary" onclick="addRole()">Add</button>
                 </div>
 
-                <div id="roles-list" class="tags-container" style="overflow-y: auto; padding-right: 5px;">                    {% for role in roles %}
+                <div id="roles-list" class="tags-container" style="overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; align-items: stretch;">                   {% for role in roles %}
                     <div class="role-block" data-role-id="{{ role.id }}">
                         <div class="role-block-header">
                             <span class="role-name">{{ role.name }}</span>
