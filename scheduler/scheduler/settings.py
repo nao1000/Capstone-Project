@@ -16,6 +16,9 @@ load_dotenv()
 # If SECRET_KEY isn't in .env, it falls back to your local insecure key
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5pioan)+&w0%)w_=g*5xi7rpx)ql7(i6a#e=$h+5^9*yzh6bdt')
 
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 # If DEBUG isn't in .env, it defaults to True for local development
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
