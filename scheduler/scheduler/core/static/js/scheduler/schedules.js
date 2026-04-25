@@ -15,20 +15,6 @@ async function initSchedules () {
     }
     select.appendChild(option)
   })
-  // const workerId = sessionStorage.getItem('loadWorkerId')
-  // const workerName = sessionStorage.getItem('loadWorkerName')
-  // if (workerId && activeScheduleId) {
-  //   sessionStorage.removeItem('loadWorkerId')
-  //   sessionStorage.removeItem('loadWorkerName')
-
-  //   const element = document.querySelector(
-  //     `.worker-item[data-worker-id="${workerId}"]`
-  //   )
-  //   loadWorker(workerId, window.TEAM_ID, workerName, element)
-  // }
-  // // if (activeScheduleId) {
-  // //   await loadScheduleShifts()  // wait for shifts before returning
-  // // }
 }
 
 function openCreateScheduleModal () {
@@ -201,7 +187,6 @@ async function saveAllPreferences () {
     } else {
       // --- SAVE ALL ROLES ---
       const allShifts = localSchedule.getAll() // Returns a flat array of everything
-
       // Group the flat array into buckets by role_id
       const shiftsByRole = {}
       allShifts.forEach(shift => {
@@ -209,7 +194,7 @@ async function saveAllPreferences () {
         if (!shiftsByRole[rId]) shiftsByRole[rId] = []
         shiftsByRole[rId].push(shift)
       })
-
+      console.log(shiftsByRole)
       // Map over every grouped bucket and create a save request for each
       const promises = Object.entries(shiftsByRole).map(
         async ([rId, shifts]) => {

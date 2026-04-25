@@ -75,9 +75,28 @@ function renderWorkerObstructions (workerId) {
   })
 }
 
-function clearInteractiveGrid (withConfirm = true) {
-  if (withConfirm && !confirm('Clear all assigned shifts?')) return
-  document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
+async function clearInteractiveGrid (withConfirm = true) {
+  console.log("Hel")
+  if (withConfirm && (prompt('Type CLEAR to confirm shift deletion:') != "CLEAR")) return
+  try {
+    const response = await fetch(`/api/team/${window.TEAM_ID}/schedule/${activeScheduleId}/shifts/delete/`, {
+      method: 'DELETE',
+      headers: {'X-CSRFToken': csrfToken}
+    })
+
+    if (response.ok) {
+      document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
+      localSchedule.clear()
+    }
+    else {
+      alert('Failed to delete shifts')
+    }
+  }
+  catch (error) {
+    console.error(error)
+    alert('An error occured.')
+  }
+  
 }
 
 function clearObstructionBlocks () {

@@ -93,16 +93,11 @@ function snapshotCurrentGrid() {
 }
 
 async function loadRoleView(roleId, teamId) {
-  // const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
-  // const data = await response.json()
-  // const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
-  // console.log("HERE", workers)
-    const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
+  const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
   const data = await response.json()
-  const workers = data.workers
-
+  const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
+  console.log("WORKERS:", workers)
   if (workers.length === 0) {
-    console.log("HERE")
     document.getElementById('viewingWorkerLabel').textContent = 'No workers assigned to this role'
     // Clear the grid and show empty state
     document.getElementById('mainGridHeader').innerHTML = 
@@ -126,8 +121,11 @@ async function loadRoleView(roleId, teamId) {
       )
       if (!workerCol) return
 
-      const busy = worker.availabilityData.filter(a => a.day.toLowerCase() === dayKey)
-      console.log(worker)
+      // ==========================================
+      // 1. Render Availability
+      // ==========================================
+      const busy = (worker.availabilityData || []).filter(a => a.day.toLowerCase() === dayKey)
+      
       busy.forEach(range => {
         const startOffset = range.start_min - START_HOUR * 60
         const top = (startOffset / 15) * SLOT_HEIGHT
@@ -146,6 +144,26 @@ async function loadRoleView(roleId, teamId) {
         workerCol.appendChild(block)
       })
 
+      // ==========================================
+      // 2. Render Preferences (NEW ADDITION)
+      // ==========================================
+      const prefs = (worker.preferredData || []).filter(p => p.day.toLowerCase() === dayKey)
+      
+      prefs.forEach(preferred => {
+        const startOffset = preferred.start_min - START_HOUR * 60
+        const top = (startOffset / 15) * SLOT_HEIGHT
+        const height = ((preferred.end_min - preferred.start_min) / 15) * SLOT_HEIGHT
+
+        const block = document.createElement('div')
+        block.className = 'event-block prefer-block'
+        block.style.top = `${top}px`
+        block.style.height = `${height}px`
+        workerCol.appendChild(block)
+      })
+
+      // ==========================================
+      // 3. Render Obstructions
+      // ==========================================
       obstructions.forEach(o => {
         if (o.role_id !== parseInt(roleId)) return
         if (!o.days.includes(dayKey)) return
@@ -154,7 +172,6 @@ async function loadRoleView(roleId, teamId) {
           typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS
         ).find(w => w.id === String(worker.id))
 
-        if (!o.days.includes(dayKey)) return
         if (o.section && workerData?.section !== o.section) return
 
         workerCol.appendChild(createObstructionBlock(o))

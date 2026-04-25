@@ -44,7 +44,27 @@ function setupDragListeners() {
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false
-      openModal()
+      
+      const finalHeight = parseInt(activeEvent.style.height, 10)
+      const dayIndex = activeCol.dataset.day
+      const dayKey = DAY_KEYS[parseInt(dayIndex)]
+
+      const startMin = (startTop / SLOT_HEIGHT) * 15 + START_HOUR * 60
+      const endMin = startMin + (finalHeight / SLOT_HEIGHT) * 15
+
+      const newShift = {
+        day: dayKey,
+        start_min: startMin,
+        end_min: endMin,
+        role_id: activeRoleId || null
+      }
+
+      if (!window.localSchedule) {
+        window.localSchedule = []
+      }
+      window.localSchedule.push(newShift)
+
+      openModal(newShift, activeEvent)
     }
   })
 }

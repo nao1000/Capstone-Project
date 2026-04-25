@@ -18,6 +18,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5pioan)+&w0%)w_=g*5xi
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = ['https://coorda.cs.arizona.edu', 'http://oswald1.cs.arizona.edu']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # If DEBUG isn't in .env, it defaults to True for local development

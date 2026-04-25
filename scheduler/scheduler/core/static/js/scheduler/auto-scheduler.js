@@ -190,10 +190,11 @@ async function executeAutoScheduler () {
     }
 
     // ONLY draw the shifts that belong to the role you are currently looking at
-    console.log(activeRoleId)
+    console.log(localSchedule)
     if (typeof activeRoleId !== 'undefined' && activeRoleId) {
       const shiftsToRender = shiftsByRole[activeRoleId] || []
       if (typeof renderShiftsToGrid === 'function') {
+        
         renderShiftsToGrid(shiftsToRender, true)
       }
     } else {

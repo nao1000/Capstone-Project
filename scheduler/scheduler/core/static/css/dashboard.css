@@ -102,7 +102,7 @@ code {
 .badge {
     position: absolute;
     top: 8px;
-    right: 8px;
+    /* right: 8px; */
     font-size: 9px;
     text-transform: uppercase;
     font-weight: bold;
@@ -188,4 +188,20 @@ code {
 
 .action-btn:active {
     transform: scale(0.97);
+}
+
+.delete-team-btn {
+    position: absolute;
+    top: 10px;      /* Adjust these values to push it exactly where you want it */
+    right: 12px;
+    cursor: pointer;
+    color: #999;
+    font-size: 1.1rem; 
+    z-index: 10;    /* Ensures it sits on top of everything else */
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.delete-team-btn:hover {
+    color: #ff4444; /* Turns red on hover */
+    transform: scale(1.1); /* Slight pop effect */
 }
