@@ -13,9 +13,6 @@ const localSchedule = {
     })
   },
 
-//   getForWorker() {
-//     return Object.values(this.shifts).filter(s => s)    
-// },
 
   getForRole (roleId) {
     return Object.values(this.shifts).filter(s => s.role_id === roleId)

@@ -2,7 +2,7 @@ const scheduleShiftCache = {};
 
 // Note: We need 'async' here so we can fetch and filter the shifts!
 async function loadWorker(workerId, teamId, name, element) {
-  console.log(localSchedule)
+
   activeRoleId = null;
   document.querySelectorAll('.filter-options .btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'));
