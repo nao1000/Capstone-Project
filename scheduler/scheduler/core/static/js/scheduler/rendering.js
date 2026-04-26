@@ -80,6 +80,31 @@ function clearInteractiveGrid (withConfirm = true) {
   document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
 }
 
+async function deleteShifts (withConfirm = true) {
+  if (withConfirm && (prompt('Type CLEAR to confirm shift deletion:') != "CLEAR")) return
+  try {
+    const response = await fetch(`/api/team/${window.TEAM_ID}/schedule/${activeScheduleId}/shifts/delete/`, {
+      method: 'DELETE',
+      headers: {'X-CSRFToken': csrfToken}
+    })
+
+    if (response.ok) {
+      if (withConfirm) {
+        document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
+        localSchedule.clear()
+      }
+    }
+    else {
+      alert('Failed to delete shifts')
+    }
+  }
+  catch (error) {
+    console.error(error)
+    alert('An error occured.')
+  }
+  
+}
+
 function clearObstructionBlocks () {
   document.querySelectorAll('.obstruction-block').forEach(b => b.remove())
 }
@@ -140,7 +165,6 @@ async function loadMasterView () {
     return (a.name || '').localeCompare(b.name || '')
   })
 
-  console.log(sortedWorkers)
   buildRoleGrid(sortedWorkers)
 
   const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
@@ -204,19 +228,13 @@ async function loadMasterView () {
     })
   })
 
-  console.log("local", localSchedule)
   if (localSchedule.length > 0) {
   localSchedule.forEach(shifts => {
 
-    if (shifts.length > 0) {
-      console.log("Let's see ", shifts)
-    }
   })
   }
   // --- Shifts ---
-console.log("AM2 I HERE?", activeScheduleId)
   if (activeScheduleId) {
-    console.log("AM I HERE?", activeScheduleId)
     let shiftData = scheduleShiftCache[activeScheduleId]
     if (!shiftData) {
       const res = await fetch(

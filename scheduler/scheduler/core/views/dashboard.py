@@ -3,10 +3,12 @@ views/dashboard.py
 Dashboard and team management views.
 '''
 
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
+from django.shortcuts import get_object_or_404
 
 from ..models import Team
 
@@ -52,3 +54,17 @@ def join_team(request):
     except Team.DoesNotExist:
         pass
     return redirect("dashboard2")
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_team(request, team_id):
+    '''
+    Delete an existing team you own
+    '''
+    team = get_object_or_404(Team, id=team_id)
+    if team.owner != request.user:
+        return HttpResponseForbidden()
+
+    team.delete()
+    return JsonResponse({"ok": True})
+    

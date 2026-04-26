@@ -9,7 +9,7 @@ import io
 
 from datetime import time
 from django.shortcuts import get_object_or_404
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
@@ -257,3 +257,13 @@ def export_schedule(request, team_id, schedule_id):
     response['Content-Disposition'] = f'attachment; filename="{safe_name}_schedule.xlsx"'
 
     return response
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_shifts(request, team_id, schedule_id):
+    schedule = get_object_or_404(Schedule, id=schedule_id)
+    shifts = schedule.shifts.all()
+    shifts.delete()
+    
+    return JsonResponse({"status": "ok"})
+       

@@ -22,10 +22,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (block && !block.classList.contains('temp')) {
       activeEvent = block
       activeCol = block.parentElement
-      openModal()
-      document.getElementById('modalWorkerSelect').value = block.dataset.workerId
-      document.getElementById('modalRoleSelect').value = block.dataset.roleId
-      document.getElementById('modalRoomSelect').value = block.dataset.roomId
+
+      // Set these BEFORE openModal so it can read them
+      window.pendingShift = {
+        id: block.dataset.shiftId,
+        user_id: block.dataset.workerId,
+        role_id: block.dataset.roleId,
+        room_id: block.dataset.roomId
+      }
+
+      openModal(window.pendingShift)
     }
   })
 
@@ -35,9 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (workerId) {
     sessionStorage.removeItem('loadWorkerId')
     sessionStorage.removeItem('loadWorkerName')
-    const element = document.querySelector(`.worker-item[data-worker-id="${workerId}"]`)
+    const element = document.querySelector(
+      `.worker-item[data-worker-id="${workerId}"]`
+    )
     loadWorker(workerId, window.TEAM_ID, workerName, element)
   } else {
-    loadMasterView()  // default when arriving normally
+    loadMasterView() // default when arriving normally
   }
 })

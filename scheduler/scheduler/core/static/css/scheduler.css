@@ -36,40 +36,6 @@ body {
     user-select: none;
 }
 
-/* --- NAVBAR --- */
-.navbar {
-    background-color: var(--nav-bg);
-    height: 60px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 40px;
-    color: white;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.brand {
-    font-family: var(--font-headers);
-    font-size: 32px;
-    font-weight: 400;
-    letter-spacing: 1px;
-}
-
-.nav-links {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.user-profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--font-headers);
-    font-size: 24px;
-    font-weight: 300;
-}
-
 /* --- MAIN LAYOUT --- */
 .main-container {
     display: flex;
@@ -443,10 +409,10 @@ body {
 }
 
 .prefer-block {
-    background-color: orange;
-    border: 1px solid var(--avail-border);
-    border-left: 4px solid var(--avail-border);
-    color: var(--avail-text);
+    background-color: #E0E7FF;
+    border: 1px solid #6366F1;
+    border-left: 4px solid #6366F1;
+    color: #6366F1;
     pointer-events: none;
     opacity: 0.8;
 }
@@ -671,3 +637,4 @@ body {
     /* Creates the soft blue glow around the input */
     box-shadow: 0 0 0 3px rgba(115, 147, 179, 0.2);
 }
+

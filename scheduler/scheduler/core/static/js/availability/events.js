@@ -54,7 +54,6 @@ function addSavedEventsToGrid () {
 
     dayCol.appendChild(eventBlock)
   })
-  console.log(window.SAVED_PREF)
 
   window.SAVED_PREF.forEach(item => {
   const dayKey = (item.day || '').toLowerCase()

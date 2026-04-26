@@ -8,93 +8,98 @@
 {% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="main-content">
-            <h1>Welcome back,
-                {% if user.first_name %}
-                {{ user.first_name }}!
-                {% else %}
-                {{ user.username }}!
-                {% endif %}
-            </h1>
+<div class="container">
+    <div class="main-content">
+        <h1>Welcome back,
+            {% if user.first_name %}
+            {{ user.first_name }}!
+            {% else %}
+            {{ user.username }}!
+            {% endif %}
+        </h1>
 
-            <section>
-                <h2>Your Teams</h2>
-                <div class="teams-scroll-wrapper">
-                    <div class="teams-grid">
+        <section>
+            <h2>Your Teams</h2>
+            <div class="teams-scroll-wrapper">
+                <div class="teams-grid">
 
-                        {# 1. MASTER CHECK: If they have NO teams at all, show the message #}
-                        {% if not owned_teams and not joined_teams %}
-                        <p>You aren't part of any teams yet.</p>
-                        {% else %}
+                    {# 1. MASTER CHECK: If they have NO teams at all, show the message #}
+                    {% if not owned_teams and not joined_teams %}
+                    <p>You aren't part of any teams yet.</p>
+                    {% else %}
 
-                        {# 2. Loop through Owned Teams (Supervisor) #}
-                        {% for team in owned_teams %}
-                        <div>
-                            <a href="{% url 'supervisor' team.id %}" class="team-box supervisor-box">
-                                <span class="badge">Supervisor</span>
-                                <div class="team-initial">{{ team.name|slice:":1" }}</div>
-                                <div class="team-label">{{ team.name }}</div>
+                    {# 2. Loop through Owned Teams (Supervisor) #}
+                    {% for team in owned_teams %}
+                    <div class="team-div">
+                        <a href="{% url 'supervisor' team.id %}" class="team-box supervisor-box"
+                            style="position: relative;">
 
-                                {# The Copy Feature stays here! #}
-                                <div class="team-card-code" onclick="event.preventDefault(); event.stopPropagation();">
-                                    <code>{{ team.join_code|slice:":8" }}...</code>
-                                    <button class="copy-btn-inline" onclick="copyFullCode('{{ team.join_code }}', this)"
-                                        title="Copy Full Code">
-                                        <i class="fa-regular fa-copy"></i>
-                                    </button>
-                                </div>
-                            </a>
-                        </div>
-                        {% endfor %}
+                            <i class="fa-solid fa-xmark delete-team-btn" title="Delete Team"
+                                onclick="event.preventDefault(); event.stopPropagation(); deleteTeam(this, '{{ team.id }}')"></i>
 
-                        {# 3. Loop through Joined Teams (Worker) #}
-                        {% for team in joined_teams %}
-                        <div>
-                            <a href="{% url 'availability' team.id %}" class="team-box worker-box">
-                                <span class="badge">Worker</span>
-                                <div class="team-initial">{{ team.name|slice:":1" }}</div>
-                                <div class="team-label">{{ team.name }}</div>
-                                <div class="team-code">Member</div>
-                            </a>
-                        </div>
-                        {% endfor %}
+                            <span class="badge">Supervisor</span>
+                            <div class="team-initial">{{ team.name|slice:":1" }}</div>
+                            <div class="team-label">{{ team.name }}</div>
 
-                        {% endif %}
+                            {# The Copy Feature stays here! #}
+                            <div class="team-card-code" onclick="event.preventDefault(); event.stopPropagation();">
+                                <code>{{ team.join_code|slice:":8" }}...</code>
+                                <button class="copy-btn-inline" onclick="copyFullCode('{{ team.join_code }}', this)"
+                                    title="Copy Full Code">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        </a>
                     </div>
+                    {% endfor %}
+
+                    {# 3. Loop through Joined Teams (Worker) #}
+                    {% for team in joined_teams %}
+                    <div>
+                        <a href="{% url 'availability' team.id %}" class="team-box worker-box">
+                            <span class="badge">Worker</span>
+                            <div class="team-initial">{{ team.name|slice:":1" }}</div>
+                            <div class="team-label">{{ team.name }}</div>
+                            <div class="team-code">Member</div>
+                        </a>
+                    </div>
+                    {% endfor %}
+
+                    {% endif %}
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <section>
-                <h2>Join/Create Team</h2>
-                <div class="action-container">
+        <section>
+            <h2>Join/Create Team</h2>
+            <div class="action-container">
 
-                    <div class="action-card">
-                        <span class="card-title">
-                            <i class="fa-solid fa-right-to-bracket"></i> Join a Team
-                        </span>
-                        <form action="{% url 'join_team' %}" method="POST">
-                            {% csrf_token %}
-                            <input type="text" name="join_code" placeholder="Enter Join Code" required>
-                            <button type="submit" class="action-btn">Join Team</button>
-                        </form>
-                    </div>
-
-                    <div class="action-card">
-                        <span class="card-title">
-                            <i class="fa-solid fa-plus"></i> Start New Team
-                        </span>
-                        <form action="{% url 'create_team' %}" method="POST">
-                            {% csrf_token %}
-                            <input type="text" name="team_name" placeholder="Enter Team Name" required>
-                            <button type="submit" class="action-btn">Create Team</button>
-                        </form>
-                    </div>
-
+                <div class="action-card">
+                    <span class="card-title">
+                        <i class="fa-solid fa-right-to-bracket"></i> Join a Team
+                    </span>
+                    <form action="{% url 'join_team' %}" method="POST">
+                        {% csrf_token %}
+                        <input type="text" name="join_code" placeholder="Enter Join Code" required>
+                        <button type="submit" class="action-btn">Join Team</button>
+                    </form>
                 </div>
-            </section>
-        </div>
+
+                <div class="action-card">
+                    <span class="card-title">
+                        <i class="fa-solid fa-plus"></i> Start New Team
+                    </span>
+                    <form action="{% url 'create_team' %}" method="POST">
+                        {% csrf_token %}
+                        <input type="text" name="team_name" placeholder="Enter Team Name" required>
+                        <button type="submit" class="action-btn">Create Team</button>
+                    </form>
+                </div>
+
+            </div>
+        </section>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}

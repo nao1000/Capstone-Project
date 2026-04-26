@@ -13,7 +13,7 @@ from .utils import DAY_MAP, time_to_minutes, minutes_to_time, minutes_to_string
 from .auth import signup, auth_ping, account_details
 
 # --- Dashboard & Team ---
-from .dashboard import dashboard, create_team, join_team
+from .dashboard import dashboard, create_team, join_team, delete_team
 
 # --- Full page renders ---
 from .pages import availability_view, supervisor_view, scheduler_view
@@ -30,6 +30,7 @@ from .schedules import (
     get_schedule_shifts,
     get_room_bookings,
     export_schedule,
+    delete_shifts
 )
 
 # --- API: Rooms ---

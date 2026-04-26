@@ -2,7 +2,7 @@
 {% load static %}
 
 
-{% block title %}Coorda - Supervisor Dashboard{% endblock %}
+{% block title %}Coorda - Scheduler{% endblock %}
 {% block extra_css %}
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/scheduler.css' %}">
@@ -15,7 +15,6 @@
     window.WORKERS = JSON.parse('{{ workers_json|safe }}')
     window.ROOMS = JSON.parse('{{ rooms | safe }}')
     window.TEMPLATES = JSON.parse('{{ templates_json|safe }}')
-    console.log(window.ROLES)
 </script>
 <script src="{% static 'js/scheduler/auto-scheduler.js' %}"></script>
 <script src="{% static 'js/scheduler/config.js' %}"></script>
@@ -163,14 +162,14 @@
                         <h4
                             style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
                             Grid Tools</h4>
-                        <button class="btn btn-clear" onclick="clearInteractiveGrid()"
+                        <button class="btn btn-clear" onclick="deleteShifts()"
                             style="width: 100%; text-align: left;">Clear Grid</button>
                         <button class="btn btn-clear" onclick="exportSchedule()"
                             style="width: 100%; text-align: left;">Export Data</button>
 
                         <div style="flex: 1;"></div>
 
-                        <button class="btn btn-save" onclick="saveAllPreferences()"
+                        <button id='saveAllBtn' class="btn btn-save" onclick="saveAllPreferences()"
                             style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
                             Save Schedule
                         </button>

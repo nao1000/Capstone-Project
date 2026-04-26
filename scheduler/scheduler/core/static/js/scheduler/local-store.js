@@ -3,7 +3,7 @@
 const localSchedule = {
   shifts: {},
 
-  save(roleId, shifts) {
+  save (roleId, shifts) {
     Object.keys(this.shifts).forEach(key => {
       if (key.startsWith(`${roleId}-`)) delete this.shifts[key]
     })
@@ -13,15 +13,25 @@ const localSchedule = {
     })
   },
 
-  getForRole(roleId) {
+    saveOne(shift) {
+    const key = `${shift.role_id}-${shift.day}-${shift.start_min}`
+    this.shifts[key] = shift
+  },
+
+    getForWorker(workerId, roleId) {
+        console.log(workerId)
+        return Object.values(this.shifts).filter(s => s.user_id == workerId)
+    },
+
+  getForRole (roleId) {
     return Object.values(this.shifts).filter(s => s.role_id === roleId)
   },
 
-  getAll() {
+  getAll () {
     return Object.values(this.shifts)
   },
 
-  clear(roleId = null) {
+  clear (roleId = null) {
     if (roleId) {
       Object.keys(this.shifts).forEach(key => {
         if (key.startsWith(`${roleId}-`)) delete this.shifts[key]

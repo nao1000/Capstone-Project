@@ -25,19 +25,6 @@
             <a href="{% url 'dashboard2' %}" aria-label="Home" title="Home">
                 <i class="fa-solid fa-house"></i>
             </a>
-            <!-- <div class="icon-group notification-container">
-                <button class="notification-trigger" type="button" aria-label="Notifications" title="Notifications">
-                    <i class="fa-regular fa-bell"></i>
-                </button>
-                <div class="notification-dropdown">
-                    <div class="notification-dropdown-header">
-                        <h3>Notifications</h3>
-                    </div>
-                    <div class="notification-empty">
-                        No notifications yet.
-                    </div>
-                </div>
-            </div> -->
             <div class="user-profile-container">
                 <div class="user-profile">
                     <span>{{ user.first_name|default:user.username }}</span>

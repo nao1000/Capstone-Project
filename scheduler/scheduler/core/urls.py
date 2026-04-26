@@ -7,6 +7,7 @@ urlpatterns = [
     path('dashboard2/', views.dashboard, name='dashboard2'),
     path('team/create/', views.create_team, name='create_team'),
     path('team/join/', views.join_team, name='join_team'),
+    path('api/team/<uuid:team_id>/delete/', views.delete_team, name="delete_team"),
 
     # --- WORKER ROUTES ---
     path('team/<uuid:team_id>/availability/', views.availability_view, name='availability'),
@@ -23,6 +24,7 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/room-bookings/', views.get_room_bookings, name='get_room_bookings'),
     path('api/team/<uuid:team_id>/room-availability/', views.get_room_availability, name='get_room_availability'),
     path('api/team/<uuid:team_id>/members/remove/', views.remove_member_from_team, name='remove_member'),
+    path('api/team/<uuid:team_id>/schedule/<int:schedule_id>/shifts/delete/', views.delete_shifts, name="delete_shifts"),
 
     # --- API ENDPOINTS ---
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),

@@ -1,6 +1,9 @@
 // MODAL
 
-function openModal () {
+function openModal(shift = null) {
+  // store it so the confirm handler can access it
+  window.pendingShift = shift
+
   const modal = document.getElementById('eventModal')
   modal.classList.add('show')
 

@@ -145,7 +145,6 @@ async function resetMember (userId, userName) {
         row.style.backgroundColor = '#d4edda'
         setTimeout(() => (row.style.backgroundColor = ''), 800)
       }
-      console.log(`Reset successful for ${userName}`)
     }
   } catch (error) {
     console.error('Reset error:', error)
