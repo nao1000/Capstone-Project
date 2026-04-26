@@ -1,9 +1,9 @@
-function initFilters() {
+function initFilters () {
   const selectMenu = document.getElementById('courseFilterSelect')
-  if (!selectMenu) return; // Safety check
+  if (!selectMenu) return // Safety check
 
-  const roles = typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
-  console.log(roles)
+  const roles =
+    typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
   // 1. Populate the dropdown menu
   roles.forEach(role => {
     const option = document.createElement('option')
@@ -13,7 +13,7 @@ function initFilters() {
   })
 
   // 2. Handle what happens when the user picks a role
-  selectMenu.onchange = async (e) => {
+  selectMenu.onchange = async e => {
     const selectedValue = e.target.value
     document.getElementById('for-worker').style.display = 'none'
     document.getElementById('for-filter').style.display = 'flex'
@@ -21,7 +21,9 @@ function initFilters() {
     snapshotCurrentGrid()
 
     // Clean up active UI states
-    document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'))
+    document
+      .querySelectorAll('.worker-item')
+      .forEach(item => item.classList.remove('active'))
     const workerLabel = document.getElementById('viewingWorkerLabel')
     if (workerLabel) workerLabel.textContent = 'Role View'
 
@@ -30,7 +32,8 @@ function initFilters() {
       activeRoleId = null
       clearObstructionBlocks()
       clearInteractiveGrid(false)
-      if (typeof activeScheduleId !== 'undefined' && activeScheduleId) loadScheduleShifts()
+      if (typeof activeScheduleId !== 'undefined' && activeScheduleId)
+        loadScheduleShifts()
       return
     }
 
@@ -55,63 +58,53 @@ function initFilters() {
   }
 }
 
-function snapshotCurrentGrid() {
+function snapshotCurrentGrid () {
   if (!activeRoleId) return
 
   const shifts = []
 
-  document.querySelectorAll('#mainGrid .shift-block:not(.temp)').forEach(block => {
-    const col = block.parentElement
-    const dayIndex = parseInt(col.dataset.day)
-    const topPx = parseFloat(block.style.top)
-    const heightPx = parseFloat(block.style.height)
-    let startMin, endMin
-    if (block.dataset.startMin && block.dataset.endMin) {
-      startMin = parseInt(block.dataset.startMin)
-      endMin = parseInt(block.dataset.endMin)
-    } else {
-      startMin = Math.round(topPx / SLOT_HEIGHT) * 15 + START_HOUR * 60
-      endMin = startMin + Math.round(heightPx / SLOT_HEIGHT) * 15
-    }
+  document
+    .querySelectorAll('#mainGrid .shift-block:not(.temp)')
+    .forEach(block => {
+      const col = block.parentElement
+      const dayIndex = parseInt(col.dataset.day)
+      const topPx = parseFloat(block.style.top)
+      const heightPx = parseFloat(block.style.height)
+      let startMin, endMin
+      if (block.dataset.startMin && block.dataset.endMin) {
+        startMin = parseInt(block.dataset.startMin)
+        endMin = parseInt(block.dataset.endMin)
+      } else {
+        startMin = Math.round(topPx / SLOT_HEIGHT) * 15 + START_HOUR * 60
+        endMin = startMin + Math.round(heightPx / SLOT_HEIGHT) * 15
+      }
 
-    const finalWorkerId = col.dataset.workerId || block.dataset.workerId
+      const finalWorkerId = col.dataset.workerId || block.dataset.workerId
 
-    shifts.push({
-      user_id: finalWorkerId,
-      user_name: block.querySelector('.event-title').textContent,
-      role_id: activeRoleId,
-      room_id: block.dataset.roomId || null,
-      room_name: block.querySelector('.event-loc')?.textContent || null,
-      day: DAY_KEYS[dayIndex],
-      start_min: startMin,
-      end_min: endMin,
-      isSaved: block.classList.contains('saved')
+      shifts.push({
+        user_id: finalWorkerId,
+        user_name: block.querySelector('.event-title').textContent,
+        role_id: activeRoleId,
+        room_id: block.dataset.roomId || null,
+        room_name: block.querySelector('.event-loc')?.textContent || null,
+        day: DAY_KEYS[dayIndex],
+        start_min: startMin,
+        end_min: endMin,
+        isSaved: block.classList.contains('saved')
+      })
     })
-  })
 
   localSchedule.save(activeRoleId, shifts)
 }
 
-async function loadRoleView(roleId, teamId) {
+async function loadRoleView (roleId, teamId) {
   const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
   const data = await response.json()
-  const workers = window.WORKERS.filter(w => String(w.role_id) === String(roleId))
-  console.log("HERE", workers)
-  //   const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
-  // const data = await response.json()
-  // const workers = data.workers
+  const workers = window.WORKERS.filter(
+    w => String(w.role_id) === String(roleId)
+  )
 
-  // if (workers.length === 0) {
-  //   document.getElementById('viewingWorkerLabel').textContent = 'No workers assigned to this role'
-  //   // Clear the grid and show empty state
-  //   document.getElementById('mainGridHeader').innerHTML = 
-  //     '<div class="header-cell time-header">Time</div>'
-  //   document.getElementById('mainGrid').innerHTML = 
-  //     '<div class="time-col" id="mainTimeCol"></div>'
-  //   drawTimeLabels('mainTimeCol')
-  //   return
-  // }
-   buildRoleGrid(workers)
+  buildRoleGrid(workers)
 
   const obstructions =
     typeof window.OBSTRUCTIONS === 'string'
@@ -124,9 +117,10 @@ async function loadRoleView(roleId, teamId) {
         `.worker-sub-col[data-day="${dayIndex}"][data-worker-id="${worker.id}"]`
       )
       if (!workerCol) return
-
-      const busy = worker.availabilityData.filter(a => a.day.toLowerCase() === dayKey)
-      console.log(worker)
+      console.log('WOEKR', worker)
+      const busy = worker.availabilityData.filter(
+        a => a.day.toLowerCase() === dayKey
+      )
       busy.forEach(range => {
         const startOffset = range.start_min - START_HOUR * 60
         const top = (startOffset / 15) * SLOT_HEIGHT
@@ -138,19 +132,32 @@ async function loadRoleView(roleId, teamId) {
         block.style.height = `${height}px`
         block.innerHTML = `
         <div class="event-content">
-          <div class="event-title">${range.eventName || range.event_name || range.name || ''}</div>
-          <div class="event-building">${range.building || range.location || ''}</div>
-          <div class="event-time">${range.label || `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`}</div>
+          <div class="event-title">${
+            range.eventName || range.event_name || range.name || ''
+          }</div>
+          <div class="event-building">${
+            range.building || range.location || ''
+          }</div>
+          <div class="event-time">${
+            range.label ||
+            `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`
+          }</div>
         </div>`
         workerCol.appendChild(block)
       })
-
+      const scheduled = worker.shifts.filter(
+        a => a.day.toLowerCase() === dayKey
+      )
+      renderShiftsToGrid(scheduled)
+      
       obstructions.forEach(o => {
         if (o.role_id !== parseInt(roleId)) return
         if (!o.days.includes(dayKey)) return
 
         const workerData = (
-          typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS
+          typeof window.WORKERS === 'string'
+            ? JSON.parse(window.WORKERS)
+            : window.WORKERS
         ).find(w => w.id === String(worker.id))
 
         if (!o.days.includes(dayKey)) return

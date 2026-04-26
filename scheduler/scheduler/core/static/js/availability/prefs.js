@@ -114,37 +114,3 @@ function updateRankDisplay () {
     if (badge) badge.innerText = `#${index + 1}`
   })
 }
-
-function restoreSavedRolePreferences () {
-  if (!window.SAVED_ROLES || window.SAVED_ROLES.length === 0) return
-
-  // Sort by rank so selectedRanking ends up in the right order
-  const sorted = [...window.SAVED_ROLES].sort((a, b) => a.rank - b.rank)
-
-  sorted.forEach(pref => {
-    if (pref.section_id) {
-      // --- Has a section: check the parent role first (to show sections dropdown) ---
-      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
-      if (roleCheckbox && !roleCheckbox.checked) {
-        roleCheckbox.checked = true
-        const sectionsDivId = `sections-${pref.role_id}`
-        const sectionsDiv = document.getElementById(sectionsDivId)
-        if (sectionsDiv) sectionsDiv.style.display = 'block'
-      }
-
-      // Then check the specific section
-      const sectionCheckbox = document.querySelector(`.section-check[value="${pref.section_id}"]`)
-      if (sectionCheckbox) {
-        sectionCheckbox.checked = true
-        toggleSection(sectionCheckbox)
-      }
-    } else {
-      // --- No section: just check the role ---
-      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
-      if (roleCheckbox) {
-        roleCheckbox.checked = true
-        toggleSections(roleCheckbox, `sections-${pref.role_id}`)
-      }
-    }
-  })
-}

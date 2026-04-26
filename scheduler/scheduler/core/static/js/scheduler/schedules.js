@@ -170,22 +170,31 @@ async function saveAllPreferences () {
     return
   }
 
-  // 1. Determine our save mode (All Roles vs. Single Role)
   let saveAll = false
-
   if (activeRoleId) {
-    // If they have a role selected, ask them what they want to do
     saveAll = confirm(
       'Would you like to save shifts for ALL roles?\n\n' +
         '• Click OK to save ALL generated shifts across all roles.\n' +
         '• Click Cancel to save ONLY the current role filter.'
     )
   } else {
-    // If no role is selected, assume they want to save everything
     saveAll = true
   }
 
   snapshotCurrentGrid()
+
+  const cachedShifts = scheduleShiftCache[activeScheduleId]?.shifts || []
+
+  function mergeSavedAndLocal (saved, local) {
+    const map = {}
+    saved.forEach(s => { map[`${s.day}-${s.start_min}`] = s })
+    local.forEach(s => { map[`${s.day}-${s.start_min}`] = s })
+    return Object.values(map)
+  }
+
+  const btn = document.getElementById('saveAllBtn')
+  btn.disabled = true
+  btn.textContent = 'Saving...'
 
   try {
     let totalSaved = 0
@@ -193,24 +202,36 @@ async function saveAllPreferences () {
 
     if (!saveAll) {
       // --- SAVE SINGLE ROLE ---
-      const shifts = localSchedule.getForRole(activeRoleId) || []
-      const data = await saveRoleShifts(activeRoleId, shifts)
+      const localShifts = localSchedule.getForRole(activeRoleId) || []
+      const savedShifts = cachedShifts.filter(s => String(s.role_id) === String(activeRoleId))
+      const merged = mergeSavedAndLocal(savedShifts, localShifts)
 
+      const data = await saveRoleShifts(activeRoleId, merged)
       totalSaved = data.saved || 0
       if (data.conflicts) allConflicts.push(...data.conflicts)
     } else {
       // --- SAVE ALL ROLES ---
-      const allShifts = localSchedule.getAll() // Returns a flat array of everything
+      const allLocalShifts = localSchedule.getAll()
 
-      // Group the flat array into buckets by role_id
+      // Build role buckets starting from cached (already saved) shifts
       const shiftsByRole = {}
-      allShifts.forEach(shift => {
-        const rId = shift.role_id
+      cachedShifts.forEach(shift => {
+        const rId = String(shift.role_id)
         if (!shiftsByRole[rId]) shiftsByRole[rId] = []
         shiftsByRole[rId].push(shift)
       })
 
-      // Map over every grouped bucket and create a save request for each
+      // Merge local shifts in on top — same slot overwrites cached
+      allLocalShifts.forEach(shift => {
+        const rId = String(shift.role_id)
+        if (!shiftsByRole[rId]) shiftsByRole[rId] = []
+        // Remove any cached shift at the same slot before pushing local
+        shiftsByRole[rId] = shiftsByRole[rId].filter(
+          s => !(s.day === shift.day && s.start_min === shift.start_min)
+        )
+        shiftsByRole[rId].push(shift)
+      })
+
       const promises = Object.entries(shiftsByRole).map(
         async ([rId, shifts]) => {
           const data = await saveRoleShifts(rId, shifts)
@@ -221,21 +242,16 @@ async function saveAllPreferences () {
         }
       )
 
-      // Wait for all the individual role saves to finish simultaneously!
       await Promise.all(promises)
     }
 
-    // 2. Report the results
     if (allConflicts.length > 0) {
       const messages = allConflicts.map(c => `⚠️ ${c.message}`).join('\n')
-      alert(
-        `Saved ${totalSaved} total shifts, but with conflicts:\n\n${messages}`
-      )
+      alert(`Saved ${totalSaved} total shifts, but with conflicts:\n\n${messages}`)
     } else {
       alert(`✓ Successfully saved ${totalSaved} shifts!`)
     }
 
-    // 3. Visually update the blocks on the screen
     document
       .querySelectorAll('#interactiveGrid .shift-block.local')
       .forEach(block => {
@@ -245,7 +261,16 @@ async function saveAllPreferences () {
   } catch (err) {
     console.error('Error saving shifts:', err)
     alert('An error occurred while saving. Check the console.')
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Save Schedule'
   }
+}
+
+function setSavingState(isSaving) {
+  const btn = document.getElementById('saveAllBtn') 
+  btn.disabled = isSaving
+  btn.textContent = isSaving ? 'Saving...' : 'Save Schedule'
 }
 
 // Helper function remains exactly the same as before

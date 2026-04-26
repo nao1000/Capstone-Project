@@ -49,12 +49,6 @@ function buildRoleGrid (workers) {
   grid.appendChild(timeCol)
   drawTimeLabels('mainTimeCol')
 
-  // const sortedWorkers = [...workers].sort((a, b) => {
-  //   const sectionA = a.section || ''
-  //   const sectionB = b.section || ''
-  //   if (sectionA !== sectionB) return sectionA.localeCompare(sectionB)
-  //   return a.name.localeCompare(b.name)
-  // })
   let sortedWorkers = workers
   DAY_NAMES.forEach((dayName, dayIndex) => {
     const groupWidth = workers.length * colWidth

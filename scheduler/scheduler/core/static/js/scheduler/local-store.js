@@ -13,6 +13,15 @@ const localSchedule = {
     })
   },
 
+    saveOne(shift) {
+    const key = `${shift.role_id}-${shift.day}-${shift.start_min}`
+    this.shifts[key] = shift
+  },
+
+    getForWorker(workerId, roleId) {
+        console.log(workerId)
+        return Object.values(this.shifts).filter(s => s.user_id == workerId)
+    },
 
   getForRole (roleId) {
     return Object.values(this.shifts).filter(s => s.role_id === roleId)

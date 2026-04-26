@@ -1,8 +1,10 @@
-function openModal() {
+function openModal () {
   const modal = document.getElementById('eventModal')
   modal.classList.add('show')
   const workers =
-    typeof window.WORKERS === 'string' ? JSON.parse(window.WORKERS) : window.WORKERS
+    typeof window.WORKERS === 'string'
+      ? JSON.parse(window.WORKERS)
+      : window.WORKERS
   const roles =
     typeof window.ROLES === 'string' ? JSON.parse(window.ROLES) : window.ROLES
   const rooms =
@@ -20,25 +22,30 @@ function openModal() {
     workerSelect.appendChild(option)
   })
 
-  const clickedWorkerId = activeEvent.dataset.userId || activeEvent.dataset.workerId
-  if (clickedWorkerId) {
-    workerSelect.value = clickedWorkerId
+  const workerId =
+    activeEvent.dataset.userId ?? activeEvent.dataset.workerId ?? activeWorkerId
+  const roleId = activeRoleId ?? activeWorkerRoleId
+
+  if (workerId) {
+    workerSelect.value = workerId
+    workerSelect.disabled = true
   }
 
   const roleSelect = document.getElementById('modalRoleSelect')
   roleSelect.innerHTML = ''
-  if (activeRoleId) {
-    const activeRole = roles.find(r => r.id === activeRoleId)
+
+  if (roleId) {
+    const activeRole = roles.find(r => r.id === roleId)
     if (activeRole) {
-      roleSelect.appendChild(new Option(activeRole.name, activeRole.id, true, true))
+      roleSelect.appendChild(
+        new Option(activeRole.name, activeRole.id, true, true)
+      )
     }
     roleSelect.disabled = true
   } else {
     roleSelect.disabled = false
     roleSelect.innerHTML = '<option value="">Select a role...</option>'
-    roles.forEach(r => {
-      roleSelect.appendChild(new Option(r.name, r.id))
-    })
+    roles.forEach(r => roleSelect.appendChild(new Option(r.name, r.id)))
   }
 
   const roomSelect = document.getElementById('modalRoomSelect')
@@ -68,13 +75,15 @@ function openModal() {
   }
 
   const slotsCount = Math.round((currentEndMin - currentStartMin) / 15)
-  document.getElementById('modalTimeDisplay').textContent = `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`
+  document.getElementById('modalTimeDisplay').textContent = `${formatMin(
+    currentStartMin
+  )} - ${formatMin(currentEndMin)} (${slotsCount * 15} mins)`
 
   const dayIndex = parseInt(activeCol.dataset.day)
   annotateRoomDropdown(dayIndex, clickedRoomId)
 }
 
-function closeModal() {
+function closeModal () {
   document.getElementById('eventModal').classList.remove('show')
   if (activeEvent && activeEvent.classList.contains('temp')) {
     activeEvent.remove()
@@ -82,7 +91,7 @@ function closeModal() {
   activeEvent = null
 }
 
-async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
+async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
   const day = DAY_KEYS[dayIndex]
 
   let bookings = {}
@@ -90,7 +99,9 @@ async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
 
   if (activeScheduleId) {
     const [bookingsRes, availRes] = await Promise.all([
-      fetch(`/api/team/${window.TEAM_ID}/schedules/${activeScheduleId}/room-bookings/?day=${day}`),
+      fetch(
+        `/api/team/${window.TEAM_ID}/schedules/${activeScheduleId}/room-bookings/?day=${day}`
+      ),
       fetch(`/api/team/${window.TEAM_ID}/room-availability/?day=${day}`)
     ])
     const bookingsData = await bookingsRes.json()
@@ -99,7 +110,9 @@ async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
     roomAvailability = availData.availability || {}
   } else {
     try {
-      const availRes = await fetch(`/api/team/${window.TEAM_ID}/room-availability/?day=${day}`)
+      const availRes = await fetch(
+        `/api/team/${window.TEAM_ID}/room-availability/?day=${day}`
+      )
       const availData = await availRes.json()
       roomAvailability = availData.availability || {}
     } catch (_) {}
@@ -111,7 +124,9 @@ async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
     const roomId = s.room_id
     if (!bookings[roomId]) {
       const rooms =
-        typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
+        typeof window.ROOMS === 'string'
+          ? JSON.parse(window.ROOMS)
+          : window.ROOMS
       const room = rooms.find(r => r.id == roomId)
       bookings[roomId] = {
         capacity: room ? room.capacity : 1,
@@ -142,7 +157,8 @@ async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
   roomSelect.innerHTML = '<option value="">Select a room...</option>'
 
   const workerSelect = document.getElementById('modalWorkerSelect')
-  const editingWorkerName = workerSelect.options[workerSelect.selectedIndex]?.text
+  const editingWorkerName =
+    workerSelect.options[workerSelect.selectedIndex]?.text
 
   rooms.forEach(r => {
     const option = document.createElement('option')
@@ -197,7 +213,7 @@ async function annotateRoomDropdown(dayIndex, preselectedRoomId = null) {
   })
 }
 
-function saveEvent() {
+function saveEvent () {
   const workerSelect = document.getElementById('modalWorkerSelect')
   const roleSelect = document.getElementById('modalRoleSelect')
   const roomSelect = document.getElementById('modalRoomSelect')
@@ -213,7 +229,9 @@ function saveEvent() {
     return
   }
 
-  const timeString = `${formatMin(currentStartMin)} - ${formatMin(currentEndMin)}`
+  const timeString = `${formatMin(currentStartMin)} - ${formatMin(
+    currentEndMin
+  )}`
   const heightPx = parseFloat(activeEvent.style.height)
   const isSmall = heightPx < SLOT_HEIGHT * 2.5
 
@@ -244,8 +262,8 @@ function saveEvent() {
     html += `</div>`
 
     activeEvent.innerHTML = html
-    localSchedule.save(roleId, [{0: {
-      day: DAY_KEYS[activeCol.dataset.day],
+    localSchedule.saveOne({
+      day: DAY_KEYS[parseInt(activeCol.dataset.day)],
       start_min: currentStartMin,
       end_min: currentEndMin,
       user_id: workerId,
@@ -254,14 +272,14 @@ function saveEvent() {
       user_name: name,
       room_name: roomName,
       isSaved: false
-    }}])
+    })
   }
 
   document.getElementById('eventModal').classList.remove('show')
   activeEvent = null
 }
 
-function removeEventBlock(e, xButton) {
+function removeEventBlock (e, xButton) {
   e.stopPropagation()
   if (confirm('Remove this shift?')) {
     xButton.closest('.event-block').remove()

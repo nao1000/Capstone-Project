@@ -1,4 +1,4 @@
-function setupDragListeners() {
+function setupDragListeners () {
   const mainGrid = document.getElementById('mainGrid')
 
   mainGrid.addEventListener('mousedown', e => {
@@ -35,7 +35,11 @@ function setupDragListeners() {
     if (newHeight < SLOT_HEIGHT) newHeight = SLOT_HEIGHT
 
     if (activeRoleId) {
-      const maxHeight = getMaxHeightBeforeObstruction(activeCol, startTop, newHeight)
+      const maxHeight = getMaxHeightBeforeObstruction(
+        activeCol,
+        startTop,
+        newHeight
+      )
       newHeight = maxHeight
     }
     activeEvent.style.height = `${newHeight}px`
@@ -44,7 +48,7 @@ function setupDragListeners() {
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false
-      
+
       const finalHeight = parseInt(activeEvent.style.height, 10)
       const dayIndex = activeCol.dataset.day
       const dayKey = DAY_KEYS[parseInt(dayIndex)]
@@ -59,17 +63,12 @@ function setupDragListeners() {
         role_id: activeRoleId || null
       }
 
-      if (!window.localSchedule) {
-        window.localSchedule = []
-      }
-      window.localSchedule.push(newShift)
-
-      openModal(newShift, activeEvent)
+      openModal(newShift) // localSchedule.saveOne happens inside modal on confirm
     }
   })
 }
 
-function getMaxHeightBeforeObstruction(col, startTopPx, desiredHeight) {
+function getMaxHeightBeforeObstruction (col, startTopPx, desiredHeight) {
   const dayIndex = col.dataset.day
   const dayKey = DAY_KEYS[parseInt(dayIndex)]
 

@@ -17,3 +17,7 @@ let currentEndMin = 0
 let activeRoleId = null
 let activeScheduleId = null
 let editingWorkerId = null
+
+let previewedRole = null
+let activeWorkerId = null 
+let activeWorkerRoleId = null

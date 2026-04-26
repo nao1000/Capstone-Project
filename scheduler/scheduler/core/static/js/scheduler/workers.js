@@ -2,7 +2,8 @@ const scheduleShiftCache = {};
 
 // Note: We need 'async' here so we can fetch and filter the shifts!
 async function loadWorker(workerId, teamId, name, element) {
-
+  activeWorkerId = workerId
+  activeWorkerRoleId = window.WORKERS.find(w => String(w.id) === String(workerId))?.role_id;
   activeRoleId = null;
   document.querySelectorAll('.filter-options .btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.worker-item').forEach(item => item.classList.remove('active'));
@@ -27,7 +28,6 @@ async function loadWorker(workerId, teamId, name, element) {
         console.error("Worker not found in local data");
         return;
     }
-    console.log(window.WORKERS)
     const availData = workerLocalData.availabilityData || [];
     const prefData = workerLocalData.preferredData || [];
     const roleData = workerLocalData.rolePreferences || [];
@@ -54,8 +54,7 @@ async function loadWorker(workerId, teamId, name, element) {
       block.className = 'event-block avail-block';
       block.style.top = `${top}px`;
       block.style.height = `${height}px`;
-// This will check eventName, then event_name, then name. 
-      // It will also calculate the time string automatically!
+
 
       block.innerHTML = `
         <div class="event-content">
@@ -126,8 +125,10 @@ async function loadWorker(workerId, teamId, name, element) {
             });
 
         // Render ONLY this worker's shifts
-        console.log("empty", workerShifts)
         renderShiftsToGrid(workerShifts, false);
+        console.log(localSchedule)
+        console.log("here", localSchedule.getForWorker(activeWorkerId, activeWorkerRoleId))
+        renderShiftsToGrid(localSchedule.getForWorker(activeWorkerId, activeWorkerRoleId), true)
     }
 
   } catch (error) {
@@ -255,18 +256,12 @@ async function saveWorkerAssignment () {
 // Add this to workers.js (or a new worker-panel.js loaded after workers.js)
 // =============================================================================
 
-// Tracks which preferred role the supervisor is currently previewing
-let previewedRole = null // { role_id, role_name, section_id, section_name, obstructions }
-let activeWorkerId = null // set when loadWorker() is called
-
 // -----------------------------------------------------------------------------
 // Called by loadWorker() after fetching availability data.
 // Populates the preferred role buttons in the worker panel.
 // -----------------------------------------------------------------------------
 function renderWorkerPanel (workerId, preferredRoles) {
-  activeWorkerId = workerId
   previewedRole = null
-  console.log(preferredRoles)
 
   // Reset assign button
   const assignBtn = document.getElementById('assignRoleBtn')
@@ -282,7 +277,6 @@ function renderWorkerPanel (workerId, preferredRoles) {
       '<p style="font-size:11px; color:#bbb;">No preferences set.</p>'
     return
   }
-  console.log("HERE",preferredRoles)
   preferredRoles.forEach(pRole => {
     const label = pRole.section_name
       ? `#${pRole.rank} ${pRole.role_name} — ${pRole.section_name}`
@@ -306,8 +300,6 @@ function renderWorkerPanel (workerId, preferredRoles) {
 // -----------------------------------------------------------------------------
 function previewPreferredRole (p, clickedBtn) {
   // Highlight the active button
-  console.log("obs", window.OBSTRUCTIONS)
-  console.log("p", p)
   const obstructions = window.OBSTRUCTIONS.filter(o => {
     const matchesSection = o.section ? o.section == p.section_name : true
     const matchesRole = o.role_id ? o.role_id == p?.role_id : true
@@ -325,7 +317,6 @@ function previewPreferredRole (p, clickedBtn) {
   // Draw obstructions for this specific role using the embedded data
   // (avoids depending on window.OBSTRUCTIONS which filters by assigned role)
   clearObstructionBlocks()
-  console.log("here", obstructions)
   renderObstructionsForRole(obstructions || [])
 
   // Track selection and enable assign
@@ -459,7 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
           `.worker-item[data-id="${workerId}"]`
         )
 
-        console.log('Deep link: Loading grid for', worker.name)
 
         // Call the loader. We pass 'element' which might be null,
         // but our fix in Step 1 prevents the crash.

@@ -127,7 +127,6 @@ async function executeAutoScheduler () {
   btn.disabled = true
 
   try {
-    console.log('Sending payload to backend:', payload)
 
     const res = await fetch(`/api/team/${window.TEAM_ID}/auto-schedule/`, {
       method: 'POST',
@@ -179,20 +178,23 @@ async function executeAutoScheduler () {
       }
       shiftsByRole[shift.role_id].push(shift)
     })
-
     // Save each bucket to local memory so they persist across role tab switches
+    console.log("by role", shiftsByRole)
     for (const [rId, shifts] of Object.entries(shiftsByRole)) {
+      console.log(rId)
       localSchedule.save(rId, shifts)
     }
+
+    console.log("local", JSON.parse(JSON.stringify(localSchedule)))
 
     if (typeof clearInteractiveGrid === 'function') {
       clearInteractiveGrid(false)
     }
 
     // ONLY draw the shifts that belong to the role you are currently looking at
-    console.log(activeRoleId)
     if (typeof activeRoleId !== 'undefined' && activeRoleId) {
       const shiftsToRender = shiftsByRole[activeRoleId] || []
+      console.log("WHY", shiftsToRender)
       if (typeof renderShiftsToGrid === 'function') {
         renderShiftsToGrid(shiftsToRender, true)
       }
