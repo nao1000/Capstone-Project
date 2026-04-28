@@ -94,4 +94,8 @@ urlpatterns = [
 
     # EXPORT
     path('api/team/<uuid:team_id>/schedules/<int:schedule_id>/export/', views.export_schedule, name='export_schedule'),
+    
+    path('respond/<uuid:token>/', views.attendee_form, name='attendee_form'),
+    path('respond/<uuid:token>/submit/', views.submit_attendee_preferences, name='submit_attendee_preferences'),
+    path('api/team/<uuid:team_id>/response-link/', views.get_or_create_response_link, name='response_link'),
 ]

@@ -1,10 +1,24 @@
+/** @file Handles team management interactions like copying join codes and deleting teams. */
+
+/**
+ * CSRF token extracted from the meta tag for authenticated API requests.
+ * @type {string}
+ */
 const csrfToken = document
   .querySelector('meta[name="csrf-token"]')
   .getAttribute('content')
 
+/**
+ * Copies a full UUID to the clipboard and temporarily updates the button icon to show success.
+ * Includes a fallback for older browsers or non-secure contexts.
+ *
+ * @param {string} fullUuid - The ID or code to copy.
+ * @param {HTMLElement} btn - The button element clicked, containing a FontAwesome icon.
+ */
 function copyFullCode (fullUuid, btn) {
   const icon = btn.querySelector('i')
 
+  // Briefly show a green checkmark to confirm the copy worked
   const showSuccess = () => {
     icon.className = 'fa-solid fa-check'
     icon.style.color = '#22c55e'
@@ -17,6 +31,7 @@ function copyFullCode (fullUuid, btn) {
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(fullUuid).then(showSuccess)
   } else {
+    // Fallback for older browsers
     const textarea = document.createElement('textarea')
     textarea.value = fullUuid
     textarea.style.position = 'fixed'
@@ -30,10 +45,18 @@ function copyFullCode (fullUuid, btn) {
   }
 }
 
+/**
+ * Prompts for confirmation and sends a DELETE request to remove a team.
+ * Removes the corresponding team element from the DOM on success.
+ *
+ * @param {HTMLElement} icon - The clicked icon element, used to find the parent container.
+ * @param {string|number} teamId - The unique identifier for the team.
+ */
 async function deleteTeam (icon, teamId) {
   const choice = prompt(
     `Are you sure you want to delete this team?\nDeleting this team will permanently delete all information associated with the team.\nPlease type in DELETE if you wish to proceed.`
   )
+  
   if (choice === 'DELETE') {
     try {
       const response = await fetch(`/api/team/${teamId}/delete/`, {

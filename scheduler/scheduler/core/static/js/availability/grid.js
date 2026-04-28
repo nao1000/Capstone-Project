@@ -1,5 +1,13 @@
-// GRID MODE
+/** @file Manages the grid interaction modes (busy vs. preferred) and grid-wide actions like clearing. */
+/** @module Availability */
 
+/**
+ * Switches the active drawing mode for the grid. Updates the UI buttons
+ * to show which mode is active and changes the instructional hint text in the toolbar.
+ * Sets `currentGridMode` to the provided mode string.
+ *
+ * @param {string} mode - The mode to activate (typically `'busy'` or `'preferred'`).
+ */
 function setGridMode (mode) {
   currentGridMode = mode
   document.getElementById('btnBusy').classList.toggle('active', mode === 'busy')
@@ -14,7 +22,15 @@ function setGridMode (mode) {
   }
 }
 
-// Instantly finalize a "preferred" block without a modal
+/**
+ * Instantly commits a newly drawn "preferred" time block to the grid.
+ * Bypasses the edit modal used for busy shifts and automatically injects the calculated time range.
+ * Resets `activeEvent` to null after the block is finalized.
+ *
+ * @requires window.SLOT_HEIGHT
+ * @requires window.START_HOUR
+ * @requires formatMin
+ */
 function finalizePreferredEvent () {
   if (!activeEvent) return
 
@@ -37,6 +53,10 @@ function finalizePreferredEvent () {
   activeEvent = null
 }
 
+/**
+ * Prompts the user for confirmation and clears all saved events (both busy and preferred)
+ * from the grid's DOM.
+ */
 function clearLocalGrid () {
   if (!confirm('Clear all shifts from the grid?')) return
   document.querySelectorAll('.event-block:not(.temp)').forEach(el => el.remove())

@@ -1,5 +1,17 @@
-// MEMBERS TABLE
+/** @file Handles the logic list of members of a team */
+/** @module Supervisor */
 
+/**
+ * Initializes client-side interactive features for the members table once the DOM is loaded.
+ * Implements two main features:
+ * 1. Sortable Column Headers: Clicking a table header sorts the rows based on the column's 
+ * content (handling both plain text and currently selected `<select>` option values). 
+ * Uses a DocumentFragment to minimize DOM reflows during re-rendering.
+ * 2. Search Filter: Listens to the member search input to dynamically hide/show rows 
+ * based on a case-insensitive text match against the row's total text content.
+ *
+ * @listens document#DOMContentLoaded
+ */
 document.addEventListener('DOMContentLoaded', () => {
   const tableBody = document.querySelector('.table-card tbody')
   if (!tableBody) return

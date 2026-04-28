@@ -1,6 +1,12 @@
-// CLIPBOARD
+/** @file Enables copying and pasting of blocks placed on Availability Grid */
+/** @module Availability */
 
-// --- Selection: single click to select, click again to deselect ---
+/**
+ * Sets up global click listeners to handle the selection and deselection 
+ * of event blocks on the grid.
+ * * @description Manages the {@link selectedEvent} global state. Includes logic 
+ * to ignore clicks on UI controls like delete buttons or modals.
+ */
 function setupSelectionListeners () {
   document.addEventListener('click', e => {
     if (e.target.closest('.delete-x') || e.target.closest('.modal-box')) return
@@ -28,7 +34,11 @@ function setupSelectionListeners () {
   })
 }
 
-// --- Double-click to edit ---
+/**
+ * Initializes double-click functionality on the grid body.
+ * * @description When an event block is double-clicked, it triggers the 
+ * `openEditModal` function.
+ */
 function setupDoubleClickEdit () {
   const gridBody = document.getElementById('gridBody')
 
@@ -40,7 +50,15 @@ function setupDoubleClickEdit () {
   })
 }
 
-// --- Keyboard shortcuts: Ctrl+C / Ctrl+V ---
+/**
+ * Sets up keyboard listeners for Copy (Ctrl/Cmd + C) and Paste (Ctrl/Cmd + V).
+ * * @description 
+ * - **Copy**: Populates {@link clipboardData} with the title, location, and height.
+ * - **Paste**: Uses {@link hoveredCol} and {@link hoverY} to calculate the 
+ * nearest grid snap point (15-minute increments) and injects a new block.
+ * * @requires window.SLOT_HEIGHT
+ * @requires window.START_HOUR
+ */
 function setupKeyboardShortcuts () {
   document.addEventListener('keydown', e => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0

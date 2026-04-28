@@ -348,3 +348,24 @@ class ScheduleTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.team.name})"
+
+class AttendeeResponseLink(models.Model):
+    team = models.OneToOneField(Team, on_delete=models.CASCADE, related_name='response_link')
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Response link for {self.team.name}"
+
+
+class AttendeePreference(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='attendee_preferences')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='attendee_preferences')
+    day = models.CharField(max_length=3)
+    start_min = models.IntegerField()
+    end_min = models.IntegerField()
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.team.name} - {self.role.name} ({self.day})"

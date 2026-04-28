@@ -1,6 +1,14 @@
-// LAYOUT
+/** @file Handles the logic for room grid */
+/** @module Supervisor */
 
 // Builds the time-label column and sizes all day columns to match the grid height
+/**
+ * Initializes the visual layout of the room availability grid. 
+ * Dynamically generates and positions time labels along the vertical Y-axis 
+ * at 30-minute intervals. It also uniformly scales the height of the time column, 
+ * background grid lines, and all interactive day columns to match the total 
+ * configured hours for the schedule.
+ */
 function setupRoomGrid () {
   const timeCol = document.getElementById('roomTimeCol')
   timeCol.innerHTML = ''

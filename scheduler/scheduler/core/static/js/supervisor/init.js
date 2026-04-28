@@ -1,6 +1,15 @@
-// INIT
-// Single DOMContentLoaded that wires up all modules.
+/** @file Handles the logic to intialize supervisor page */
+/** @module Supervisor */
 
+/**
+ * Main initialization block for the admin/dashboard interface.
+ * Executes once the DOM is fully parsed and ready. 
+ * Responsible for bootstrapping the room scheduler layout, binding interaction listeners 
+ * to dynamic UI elements (like the room selector and user profile menu), populating 
+ * form dropdowns, and asynchronously pre-loading section data for members with existing roles.
+ *
+ * @listens document#DOMContentLoaded
+ */
 document.addEventListener('DOMContentLoaded', () => {
   // Room scheduler grid
   setupRoomGrid()

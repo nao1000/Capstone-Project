@@ -1,5 +1,26 @@
-// DRAG & DROP
+/** @file Manages mouse interactions for drawing new events and dragging existing events around the grid. */
+/** @module Availability */
 
+/**
+ * Initializes all mouse event listeners required for grid interactivity.
+ * Handles drawing new event blocks by clicking and dragging on empty column space,
+ * as well as picking up and moving existing event blocks to new times or days.
+ *
+ * Reads and writes the following globals during operation:
+ * `isDragging`, `isDraggingEvent`, `activeEvent`, `activeCol`,
+ * `draggedEvent`, `hoveredCol`, and `hoverY`.
+ *
+ * @description
+ * - **Mousedown (Columns)**: Starts drawing a temporary event block, snapping the start position to the grid.
+ * - **Mousedown (Events)**: Intercepts clicks on existing blocks (using the capture phase) to initiate a move operation instead of a draw.
+ * - **Mousemove**: Master tracker that calculates grid snapping (15-minute intervals) for both resizing new blocks and moving existing ones. Also updates global hover tracking.
+ * - **Mouseup**: Commits the operation, either dropping a moved event or triggering the finalization/modal for a newly drawn block.
+ *
+ * @requires window.SLOT_HEIGHT
+ * @requires updateEventTimeText
+ * @requires finalizePreferredEvent
+ * @requires openModal
+ */
 function setupDragListeners () {
   const dayCols = document.querySelectorAll('.day-col')
 
@@ -16,14 +37,14 @@ function setupDragListeners () {
       const relativeY = e.clientY - rect.top
 
       // Snap to grid
-      startTop = Math.floor(relativeY / SLOT_HEIGHT) * SLOT_HEIGHT
+      startTop = Math.floor(relativeY / window.SLOT_HEIGHT) * window.SLOT_HEIGHT
 
       // Temporary visual block
       activeEvent = document.createElement('div')
       activeEvent.className = 'event-block temp'
       activeEvent.dataset.mode = currentGridMode
       activeEvent.style.top = `${startTop}px`
-      activeEvent.style.height = `${SLOT_HEIGHT}px`
+      activeEvent.style.height = `${window.SLOT_HEIGHT}px`
       activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
 
       col.appendChild(activeEvent)
@@ -60,7 +81,7 @@ function setupDragListeners () {
 
   // --- 3. MOUSEMOVE: Master listener for hover tracking, drag-move, and draw ---
   document.addEventListener('mousemove', e => {
-    // Job 1: Track which column the mouse is hovering over (for paste)
+    // Job 1: Track which column the mouse is hovering over (for paste and dragging)
     const col = e.target.closest('.day-col')
     if (col) {
       hoveredCol = col

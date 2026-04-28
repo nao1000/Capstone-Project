@@ -1,3 +1,12 @@
+/** @module Scheduler */
+
+/**
+ * Initializes the role filter dropdown menu and binds its change event listener.
+ * Populates the select menu with available roles from the global `window.ROLES` object.
+ * When a user selects a different role, this function automatically snapshots any unsaved 
+ * grid changes, cleans up UI active states, clears the grid, and triggers the rendering 
+ * of the selected role's specific view and shifts.
+ */
 function initFilters () {
   const selectMenu = document.getElementById('courseFilterSelect')
   if (!selectMenu) return // Safety check
@@ -58,6 +67,12 @@ function initFilters () {
   }
 }
 
+/**
+ * Captures the current state of the grid for the active role before a view switch occurs.
+ * Iterates through all rendered shift blocks on the grid, calculates their start and end 
+ * times based on dataset attributes or visual pixel offsets, and caches them locally 
+ * via the `localSchedule` utility so unsaved work isn't lost during navigation.
+ */
 function snapshotCurrentGrid () {
   if (!activeRoleId) return
 
@@ -97,6 +112,16 @@ function snapshotCurrentGrid () {
   localSchedule.save(activeRoleId, shifts)
 }
 
+/**
+ * Fetches and builds the schedule grid isolated to a specific role.
+ * Filters the global workers list down to the specified role, builds the role-based grid columns,
+ * and populates the grid with worker availability, assigned shifts, and role-specific hard obstructions.
+ *
+ * @async
+ * @param {string|number} roleId - The unique ID of the role to filter and load.
+ * @param {string|number} teamId - The unique ID of the current team.
+ * @returns {Promise<void>} Resolves when the API request finishes and the role grid blocks are rendered.
+ */
 async function loadRoleView (roleId, teamId) {
   const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
   const data = await response.json()

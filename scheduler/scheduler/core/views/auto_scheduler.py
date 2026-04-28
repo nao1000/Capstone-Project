@@ -55,7 +55,12 @@ def auto_schedule_role(request, team_id):
     }
 
     try:
-        results = generate_schedule(team, roles=roles_to_schedule, config=engine_config)
-        return JsonResponse({"success": True, "shifts": results})
+        results, shortfalls = generate_schedule(team, roles=roles_to_schedule, config=engine_config)
+        return JsonResponse({
+            "success": True,
+            "shifts": results,
+            "partial": len(shortfalls) > 0,
+            "shortfalls": shortfalls,
+        })
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)

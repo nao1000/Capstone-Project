@@ -1,5 +1,11 @@
-// ROOM SCHEDULER
+/** @file Handles the logic for filling out when a room is available */
+/** @module Supervisor */
 
+/**
+ * Opens the room scheduler modal by applying the 'show' CSS class. 
+ * Clears any previously active room selections, resets the modal title, 
+ * unhides the scheduling grid, and removes any leftover room blocks from previous sessions.
+ */
 function openScheduler () {
   document.getElementById('schedulerModal').classList.add('show')
 
@@ -13,11 +19,23 @@ function openScheduler () {
   document.querySelectorAll('.room-block').forEach(block => block.remove())
 }
 
+/**
+ * Closes the room scheduler modal by removing the 'show' CSS class.
+ */
 function closeScheduler () {
   document.getElementById('schedulerModal').classList.remove('show')
 }
 
 // Highlights the selected room in the sidebar, updates the title, and loads its availability
+/**
+ * Handles the selection of a room from the sidebar list. 
+ * Updates the UI to highlight the active room, changes the title to reflect the selection, 
+ * ensures the grid is visible, and synchronizes a hidden input field used for saving/deleting.
+ *
+ * @param {string|number} roomId - The unique identifier of the selected room.
+ * @param {string} roomName - The display name of the selected room.
+ * @param {HTMLElement} element - The DOM element representing the clicked room in the sidebar list.
+ */
 function selectRoom (roomId, roomName, element) {
   document.querySelectorAll('.room-list-item').forEach(item => item.classList.remove('active'))
   element.classList.add('active')
@@ -31,6 +49,11 @@ function selectRoom (roomId, roomName, element) {
   hiddenSelect.dispatchEvent(new Event('change'))
 }
 
+/**
+ * Completely resets the scheduler grid state. 
+ * Removes all drawn `.room-block` elements, clears the hidden room selection input, 
+ * hides the grid, and resets the title text.
+ */
 function clearGrid () {
   document.querySelectorAll('.room-block').forEach(block => block.remove())
   document.getElementById('roomSelect').value = ''
@@ -38,6 +61,14 @@ function clearGrid () {
   document.getElementById('selectedRoomTitle').textContent = 'Select a Room'
 }
 
+/**
+ * Prompts the user to enter a new room name and capacity, then sends a POST request 
+ * to the backend API to create the room. On success, dynamically generates and inserts 
+ * a new room card into the sidebar list, and automatically selects it.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the room creation process completes (success or failure).
+ */
 async function addNewRoom () {
   const roomName = prompt('Enter new room name:')
   const roomCapacity = prompt('Enter room capacity:')
@@ -82,6 +113,15 @@ async function addNewRoom () {
   }
 }
 
+/**
+ * Prompts the user for confirmation, then sends a DELETE request to the backend API 
+ * to remove the currently selected room and all associated availability data. 
+ * On success, removes the room card from the UI and selects the next available room, 
+ * or clears the grid if no rooms remain.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the room deletion process completes.
+ */
 async function deleteRoom () {
   const roomSelect = document.getElementById('roomSelect')
   const selectedRoomId = roomSelect.value
@@ -120,6 +160,15 @@ async function deleteRoom () {
   }
 }
 
+/**
+ * Fetches the saved availability schedule for the currently selected room from the backend API.
+ * Parses the response data (handling both string-based and index-based day formats), 
+ * calculates the correct pixel offsets for the grid, and dynamically generates 
+ * `.room-block` elements to display the saved times.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the saved times have been fetched and rendered to the grid.
+ */
 async function loadSavedTimes () {
   const roomSelect = document.getElementById('roomSelect')
   const selectedRoomId = roomSelect.value
@@ -175,6 +224,15 @@ async function loadSavedTimes () {
   }
 }
 
+/**
+ * Iterates over all currently drawn `.room-block` elements on the grid, 
+ * calculates their corresponding day and start/end times in total minutes, 
+ * constructs a payload, and sends a POST request to save the updated availability 
+ * to the database for the active room.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the save operation completes (success alert or error alert).
+ */
 async function saveCurrentRoom () {
   const roomSelect = document.getElementById('roomSelect')
 

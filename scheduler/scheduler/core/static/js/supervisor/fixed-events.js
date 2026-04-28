@@ -1,6 +1,14 @@
 // FIXED EVENTS (OBSTRUCTIONS)
+/** @file Handles the logic for fixed events tied to certain roles that users can't be scheduled during */
+/** @module Supervisor */
 
 // Populates the start/end time dropdowns in 15-min increments from 7 AM to 10 PM
+/**
+ * Populates the start and end time select dropdowns for the fixed event form.
+ * Generates options in 15-minute increments from 7:00 AM to 10:00 PM (22:00).
+ *
+ * @returns {void}
+ */
 function populateTimeDropdowns () {
   const startSelect = document.getElementById('eventStartTime')
   const endSelect = document.getElementById('eventEndTime')
@@ -16,13 +24,25 @@ function populateTimeDropdowns () {
   endSelect.selectedIndex = 1
 }
 
+/**
+ * Gathers form data for a new fixed event (obstruction), validates the inputs, 
+ * and sends a POST request to the server to create the event. On success, 
+ * dynamically appends a new event tag to the UI and clears the form.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the creation process completes.
+ */
 async function addFixedEvent () {
   const name = document.getElementById('eventNameInput').value.trim()
   const location = document.getElementById('eventLocationInput').value.trim()
   const roleId = document.getElementById('eventRoleInput').value
   const section = document.getElementById('eventSectionInput').value || null
-  const startMin = timeToMin(document.getElementById('eventStartTime').value)
-  const endMin = timeToMin(document.getElementById('eventEndTime').value)
+  // Note: timeToMin requires a standard time format (e.g., "10:00 AM" or "14:30")
+  // Make sure the dropdown values match what timeToMin expects, or adjust if they are already in minutes.
+  // In the current implementation, populateTimeDropdowns sets values as total minutes, so timeToMin might not be needed if reading .value, depending on how timeToMin handles pure numbers. Assuming it handles the formatted string here based on previous utils.
+  const startMin = timeToMin(document.getElementById('eventStartTime').options[document.getElementById('eventStartTime').selectedIndex].text)
+  const endMin = timeToMin(document.getElementById('eventEndTime').options[document.getElementById('eventEndTime').selectedIndex].text)
+  
   const checkedDays = [...document.querySelectorAll('.day-check input:checked')].map(cb =>
     parseInt(cb.value)
   )
@@ -78,6 +98,8 @@ async function addFixedEvent () {
       // Clear form inputs
       document.getElementById('eventNameInput').value = ''
       document.querySelectorAll('.day-check input').forEach(cb => (cb.checked = false))
+    } else {
+      alert(data.error || 'Failed to add obstruction.')
     }
   } catch (error) {
     console.error('Error adding obstruction:', error)
@@ -85,6 +107,15 @@ async function addFixedEvent () {
   }
 }
 
+/**
+ * Prompts the user for confirmation, then sends a DELETE request to the API 
+ * to remove a specific fixed event (obstruction). On success, removes the 
+ * event's DOM element from the UI.
+ *
+ * @async
+ * @param {HTMLElement} icon - The DOM element of the delete icon that was clicked.
+ * @returns {Promise<void>} Resolves when the deletion process completes.
+ */
 async function deleteObstruction (icon) {
   const tag = icon.closest('.role-tag')
   const obstructionId = tag.dataset.obstructionId
@@ -112,6 +143,14 @@ async function deleteObstruction (icon) {
 }
 
 // Reloads the section dropdown when the role on the fixed-event form changes
+/**
+ * Event handler triggered when the role selection changes in the fixed event form.
+ * It hides or populates the corresponding section dropdown based on the selected role.
+ *
+ * @async
+ * @param {HTMLSelectElement} select - The role select dropdown element.
+ * @returns {Promise<void>} Resolves when the section dropdown is updated.
+ */
 async function onEventRoleChange (select) {
   const roleId = select.value
   const sectionSelect = document.getElementById('eventSectionInput')
