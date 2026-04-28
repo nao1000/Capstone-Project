@@ -1,5 +1,13 @@
-// ROLES
+/** @file Handles the logic showing and creating roles and sections */
+/** @module Supervisor */
 
+/**
+ * Reads the role name from the input field, sends a request to the server to create it,
+ * and dynamically updates the UI to display the new role in the roles list and all member-assignment dropdowns.
+ *
+ * @async
+ * @returns {Promise<void>} Resolves when the role is successfully created and the UI is updated.
+ */
 async function addRole () {
   const roleName = document.getElementById('newRoleInput').value.trim()
   if (!roleName) {
@@ -62,6 +70,14 @@ async function addRole () {
   }
 }
 
+/**
+ * Prompts for confirmation, deletes a specified role via the API, and removes 
+ * the corresponding role block and associated dropdown options from the DOM.
+ *
+ * @async
+ * @param {HTMLElement} icon - The DOM element of the delete icon clicked by the user.
+ * @returns {Promise<void>} Resolves when the role is successfully deleted.
+ */
 async function deleteRole (icon) {
   const block = icon.closest('.role-block')
   const roleId = block.dataset.roleId
@@ -86,6 +102,12 @@ async function deleteRole (icon) {
   }
 }
 
+/**
+ * Toggles the visibility of the sections container within a specific role block,
+ * and updates the toggle button text ('+ Sections' or '- Sections') accordingly.
+ *
+ * @param {HTMLElement} btn - The toggle button DOM element that was clicked.
+ */
 function toggleSections (btn) {
   const sectionsDiv = btn.closest('.role-block').querySelector('.role-sections')
   const isVisible = sectionsDiv.style.display !== 'none'
@@ -93,6 +115,14 @@ function toggleSections (btn) {
   btn.textContent = isVisible ? '+ Sections' : '- Sections'
 }
 
+/**
+ * Reads the section name from the input field within a role block, sends a POST request 
+ * to create the section on the server, and dynamically appends the new section tag to the UI.
+ *
+ * @async
+ * @param {HTMLElement} btn - The "Add" button DOM element that was clicked inside the sections panel.
+ * @returns {Promise<void>} Resolves when the section is created and the tag is added to the DOM.
+ */
 async function addSection (btn) {
   const roleBlock = btn.closest('.role-block')
   const roleId = roleBlock.dataset.roleId
@@ -130,6 +160,14 @@ async function addSection (btn) {
   }
 }
 
+/**
+ * Prompts for confirmation, deletes a specified section via the API, and removes 
+ * its corresponding tag element from the DOM.
+ *
+ * @async
+ * @param {HTMLElement} icon - The DOM element of the delete icon inside the section tag.
+ * @returns {Promise<void>} Resolves when the section is successfully deleted.
+ */
 async function deleteSection (icon) {
   const tag = icon.closest('.section-tag')
   const sectionId = tag.dataset.sectionId

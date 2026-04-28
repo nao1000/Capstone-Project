@@ -1,3 +1,16 @@
+/** @file Functions for managing the event creation/editing modal, room availability checks, and event block removal on the schedule grid. */
+/** @module Scheduler */
+
+/**
+ * Opens the event modal and populates its form fields based on the currently active grid context.
+ * Computes the time slot duration based on the clicked/dragged element's height and position,
+ * filters the worker dropdown based on the active role, and pre-selects known attributes.
+ *
+ * @requires window.WORKERS
+ * @requires window.ROLES
+ * @requires window.ROOMS
+ * @requires annotateRoomDropdown
+ */
 function openModal () {
   const modal = document.getElementById('eventModal')
   modal.classList.add('show')
@@ -83,6 +96,11 @@ function openModal () {
   annotateRoomDropdown(dayIndex, clickedRoomId)
 }
 
+/**
+ * Closes the event creation/editing modal.
+ * Also performs cleanup by removing the active event block from the DOM 
+ * if it was a temporary, un-saved block (indicated by the 'temp' class).
+ */
 function closeModal () {
   document.getElementById('eventModal').classList.remove('show')
   if (activeEvent && activeEvent.classList.contains('temp')) {
@@ -91,6 +109,16 @@ function closeModal () {
   activeEvent = null
 }
 
+/**
+ * Checks server and local state for room availability and existing bookings to annotate the room dropdown.
+ * Disables options if a room is closed/unavailable, or if its capacity is already filled 
+ * by overlapping shifts. Updates the dropdown option text to indicate remaining capacity or conflicts.
+ *
+ * @async
+ * @param {number} dayIndex - The zero-based index of the day corresponding to the shift (0 = Sun).
+ * @param {string|number|null} [preselectedRoomId=null] - The ID of a room that should be selected by default, if any.
+ * @returns {Promise<void>} Resolves when room data is fetched and the dropdown is fully populated and annotated.
+ */
 async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
   const day = DAY_KEYS[dayIndex]
 
@@ -213,6 +241,12 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
   })
 }
 
+/**
+ * Commits the configurations selected in the modal to the active grid event block.
+ * Replaces the temporary styling with an unsaved local state, updates the block's text 
+ * with the assigned user/time/room, repositions it in the DOM if the worker changed, 
+ * and caches the new shift data to local storage.
+ */
 function saveEvent () {
   const workerSelect = document.getElementById('modalWorkerSelect')
   const roleSelect = document.getElementById('modalRoleSelect')
@@ -279,6 +313,14 @@ function saveEvent () {
   activeEvent = null
 }
 
+/**
+ * Handles the removal of a specific event block from the grid when its 'x' button is clicked.
+ * Intercepts the click event to prevent grid slot selection, prompts the user for confirmation,
+ * and completely removes the block from the DOM upon approval.
+ *
+ * @param {Event} e - The DOM click event triggered by the user.
+ * @param {HTMLElement} xButton - The specific 'delete-x' button element that was clicked.
+ */
 function removeEventBlock (e, xButton) {
   e.stopPropagation()
   if (confirm('Remove this shift?')) {

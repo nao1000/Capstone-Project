@@ -1,5 +1,22 @@
+/** @file Core functions for dynamically building the schedule grid layout (single worker vs. role-based views) and its time labels. */
+/** @module Scheduler */
+
+/**
+ * The total calculated height of the schedule grid in pixels.
+ * Determined by the total number of hours, 4 slots (15 mins) per hour, and the defined slot height.
+ *
+ * @type {number}
+ */
 const totalHeight = (END_HOUR - START_HOUR) * 4 * SLOT_HEIGHT
 
+/**
+ * Constructs the DOM structure for a single worker's weekly schedule grid.
+ * Creates a simple 7-day layout where each column represents one day of the week.
+ * Reads `DAY_NAMES` for column headers.
+ *
+ * @param {string} workerName - The name of the worker (currently unused in grid generation).
+ * @requires drawTimeLabels
+ */
 function buildSingleWorkerGrid (workerName) {
   const header = document.getElementById('mainGridHeader')
   const grid = document.getElementById('mainGrid')
@@ -32,6 +49,17 @@ function buildSingleWorkerGrid (workerName) {
   document.getElementById('mainGrid').style.height = `${totalHeight}px`
 }
 
+/**
+ * Constructs the DOM structure for a multi-worker schedule grid (Role View).
+ * Groups the grid by day, and within each day, creates a separate sub-column for each worker.
+ * Reads `DAY_NAMES` for column group headers.
+ *
+ * @param {Array<Object>} workers - An array of worker objects to display in the grid.
+ * @param {string|number} workers[].id - The unique identifier of the worker.
+ * @param {string} workers[].name - The display name of the worker.
+ * @param {string} [workers[].section] - Optional section/group label for the worker.
+ * @requires drawTimeLabels
+ */
 function buildRoleGrid (workers) {
   const header = document.getElementById('mainGridHeader')
   const grid = document.getElementById('mainGrid')
@@ -91,6 +119,13 @@ function buildRoleGrid (workers) {
   document.getElementById('mainGrid').style.height = `${totalHeight}px`
 }
 
+/**
+ * Generates and positions hourly time labels (e.g., "9 AM", "12 PM") vertically along the grid's Y-axis.
+ * Reads `START_HOUR` and `END_HOUR` to determine the visible range.
+ * Skips rendering a label for the very last hour to prevent overflow at the bottom of the grid.
+ *
+ * @param {string} containerId - The DOM element ID of the container where time labels will be appended.
+ */
 function drawTimeLabels (containerId) {
   const timeCol = document.getElementById(containerId)
   timeCol.innerHTML = ''

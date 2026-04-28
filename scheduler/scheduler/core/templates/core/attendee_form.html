@@ -1,0 +1,190 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+  <h2>{{ team.name }} — Session Preferences</h2>
+  <p style="opacity: 0.7;">Select the times you'd prefer to attend sessions. Click and drag to mark a block.</p>
+
+  <div style="margin-bottom: 16px;">
+    <label for="roleSelect" style="margin-right: 8px;">Course / Role:</label>
+    <select id="roleSelect">
+      <option value="">Select a course...</option>
+    </select>
+  </div>
+
+  <div style="margin-bottom: 8px; font-size: 13px; opacity: 0.6;">
+    Days of the week →
+  </div>
+
+  <div id="attendeeGrid" style="display: flex; gap: 4px; overflow-x: auto;"></div>
+
+  <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+    <button id="submitBtn" onclick="submitPreferences()">Submit Preferences</button>
+    <button onclick="clearGrid()" style="background: transparent; border: 1px solid #ccc;">Clear</button>
+    <span id="statusMsg" style="font-size: 13px; opacity: 0.7;"></span>
+  </div>
+</div>
+
+<script>
+const ROLES = JSON.parse('{{ roles_json|escapejs }}')
+const TOKEN = '{{ token }}'
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const START_HOUR = 8
+const END_HOUR = 22
+const SLOT_HEIGHT = 16
+const TOTAL_SLOTS = (END_HOUR - START_HOUR) * 4
+
+// Store selected slots: Set of "roleId-day-slotIndex"
+const selected = new Set()
+let isDragging = false
+let dragMode = null // 'add' or 'remove'
+
+// Populate role select
+const roleSelect = document.getElementById('roleSelect')
+ROLES.forEach(r => {
+  roleSelect.appendChild(new Option(r.name, r.id))
+})
+
+function buildGrid () {
+  const grid = document.getElementById('attendeeGrid')
+  grid.innerHTML = ''
+
+  // Time labels column
+  const timeCol = document.createElement('div')
+  timeCol.style.cssText = 'display:flex;flex-direction:column;width:44px;flex-shrink:0;padding-top:24px;'
+  for (let i = 0; i < TOTAL_SLOTS; i++) {
+    const label = document.createElement('div')
+    label.style.cssText = `height:${SLOT_HEIGHT}px;font-size:10px;opacity:0.5;line-height:${SLOT_HEIGHT}px;text-align:right;padding-right:6px;`
+    label.textContent = i % 4 === 0 ? formatMin((START_HOUR * 60) + i * 15) : ''
+    timeCol.appendChild(label)
+  }
+  grid.appendChild(timeCol)
+
+  DAY_KEYS.forEach((dayKey, dayIndex) => {
+    const col = document.createElement('div')
+    col.style.cssText = 'display:flex;flex-direction:column;flex:1;min-width:60px;'
+
+    const header = document.createElement('div')
+    header.style.cssText = 'text-align:center;font-size:12px;font-weight:600;padding:4px 0;height:24px;'
+    header.textContent = DAY_LABELS[dayIndex]
+    col.appendChild(header)
+
+    for (let i = 0; i < TOTAL_SLOTS; i++) {
+      const slot = document.createElement('div')
+      slot.style.cssText = `height:${SLOT_HEIGHT}px;border:1px solid rgba(128,128,128,0.15);box-sizing:border-box;cursor:pointer;`
+      slot.dataset.day = dayKey
+      slot.dataset.slot = i
+
+      const key = `${roleSelect.value}-${dayKey}-${i}`
+      if (selected.has(key)) slot.style.background = 'var(--primary, #6366f1)'
+
+      slot.addEventListener('mousedown', e => {
+        e.preventDefault()
+        isDragging = true
+        dragMode = selected.has(key) ? 'remove' : 'add'
+        toggleSlot(slot)
+      })
+      slot.addEventListener('mouseover', () => {
+        if (isDragging) toggleSlot(slot)
+      })
+
+      col.appendChild(slot)
+    }
+    grid.appendChild(col)
+  })
+
+  document.addEventListener('mouseup', () => { isDragging = false })
+}
+
+function toggleSlot (slot) {
+  const roleId = roleSelect.value
+  if (!roleId) return
+  const key = `${roleId}-${slot.dataset.day}-${slot.dataset.slot}`
+  if (dragMode === 'add') {
+    selected.add(key)
+    slot.style.background = 'var(--primary, #6366f1)'
+  } else {
+    selected.delete(key)
+    slot.style.background = ''
+  }
+}
+
+function clearGrid () {
+  const roleId = roleSelect.value
+  selected.forEach(key => { if (key.startsWith(`${roleId}-`)) selected.delete(key) })
+  buildGrid()
+}
+
+function formatMin (min) {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  const ampm = h >= 12 ? 'pm' : 'am'
+  return `${h > 12 ? h - 12 : h || 12}:${String(m).padStart(2, '0')}${ampm}`
+}
+
+async function submitPreferences () {
+  if (selected.size === 0) {
+    alert('Please select at least one time block.')
+    return
+  }
+
+  // Convert selected slots to preference objects, merging contiguous slots
+  const preferences = []
+  const byRoleDay = {}
+
+  selected.forEach(key => {
+    const [roleId, day, slotStr] = key.split('-')
+    const k = `${roleId}-${day}`
+    if (!byRoleDay[k]) byRoleDay[k] = { roleId, day, slots: [] }
+    byRoleDay[k].slots.push(parseInt(slotStr))
+  })
+
+  Object.values(byRoleDay).forEach(({ roleId, day, slots }) => {
+    slots.sort((a, b) => a - b)
+    let start = slots[0]
+    let prev = slots[0]
+
+    for (let i = 1; i <= slots.length; i++) {
+      if (i === slots.length || slots[i] !== prev + 1) {
+        preferences.push({
+          role_id: roleId,
+          day,
+          start_min: START_HOUR * 60 + start * 15,
+          end_min: START_HOUR * 60 + (prev + 1) * 15,
+        })
+        start = slots[i]
+        prev = slots[i]
+      } else {
+        prev = slots[i]
+      }
+    }
+  })
+
+  const btn = document.getElementById('submitBtn')
+  btn.disabled = true
+  btn.textContent = 'Submitting...'
+
+  try {
+    const res = await fetch(`/respond/${TOKEN}/submit/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferences })
+    })
+    const data = await res.json()
+    document.getElementById('statusMsg').textContent = `✓ Submitted ${data.saved} preference blocks. Thank you!`
+    selected.clear()
+    buildGrid()
+  } catch (err) {
+    alert('Something went wrong. Please try again.')
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Submit Preferences'
+  }
+}
+
+roleSelect.addEventListener('change', buildGrid)
+buildGrid()
+</script>
+{% endblock %}

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: availability/prefs.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: availability/prefs.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>// PREFERENCES
+/** @module Availability */
+
+// --- Save all availability + role preferences to the server ---
+
+/**
+ * Gathers all availability blocks and role rankings, then saves them to the server.
+ * Parses the grid to calculate start/end times in minutes for busy and preferred blocks,
+ * combines them with role rankings, and sends a POST request.
+ * Reads `selectedRanking` to build the role preference payload.
+ *
+ * @async
+ * @requires window.SLOT_HEIGHT
+ * @requires window.START_HOUR
+ * @requires window.TEAM_ID
+ * @requires getCookie
+ */
+async function saveAllPreferences () {
+  const busyData = []
+  const preferredData = []
+
+  document.querySelectorAll('.event-block:not(.temp)').forEach(ev => {
+    const day = ev.parentElement.dataset.day
+    const topPx = parseFloat(ev.style.top)
+    const heightPx = parseFloat(ev.style.height)
+    const startSlotIndex = Math.round(topPx / window.SLOT_HEIGHT)
+    const slotsCount = Math.round(heightPx / window.SLOT_HEIGHT)
+    const startMin = startSlotIndex * 15 + window.START_HOUR * 60
+    const endMin = startMin + slotsCount * 15
+    const mode = ev.dataset.mode || 'busy'
+
+    const entry = {
+      day: parseInt(day),
+      start_min: startMin,
+      end_min: endMin
+    }
+
+    if (mode === 'preferred') {
+      preferredData.push(entry)
+    } else {
+      busyData.push({
+        ...entry,
+        name: ev.querySelector('.event-title')?.textContent || '',
+        location: ev.querySelector('.event-loc')?.textContent || ''
+      })
+    }
+  })
+
+  const rolePreferences = selectedRanking.map(({ roleId, sectionId }, index) => ({
+    rank: index + 1,
+    role_id: roleId,
+    section_id: sectionId || null
+  }))
+
+  const payload = {
+    busy: busyData,
+    preferred: preferredData,
+    role_preferences: rolePreferences
+  }
+
+  try {
+    const response = await fetch(`/api/team/${window.TEAM_ID}/save-availability/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    document.getElementById('savePopupModal').classList.add('show')
+  } catch (error) {
+    console.error('Error saving preferences:', error)
+    alert('There was an error saving the schedule. Please try again.')
+  }
+}
+
+/**
+ * Hides the success modal shown after preferences are successfully saved.
+ */
+function closeSavePopup () {
+  document.getElementById('savePopupModal').classList.remove('show')
+}
+
+// --- Role / Section Ranking ---
+
+/**
+ * Toggles the visibility of child sections when a parent role is checked.
+ * If the role has no sub-sections, it immediately adds the role to the ranking list.
+ * Unchecking removes the role from the rankings and clears all child section selections.
+ * Mutates the `selectedRanking` array directly.
+ *
+ * @param {HTMLInputElement} checkbox - The parent role checkbox.
+ * @param {string} sectionsDivId - The DOM ID of the container holding the sub-sections.
+ * @requires updateRankDisplay
+ */
+function toggleSections (checkbox, sectionsDivId) {
+  const sectionDiv = document.getElementById(sectionsDivId)
+  const roleId = checkbox.value
+  const hasSections = sectionDiv.querySelectorAll('.section-check').length > 0
+
+  if (checkbox.checked) {
+    if (hasSections) {
+      sectionDiv.style.display = 'block'
+    } else {
+      selectedRanking.push({ key: `role-${roleId}`, roleId, sectionId: null })
+    }
+  } else {
+    sectionDiv.style.display = 'none'
+    selectedRanking = selectedRanking.filter(item => item.roleId !== roleId)
+    sectionDiv.querySelectorAll('.section-check').forEach(sc => (sc.checked = false))
+  }
+
+  updateRankDisplay()
+}
+
+/**
+ * Handles checking and unchecking specific child sections.
+ * Adds or removes the section from the `selectedRanking` array.
+ *
+ * @param {HTMLInputElement} checkbox - The child section checkbox.
+ * @requires updateRankDisplay
+ */
+function toggleSection (checkbox) {
+  const sectionId = checkbox.value
+  const roleId = checkbox.dataset.parentRole
+  const key = `section-${sectionId}`
+
+  if (checkbox.checked) {
+    selectedRanking.push({ key, roleId, sectionId })
+  } else {
+    selectedRanking = selectedRanking.filter(item => item.key !== key)
+  }
+
+  updateRankDisplay()
+}
+
+/**
+ * Iterates through the current rankings and updates the UI badges
+ * to show the visual priority (#1, #2, etc.) next to each checked role/section.
+ */
+function updateRankDisplay () {
+  document.querySelectorAll('.rank-badge').forEach(badge => (badge.innerText = ''))
+
+  selectedRanking.forEach(({ roleId, sectionId }, index) => {
+    const badgeId = sectionId ? `rank-section-${sectionId}` : `rank-${roleId}`
+    const badge = document.getElementById(badgeId)
+    if (badge) badge.innerText = `#${index + 1}`
+  })
+}
+
+/**
+ * Populates the UI with previously saved role and section preferences from the server.
+ * Sorts them by rank to ensure they are pushed into `selectedRanking` in the correct order.
+ * Reads `window.SAVED_ROLES`, an array of role preference objects populated by the backend.
+ *
+ * @requires toggleSection
+ * @requires toggleSections
+ * @requires window.SAVED_ROLES
+ */
+function restoreSavedRolePreferences () {
+  if (!window.SAVED_ROLES || window.SAVED_ROLES.length === 0) return
+
+  // Sort by rank so selectedRanking ends up in the right order
+  const sorted = [...window.SAVED_ROLES].sort((a, b) => a.rank - b.rank)
+
+  sorted.forEach(pref => {
+    if (pref.section_id) {
+      // --- Has a section: check the parent role first (to show sections dropdown) ---
+      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
+      if (roleCheckbox &amp;&amp; !roleCheckbox.checked) {
+        roleCheckbox.checked = true
+        const sectionsDivId = `sections-${pref.role_id}`
+        const sectionsDiv = document.getElementById(sectionsDivId)
+        if (sectionsDiv) sectionsDiv.style.display = 'block'
+      }
+
+      // Then check the specific section
+      const sectionCheckbox = document.querySelector(`.section-check[value="${pref.section_id}"]`)
+      if (sectionCheckbox) {
+        sectionCheckbox.checked = true
+        toggleSection(sectionCheckbox)
+      }
+    } else {
+      // --- No section: just check the role ---
+      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
+      if (roleCheckbox) {
+        roleCheckbox.checked = true
+        toggleSections(roleCheckbox, `sections-${pref.role_id}`)
+      }
+    }
+  })
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-Availability.html">Availability</a></li><li><a href="module-Scheduler.html">Scheduler</a></li><li><a href="module-Supervisor.html">Supervisor</a></li></ul><h3>Namespaces</h3><ul><li><a href="module-Scheduler-localSchedule.html">localSchedule</a></li></ul><h3>Global</h3><ul><li><a href="global.html#assignPreviewedRole">assignPreviewedRole</a></li><li><a href="global.html#closeWorkerEditModal">closeWorkerEditModal</a></li><li><a href="global.html#copyFullCode">copyFullCode</a></li><li><a href="global.html#csrfToken">csrfToken</a></li><li><a href="global.html#deleteTeam">deleteTeam</a></li><li><a href="global.html#filterWorkers">filterWorkers</a></li><li><a href="global.html#loadWorker">loadWorker</a></li><li><a href="global.html#onWorkerEditRoleChange">onWorkerEditRoleChange</a></li><li><a href="global.html#openWorkerEditModal">openWorkerEditModal</a></li><li><a href="global.html#previewPreferredRole">previewPreferredRole</a></li><li><a href="global.html#renderObstructionsForRole">renderObstructionsForRole</a></li><li><a href="global.html#renderWorkerPanel">renderWorkerPanel</a></li><li><a href="global.html#saveWorkerAssignment">saveWorkerAssignment</a></li><li><a href="global.html#saveWorkerShifts">saveWorkerShifts</a></li><li><a href="global.html#scheduleShiftCache">scheduleShiftCache</a></li><li><a href="global.html#toggleForms">toggleForms</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Apr 28 2026 00:32:38 GMT-0700 (Mountain Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

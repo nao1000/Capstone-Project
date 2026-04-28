@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: supervisor/utils.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: supervisor/utils.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/** @file General util functions for the supervisor module */
+/** @module Supervisor */
+
+// Converts a pixel offset from the top of the grid to a 12-hour time string
+/**
+ * Converts a vertical pixel offset from the schedule grid into a formatted 
+ * 12-hour time string (e.g., "9:15AM"). Relies on the global `START_HOUR` 
+ * and `PIXELS_PER_HOUR` constants.
+ *
+ * @param {number} pixels - The vertical distance in pixels from the top of the grid.
+ * @returns {string} The formatted 12-hour time string with AM/PM suffix.
+ */
+function formatTime (pixels) {
+  const totalMinutes = (pixels / PIXELS_PER_HOUR) * 60
+  let hours = START_HOUR + Math.floor(totalMinutes / 60)
+  let mins = Math.floor(totalMinutes % 60)
+
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12 || 12
+  mins = mins &lt; 10 ? '0' + mins : mins
+
+  return `${hours}:${mins}${ampm}`
+}
+
+// Converts total minutes from midnight to a 12-hour time string (e.g. 540 → "9:00AM")
+/**
+ * Converts a specific time represented in total minutes from midnight 
+ * into a formatted 12-hour time string.
+ *
+ * @param {number} totalMinutes - The time represented as total minutes elapsed since midnight.
+ * @returns {string} The formatted 12-hour time string with AM/PM suffix.
+ */
+function formatMin (totalMinutes) {
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const displayH = h > 12 ? h - 12 : h === 0 || h === 12 ? 12 : h
+  const displayM = m &lt; 10 ? '0' + m : m
+  return `${displayH}:${displayM}${suffix}`
+}
+
+// Parses "10:00 AM" or "10:00" format to total minutes from midnight
+/**
+ * Parses a basic time string and converts it into total minutes from midnight.
+ * Note: `parseInt` automatically ignores non-numeric characters like " AM", 
+ * but this simple implementation does not convert PM hours automatically unless 
+ * provided in 24-hour format (e.g., "14:00").
+ *
+ * @param {string} timeStr - The time string to parse (e.g., "10:00" or "10:00 AM").
+ * @returns {number} The calculated total minutes from midnight.
+ */
+function timeToMin (timeStr) {
+  const cleaned = timeStr.trim()
+  const parts = cleaned.split(':')
+  const h = parseInt(parts[0])
+  const m = parseInt(parts[1]) // parseInt ignores " AM" suffix automatically
+  return h * 60 + m
+}
+
+/**
+ * Retrieves the value of a specific browser cookie by its name. 
+ * Commonly used to extract the `csrftoken` for secure API requests in Django.
+ *
+ * @param {string} name - The exact string name of the cookie to retrieve.
+ * @returns {string|null} The decoded value of the requested cookie, or null if it doesn't exist.
+ */
+function getCookie (name) {
+  let cookieValue = null
+  if (document.cookie &amp;&amp; document.cookie !== '') {
+    const cookies = document.cookie.split(';')
+    for (let i = 0; i &lt; cookies.length; i++) {
+      const cookie = cookies[i].trim()
+      if (cookie.substring(0, name.length + 1) === name + '=') {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
+        break
+      }
+    }
+  }
+  return cookieValue
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-Availability.html">Availability</a></li><li><a href="module-Scheduler.html">Scheduler</a></li><li><a href="module-Supervisor.html">Supervisor</a></li></ul><h3>Namespaces</h3><ul><li><a href="module-Scheduler-localSchedule.html">localSchedule</a></li></ul><h3>Global</h3><ul><li><a href="global.html#assignPreviewedRole">assignPreviewedRole</a></li><li><a href="global.html#closeWorkerEditModal">closeWorkerEditModal</a></li><li><a href="global.html#copyFullCode">copyFullCode</a></li><li><a href="global.html#csrfToken">csrfToken</a></li><li><a href="global.html#deleteTeam">deleteTeam</a></li><li><a href="global.html#filterWorkers">filterWorkers</a></li><li><a href="global.html#loadWorker">loadWorker</a></li><li><a href="global.html#onWorkerEditRoleChange">onWorkerEditRoleChange</a></li><li><a href="global.html#openWorkerEditModal">openWorkerEditModal</a></li><li><a href="global.html#previewPreferredRole">previewPreferredRole</a></li><li><a href="global.html#renderObstructionsForRole">renderObstructionsForRole</a></li><li><a href="global.html#renderWorkerPanel">renderWorkerPanel</a></li><li><a href="global.html#saveWorkerAssignment">saveWorkerAssignment</a></li><li><a href="global.html#saveWorkerShifts">saveWorkerShifts</a></li><li><a href="global.html#scheduleShiftCache">scheduleShiftCache</a></li><li><a href="global.html#toggleForms">toggleForms</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Apr 28 2026 00:32:38 GMT-0700 (Mountain Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

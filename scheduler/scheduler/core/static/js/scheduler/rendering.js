@@ -1,3 +1,19 @@
+/** @file Functions handling the rendering, clearing, and server-synchronization of shifts and obstructions on the schedule grid. */
+/** @module Scheduler */
+
+/**
+ * Renders an array of shift objects onto the main schedule grid as HTML blocks.
+ * Calculates their vertical position and height based on start and end times, 
+ * and styles them differently if they are saved on the server versus newly drawn locally.
+ *
+ * @param {Array<Object>} shifts - Array of shift data objects to render.
+ * @param {string|number} shifts[].day - The day of the week (e.g., 'mon' or 1).
+ * @param {number} shifts[].user_id - The ID of the worker assigned to the shift.
+ * @param {number} shifts[].start_min - Start time in total minutes.
+ * @param {number} shifts[].end_min - End time in total minutes.
+ * @param {boolean} shifts[].isSaved - Indicates if the shift is synced with the server.
+ * @param {boolean} [isLocal=false] - (Unused in current implementation) Flag indicating if the render originates from a local action.
+ */
 function renderShiftsToGrid (shifts, isLocal = false) {
   const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
   shifts.forEach(s => {
@@ -46,6 +62,14 @@ function renderShiftsToGrid (shifts, isLocal = false) {
   })
 }
 
+/**
+ * Clears existing obstructions, then filters and renders hard constraints/obstructions 
+ * tailored specifically for a given worker based on their section and role mapping.
+ *
+ * @param {string|number} workerId - The unique ID of the worker whose obstructions should be rendered.
+ * @requires window.WORKERS
+ * @requires window.OBSTRUCTIONS
+ */
 function renderWorkerObstructions (workerId) {
   document
     .querySelectorAll('#mainGrid .obstruction-block')
@@ -75,40 +99,101 @@ function renderWorkerObstructions (workerId) {
   })
 }
 
+/**
+ * Removes all visible shift blocks from the grid DOM.
+ * By default, prompts the user to confirm the action before executing.
+ *
+ * @param {boolean} [withConfirm=true] - If true, triggers a browser `confirm` dialog before clearing.
+ */
 function clearInteractiveGrid (withConfirm = true) {
   if (withConfirm && !confirm('Clear all assigned shifts?')) return
   document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
 }
 
+/**
+ * Deletes all shifts associated with the currently active schedule from the backend.
+ * Demands a strict text confirmation ('CLEAR'), clears the UI, resets local caching, 
+ * and pulls a fresh state from the server to ensure synchronization.
+ *
+ * @async
+ * @param {boolean} [withConfirm=true] - If true, requires the user to type "CLEAR" into a prompt dialog.
+ * @returns {Promise<void>}
+ */
 async function deleteShifts (withConfirm = true) {
-  if (withConfirm && (prompt('Type CLEAR to confirm shift deletion:') != "CLEAR")) return
-  try {
-    const response = await fetch(`/api/team/${window.TEAM_ID}/schedule/${activeScheduleId}/shifts/delete/`, {
-      method: 'DELETE',
-      headers: {'X-CSRFToken': csrfToken}
-    })
+  if (
+    withConfirm &&
+    prompt('Type CLEAR to confirm shift deletion:') !== 'CLEAR'
+  )
+    return
 
-    if (response.ok) {
-      if (withConfirm) {
-        document.querySelectorAll('#mainGrid .shift-block').forEach(el => el.remove())
-        localSchedule.clear()
+  const btn = document.querySelector('[onclick="deleteShifts()"]')
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = 'Clearing...'
+  }
+
+  try {
+    const response = await fetch(
+      `/api/team/${window.TEAM_ID}/schedule/${activeScheduleId}/shifts/delete/`,
+      {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken }
+      }
+    )
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      alert(`Failed to delete shifts: ${err.error || response.status}`)
+      return
+    }
+
+    // Only clear UI after server confirms success
+    document
+      .querySelectorAll('#mainGrid .shift-block')
+      .forEach(el => el.remove())
+    localSchedule.clear()
+
+    // Bust the cache so a reload doesn't repopulate from stale data
+    if (activeScheduleId) {
+      delete scheduleShiftCache[activeScheduleId]
+    }
+
+    // Re-fetch fresh shift data to confirm server state matches UI
+    const fresh = await fetch(
+      `/api/team/${window.TEAM_ID}/schedules/${activeScheduleId}/shifts/`
+    )
+    if (fresh.ok) {
+      const data = await fresh.json()
+      scheduleShiftCache[activeScheduleId] = data
+      if (data.shifts && data.shifts.length > 0) {
+        console.warn('Server still returned shifts after delete:', data.shifts)
+        alert('Some shifts may not have been deleted. Please try again.')
       }
     }
-    else {
-      alert('Failed to delete shifts')
+  } catch (error) {
+    console.error(error)
+    alert('An error occurred.')
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = 'Clear Grid'
     }
   }
-  catch (error) {
-    console.error(error)
-    alert('An error occured.')
-  }
-  
 }
 
+/**
+ * Removes all obstruction (unavailable/hard conflict) blocks from the DOM.
+ */
 function clearObstructionBlocks () {
   document.querySelectorAll('.obstruction-block').forEach(b => b.remove())
 }
 
+/**
+ * Smoothly scrolls the main grid horizontally to bring a specific day column into view.
+ * Briefly flashes the column's background to highlight it for the user.
+ *
+ * @param {number|string} dayIndex - The zero-based index of the day to scroll to (0 = Sun, 6 = Sat).
+ */
 function scrollToDay (dayIndex) {
   const targetCol = document.querySelector(
     `#mainGrid .day-col[data-day="${dayIndex}"]`
@@ -127,6 +212,14 @@ function scrollToDay (dayIndex) {
   })
 }
 
+/**
+ * Bootstraps and renders the "Master View" which displays all workers grouped by roles/sections.
+ * Fetches required schedule data, builds the complex sub-column grid structure, and plots 
+ * worker availabilities, preferences, obstructions, and merged shift data (local + saved).
+ *
+ * @async
+ * @returns {Promise<void>}
+ */
 async function loadMasterView () {
   document
     .querySelectorAll('.worker-item')
@@ -195,9 +288,16 @@ async function loadMasterView () {
           block.style.height = `${height}px`
           block.innerHTML = `
           <div class="event-content">
-            <div class="event-title">${range.eventName || range.event_name || range.name || ''}</div>
-            <div class="event-building">${range.building || range.location || ''}</div>
-            <div class="event-time">${range.label || `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`}</div>
+            <div class="event-title">${
+              range.eventName || range.event_name || range.name || ''
+            }</div>
+            <div class="event-building">${
+              range.building || range.location || ''
+            }</div>
+            <div class="event-time">${
+              range.label ||
+              `${formatMin(range.start_min)} - ${formatMin(range.end_min)}`
+            }</div>
           </div>`
           workerCol.appendChild(block)
         })
@@ -213,6 +313,7 @@ async function loadMasterView () {
 
           const block = document.createElement('div')
           block.className = 'event-block prefer-block'
+          block.innerHTML = "<div>Preferred Working Hours</div>"
           block.style.top = `${top}px`
           block.style.height = `${height}px`
           workerCol.appendChild(block)
@@ -229,9 +330,7 @@ async function loadMasterView () {
   })
 
   if (localSchedule.length > 0) {
-  localSchedule.forEach(shifts => {
-
-  })
+    localSchedule.forEach(shifts => {})
   }
   // --- Shifts ---
   if (activeScheduleId) {
@@ -272,7 +371,9 @@ async function loadMasterView () {
 
     // Deduplicate — if a shift exists in both, prefer the saved version
     const savedIds = new Set(savedShifts.map(s => s.id).filter(Boolean))
-    const uniqueLocalShifts = localShifts.filter(s => !s.id || !savedIds.has(s.id))
+    const uniqueLocalShifts = localShifts.filter(
+      s => !s.id || !savedIds.has(s.id)
+    )
 
     renderShiftsToGrid([...savedShifts, ...uniqueLocalShifts], false)
   }

@@ -1,6 +1,20 @@
 // PREFERENCES
+/** @module Availability */
 
 // --- Save all availability + role preferences to the server ---
+
+/**
+ * Gathers all availability blocks and role rankings, then saves them to the server.
+ * Parses the grid to calculate start/end times in minutes for busy and preferred blocks,
+ * combines them with role rankings, and sends a POST request.
+ * Reads `selectedRanking` to build the role preference payload.
+ *
+ * @async
+ * @requires window.SLOT_HEIGHT
+ * @requires window.START_HOUR
+ * @requires window.TEAM_ID
+ * @requires getCookie
+ */
 async function saveAllPreferences () {
   const busyData = []
   const preferredData = []
@@ -65,12 +79,25 @@ async function saveAllPreferences () {
   }
 }
 
+/**
+ * Hides the success modal shown after preferences are successfully saved.
+ */
 function closeSavePopup () {
   document.getElementById('savePopupModal').classList.remove('show')
 }
 
 // --- Role / Section Ranking ---
 
+/**
+ * Toggles the visibility of child sections when a parent role is checked.
+ * If the role has no sub-sections, it immediately adds the role to the ranking list.
+ * Unchecking removes the role from the rankings and clears all child section selections.
+ * Mutates the `selectedRanking` array directly.
+ *
+ * @param {HTMLInputElement} checkbox - The parent role checkbox.
+ * @param {string} sectionsDivId - The DOM ID of the container holding the sub-sections.
+ * @requires updateRankDisplay
+ */
 function toggleSections (checkbox, sectionsDivId) {
   const sectionDiv = document.getElementById(sectionsDivId)
   const roleId = checkbox.value
@@ -91,6 +118,13 @@ function toggleSections (checkbox, sectionsDivId) {
   updateRankDisplay()
 }
 
+/**
+ * Handles checking and unchecking specific child sections.
+ * Adds or removes the section from the `selectedRanking` array.
+ *
+ * @param {HTMLInputElement} checkbox - The child section checkbox.
+ * @requires updateRankDisplay
+ */
 function toggleSection (checkbox) {
   const sectionId = checkbox.value
   const roleId = checkbox.dataset.parentRole
@@ -105,6 +139,10 @@ function toggleSection (checkbox) {
   updateRankDisplay()
 }
 
+/**
+ * Iterates through the current rankings and updates the UI badges
+ * to show the visual priority (#1, #2, etc.) next to each checked role/section.
+ */
 function updateRankDisplay () {
   document.querySelectorAll('.rank-badge').forEach(badge => (badge.innerText = ''))
 
@@ -112,5 +150,48 @@ function updateRankDisplay () {
     const badgeId = sectionId ? `rank-section-${sectionId}` : `rank-${roleId}`
     const badge = document.getElementById(badgeId)
     if (badge) badge.innerText = `#${index + 1}`
+  })
+}
+
+/**
+ * Populates the UI with previously saved role and section preferences from the server.
+ * Sorts them by rank to ensure they are pushed into `selectedRanking` in the correct order.
+ * Reads `window.SAVED_ROLES`, an array of role preference objects populated by the backend.
+ *
+ * @requires toggleSection
+ * @requires toggleSections
+ * @requires window.SAVED_ROLES
+ */
+function restoreSavedRolePreferences () {
+  if (!window.SAVED_ROLES || window.SAVED_ROLES.length === 0) return
+
+  // Sort by rank so selectedRanking ends up in the right order
+  const sorted = [...window.SAVED_ROLES].sort((a, b) => a.rank - b.rank)
+
+  sorted.forEach(pref => {
+    if (pref.section_id) {
+      // --- Has a section: check the parent role first (to show sections dropdown) ---
+      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
+      if (roleCheckbox && !roleCheckbox.checked) {
+        roleCheckbox.checked = true
+        const sectionsDivId = `sections-${pref.role_id}`
+        const sectionsDiv = document.getElementById(sectionsDivId)
+        if (sectionsDiv) sectionsDiv.style.display = 'block'
+      }
+
+      // Then check the specific section
+      const sectionCheckbox = document.querySelector(`.section-check[value="${pref.section_id}"]`)
+      if (sectionCheckbox) {
+        sectionCheckbox.checked = true
+        toggleSection(sectionCheckbox)
+      }
+    } else {
+      // --- No section: just check the role ---
+      const roleCheckbox = document.querySelector(`.role-check[value="${pref.role_id}"]`)
+      if (roleCheckbox) {
+        roleCheckbox.checked = true
+        toggleSections(roleCheckbox, `sections-${pref.role_id}`)
+      }
+    }
   })
 }

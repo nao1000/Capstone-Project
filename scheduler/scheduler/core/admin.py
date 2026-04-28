@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import AvailabilityRange, Team, Role, Shift, Room, RoomAvailability, TeamRoleAssignment
 from .models import ObstructionDay, FixedObstruction
 from .models import UserRolePreference, PreferredTime
+from .models import AttendeePreference, AttendeeResponseLink
 
 admin.site.register(AvailabilityRange)
 admin.site.register(Team)
@@ -14,3 +15,5 @@ admin.site.register(ObstructionDay)
 admin.site.register(FixedObstruction)
 admin.site.register(UserRolePreference)
 admin.site.register(PreferredTime)
+admin.site.register(AttendeePreference)
+admin.site.register(AttendeeResponseLink)

@@ -259,11 +259,8 @@ def export_schedule(request, team_id, schedule_id):
     return response
 
 @login_required
-@require_http_methods(["DELETE"])
+@require_http_methods(["POST"])
 def delete_shifts(request, team_id, schedule_id):
-    schedule = get_object_or_404(Schedule, id=schedule_id)
-    shifts = schedule.shifts.all()
-    shifts.delete()
-    
+    schedule = get_object_or_404(Schedule, id=schedule_id, team_id=team_id)
+    schedule.shifts.all().delete()
     return JsonResponse({"status": "ok"})
-       

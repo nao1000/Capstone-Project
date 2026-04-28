@@ -1,7 +1,28 @@
+/** @file Initialization and setup logic for the main scheduling grid view. */
+/** @module Scheduler */
+
+/**
+ * The CSRF token extracted from the page's meta tag.
+ * Used to securely authenticate state-changing API requests to the server.
+ * * @type {string|null}
+ */
 const csrfToken = document
   .querySelector('meta[name="csrf-token"]')
   .getAttribute('content')
 
+/**
+ * Initializes the core application logic once the DOM is fully parsed.
+ *
+ * @description
+ * 1. Bootstraps UI components: Time labels, drag listeners, filters, and fetches initial schedule data.
+ * 2. Synchronizes horizontal scrolling between the main grid content and the fixed top header.
+ * 3. Binds a double-click event to the grid body that captures specific shift data attributes and opens the edit modal.
+ * 4. Checks `sessionStorage` for a queued worker ID to immediately load a specific individual's schedule upon navigation;
+ * otherwise, it defaults to loading the master team view.
+ *
+ * @listens document#DOMContentLoaded
+ * @async
+ */
 document.addEventListener('DOMContentLoaded', async () => {
   drawTimeLabels('mainTimeCol')
   setupDragListeners()

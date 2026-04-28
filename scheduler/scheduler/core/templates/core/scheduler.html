@@ -41,20 +41,18 @@
             <h2 class="panel-title">Team Members</h2>
             <input type="text" id="workerSearch" class="search-input" placeholder="Search workers..."
                 onkeyup="filterWorkers()">
-                <div class="worker-list">
-                    {% for worker in workers %}
-                    <div class="worker-item" 
-                        data-worker-id="{{ worker.id }}"
-                        data-team-id="{{ team.id }}"
-                        onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
-                        
-                        <span>{{ worker.get_full_name|default:worker.username }}</span>
-                        <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
-                            onclick="event.stopPropagation(); openWorkerEditModal('{{ worker.id }}', '{{ worker.get_full_name|default:worker.username }}')">
-                        </i>
-                    </div>
-                    {% endfor %}
+            <div class="worker-list">
+                {% for worker in workers %}
+                <div class="worker-item" data-worker-id="{{ worker.id }}" data-team-id="{{ team.id }}"
+                    onclick="loadWorker('{{ worker.id }}', '{{ team.id }}', '{{ worker.get_full_name|default:worker.username }}', this)">
+
+                    <span>{{ worker.get_full_name|default:worker.username }}</span>
+                    <i class="fa-solid fa-pen" style="font-size:11px; color:#999; cursor:pointer;"
+                        onclick="event.stopPropagation(); openWorkerEditModal('{{ worker.id }}', '{{ worker.get_full_name|default:worker.username }}')">
+                    </i>
                 </div>
+                {% endfor %}
+            </div>
             <h2 class="panel-title" style="margin-top: 20px;">Filters </h2>
 
             <div style="padding: 0 5px 15px 5px;">
@@ -74,7 +72,7 @@
                 <button class="btn btn-clear" style="margin:3px" onclick="scrollToDay(6)">Sat</button>
             </div>
 
-          
+
         </div>
     </aside>
 
@@ -109,7 +107,6 @@
                 </div>
 
                 <div id="for-worker" style="display: none; width: 200px;">
-
                     <div
                         style="width: 200px; background: #fcfcfc; padding: 20px 15px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto;">
 
@@ -121,13 +118,12 @@
                             Click a role to preview its obstructions on the grid.
                         </p>
 
-                        <div id="preferredRoleButtons" style="display: flex; flex-direction: column; gap: 6px;">
-
+                        <!-- Scrollable role list — button is now OUTSIDE this div -->
+                        <div id="preferredRoleButtons"
+                            style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
                         </div>
 
                         <hr style="width: 100%; border: none; border-top: 1px solid #eaeaea; margin: 8px 0;">
-
-                        <div style="flex: 1;"></div>
 
                         <div id="workerRoleAssignInfo"
                             style="font-size: 11px; color: #888; text-align: center; display: none;">
@@ -138,8 +134,16 @@
                             style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px; opacity: 0.5; box-shadow: 0 4px 6px rgba(115, 147, 179, 0.2);">
                             Assign Role
                         </button>
-                    </div>
 
+                        <div style="flex: 1;"></div>
+
+                        <button id="saveWorkerShiftsBtn" onclick="saveWorkerShifts()"
+                            style="width: 100%; padding: 14px 10px; font-size: 14px; border-radius: 6px;"
+                            class="btn btn-save">
+                            Save Shifts
+                        </button>
+
+                    </div>
                 </div>
 
                 <div id="for-filter" style="display: flex; width: 200px;">
@@ -163,7 +167,7 @@
                             style="margin: 0 0 5px 0; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
                             Grid Tools</h4>
                         <button class="btn btn-clear" onclick="deleteShifts()"
-                            style="width: 100%; text-align: left;">Clear Grid</button>
+                            style="width: 100%; text-align: left;">Delete All Shifts</button>
                         <button class="btn btn-clear" onclick="exportSchedule()"
                             style="width: 100%; text-align: left;">Export Data</button>
 

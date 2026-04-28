@@ -830,3 +830,13 @@ td {
     margin-right: 8px;
 }
 
+.share-card h3 {
+    margin-top: 0;
+    font-weight: 500;
+    font-size: 22px;
+}
+
+.share-card p {
+    color: #666;
+    margin-bottom: 16px;
+}
