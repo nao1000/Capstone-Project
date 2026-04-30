@@ -246,12 +246,9 @@ async function executeAutoScheduler () {
       shiftsByRole[shift.role_id].push(shift)
     })
 
-    console.log('by role', shiftsByRole)
     for (const [rId, shifts] of Object.entries(shiftsByRole)) {
       localSchedule.save(rId, shifts)
     }
-
-    console.log('local', JSON.parse(JSON.stringify(localSchedule)))
 
     if (typeof clearInteractiveGrid === 'function') {
       clearInteractiveGrid(false)

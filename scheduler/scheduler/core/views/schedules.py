@@ -264,3 +264,10 @@ def delete_shifts(request, team_id, schedule_id):
     schedule = get_object_or_404(Schedule, id=schedule_id, team_id=team_id)
     schedule.shifts.all().delete()
     return JsonResponse({"status": "ok"})
+
+@login_required
+@require_http_methods(["POST"])
+def delete_shift(request, schedule_id, shift_id):
+    shift = get_object_or_404(Shift, id=shift_id, schedule_id=schedule_id)
+    shift.delete()
+    return JsonResponse({"status": "ok"})

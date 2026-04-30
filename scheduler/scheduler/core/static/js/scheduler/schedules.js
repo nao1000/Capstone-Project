@@ -204,6 +204,7 @@ async function setActiveSchedule () {
  * Saves the current shift configurations to the server.
  * Prompts the user to save either all roles or just the currently filtered role.
  * Merges local unsaved shifts with previously cached shifts and alerts the user of any conflicts.
+ * Allows multiple shifts to exist in the same time slot as long as they belong to different workers.
  *
  * @async
  * @returns {Promise<void>}
@@ -229,10 +230,12 @@ async function saveAllPreferences () {
 
   const cachedShifts = scheduleShiftCache[activeScheduleId]?.shifts || []
 
+  // FIX 1: Include the user_name in the unique key so different people 
+  // at the exact same time don't overwrite each other.
   function mergeSavedAndLocal (saved, local) {
     const map = {}
-    saved.forEach(s => { map[`${s.day}-${s.start_min}`] = s })
-    local.forEach(s => { map[`${s.day}-${s.start_min}`] = s })
+    saved.forEach(s => { map[`${s.day}-${s.start_min}-${s.user_name}`] = s })
+    local.forEach(s => { map[`${s.day}-${s.start_min}-${s.user_name}`] = s })
     return Object.values(map)
   }
 
@@ -265,13 +268,15 @@ async function saveAllPreferences () {
         shiftsByRole[rId].push(shift)
       })
 
-      // Merge local shifts in on top — same slot overwrites cached
+      // Merge local shifts in on top
       allLocalShifts.forEach(shift => {
         const rId = String(shift.role_id)
         if (!shiftsByRole[rId]) shiftsByRole[rId] = []
-        // Remove any cached shift at the same slot before pushing local
+        
+        // FIX 2: Only overwrite if it's the exact same day, time, AND user.
+        // This allows overlapping shifts for different users to coexist.
         shiftsByRole[rId] = shiftsByRole[rId].filter(
-          s => !(s.day === shift.day && s.start_min === shift.start_min)
+          s => !(s.day === shift.day && s.start_min === shift.start_min && s.user_name === shift.user_name)
         )
         shiftsByRole[rId].push(shift)
       })
@@ -297,7 +302,7 @@ async function saveAllPreferences () {
     }
 
     document
-      .querySelectorAll('#interactiveGrid .shift-block.local')
+      .querySelectorAll('#mainGrid .shift-block.local')
       .forEach(block => {
         block.classList.remove('local')
         block.classList.add('saved')

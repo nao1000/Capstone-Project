@@ -221,6 +221,7 @@ function scrollToDay (dayIndex) {
  * @returns {Promise<void>}
  */
 async function loadMasterView () {
+  activeRoleId = null
   document
     .querySelectorAll('.worker-item')
     .forEach(el => el.classList.remove('active'))

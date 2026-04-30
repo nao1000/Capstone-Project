@@ -30,7 +30,8 @@ from .schedules import (
     get_schedule_shifts,
     get_room_bookings,
     export_schedule,
-    delete_shifts
+    delete_shifts,
+    delete_shift
 )
 
 # --- API: Rooms ---

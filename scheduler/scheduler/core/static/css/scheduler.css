@@ -638,3 +638,8 @@ body {
     box-shadow: 0 0 0 3px rgba(115, 147, 179, 0.2);
 }
 
+.conflict-shift {
+    background-color: #ffebee !important; /* light red */
+    border: 2px dashed #f44336 !important; /* red dashed border */
+    z-index: 10; /* pop it to the front so it's obvious */
+}

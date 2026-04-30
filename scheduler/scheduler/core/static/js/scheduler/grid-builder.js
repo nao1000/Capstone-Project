@@ -108,6 +108,7 @@ function buildRoleGrid (workers) {
       workerCol.className = 'worker-sub-col day-col'
       workerCol.dataset.day = dayIndex
       workerCol.dataset.workerId = w.id
+      workerCol.dataset.roleId = w.role_id
       workerCol.style.cssText = `width:${colWidth}px; flex-shrink:0; position:relative; border-right:1px solid #e0e0e0;`
       grid.appendChild(workerCol)
     })
