@@ -155,8 +155,6 @@ async function loadWorker(workerId, teamId, name, element) {
 
         // Render ONLY this worker's shifts
         renderShiftsToGrid(workerShifts, false);
-        console.log(localSchedule)
-        console.log("here", localSchedule.getForWorker(activeWorkerId, activeWorkerRoleId))
         renderShiftsToGrid(localSchedule.getForWorker(activeWorkerId, activeWorkerRoleId), true)
     }
 

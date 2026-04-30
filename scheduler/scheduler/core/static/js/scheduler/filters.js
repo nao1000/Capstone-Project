@@ -125,9 +125,16 @@ function snapshotCurrentGrid () {
 async function loadRoleView (roleId, teamId) {
   const response = await fetch(`/api/team/${teamId}/roles/${roleId}`)
   const data = await response.json()
-  const workers = window.WORKERS.filter(
+  let workers = window.WORKERS.filter(
     w => String(w.role_id) === String(roleId)
   )
+
+  workers = [...workers].sort((a, b) => {
+    const sectionA = a.section || ''
+    const sectionB = b.section || ''
+    if (sectionA !== sectionB) return sectionA.localeCompare(sectionB)
+    return (a.name || '').localeCompare(b.name || '')
+  })
 
   buildRoleGrid(workers)
 
@@ -142,7 +149,6 @@ async function loadRoleView (roleId, teamId) {
         `.worker-sub-col[data-day="${dayIndex}"][data-worker-id="${worker.id}"]`
       )
       if (!workerCol) return
-      console.log('WOEKR', worker)
       const busy = worker.availabilityData.filter(
         a => a.day.toLowerCase() === dayKey
       )

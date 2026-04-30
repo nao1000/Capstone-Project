@@ -36,8 +36,12 @@ function openModal () {
   })
 
   const workerId =
-    activeEvent.dataset.userId ?? activeEvent.dataset.workerId ?? activeWorkerId
-  const roleId = activeRoleId ?? activeWorkerRoleId
+    activeEvent.dataset.userId      // explicit override on the block (editing existing)
+  ?? activeEvent.dataset.workerId  // same
+  ?? activeCol?.dataset.workerId   // role/master view — column knows who it belongs to
+  ?? activeWorkerId                // single-worker view fallback (column has no worker id)
+
+  const roleId = parseInt(activeCol?.dataset.roleId ?? activeRoleId ?? activeWorkerRoleId)
 
   if (workerId) {
     workerSelect.value = workerId
@@ -111,8 +115,7 @@ function closeModal () {
 
 /**
  * Checks server and local state for room availability and existing bookings to annotate the room dropdown.
- * Disables options if a room is closed/unavailable, or if its capacity is already filled 
- * by overlapping shifts. Updates the dropdown option text to indicate remaining capacity or conflicts.
+ * Warns users if a room is closed/unavailable or over capacity, but allows intentional overbooking.
  *
  * @async
  * @param {number} dayIndex - The zero-based index of the day corresponding to the shift (0 = Sun).
@@ -127,9 +130,7 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
 
   if (activeScheduleId) {
     const [bookingsRes, availRes] = await Promise.all([
-      fetch(
-        `/api/team/${window.TEAM_ID}/schedules/${activeScheduleId}/room-bookings/?day=${day}`
-      ),
+      fetch(`/api/team/${window.TEAM_ID}/schedules/${activeScheduleId}/room-bookings/?day=${day}`),
       fetch(`/api/team/${window.TEAM_ID}/room-availability/?day=${day}`)
     ])
     const bookingsData = await bookingsRes.json()
@@ -138,9 +139,7 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
     roomAvailability = availData.availability || {}
   } else {
     try {
-      const availRes = await fetch(
-        `/api/team/${window.TEAM_ID}/room-availability/?day=${day}`
-      )
+      const availRes = await fetch(`/api/team/${window.TEAM_ID}/room-availability/?day=${day}`)
       const availData = await availRes.json()
       roomAvailability = availData.availability || {}
     } catch (_) {}
@@ -151,10 +150,7 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
     if (!s.room_id) return
     const roomId = s.room_id
     if (!bookings[roomId]) {
-      const rooms =
-        typeof window.ROOMS === 'string'
-          ? JSON.parse(window.ROOMS)
-          : window.ROOMS
+      const rooms = typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
       const room = rooms.find(r => r.id == roomId)
       bookings[roomId] = {
         capacity: room ? room.capacity : 1,
@@ -178,15 +174,13 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
   })
 
   const roomSelect = document.getElementById('modalRoomSelect')
-  const rooms =
-    typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
+  const rooms = typeof window.ROOMS === 'string' ? JSON.parse(window.ROOMS) : window.ROOMS
 
   const currentValue = preselectedRoomId || roomSelect.value
   roomSelect.innerHTML = '<option value="">Select a room...</option>'
 
   const workerSelect = document.getElementById('modalWorkerSelect')
-  const editingWorkerName =
-    workerSelect.options[workerSelect.selectedIndex]?.text
+  const editingWorkerName = workerSelect.options[workerSelect.selectedIndex]?.text
 
   rooms.forEach(r => {
     const option = document.createElement('option')
@@ -215,13 +209,16 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
           return isSameDay && overlapsTime && isNotCurrentWorker
         })
 
-        if (overlapping.length >= booking.capacity) {
-          const names = overlapping.map(s => s.user_name).join(', ')
-          option.textContent = `${r.name} (Full — ${names})`
-          option.disabled = true
-          option.style.color = '#999'
+        const names = overlapping.map(s => s.user_name).join(', ')
+
+        // FIX: Distinct checks for > capacity vs === capacity
+        if (overlapping.length > booking.capacity) {
+          option.textContent = `${r.name} (Overbooked: ${overlapping.length}/${booking.capacity} — ${names})`
+          option.style.color = '#d9534f' // Red warning
+        } else if (overlapping.length === booking.capacity) {
+          option.textContent = `${r.name} (Full: ${overlapping.length}/${booking.capacity} — ${names})`
+          option.style.color = '#f0ad4e' // Orange/Yellow warning (optional)
         } else if (overlapping.length > 0) {
-          const names = overlapping.map(s => s.user_name).join(', ')
           option.textContent = `${r.name} (${overlapping.length}/${booking.capacity} — ${names})`
         } else {
           option.textContent = r.name
@@ -234,7 +231,7 @@ async function annotateRoomDropdown (dayIndex, preselectedRoomId = null) {
     if (r.id == currentValue) {
       option.selected = true
       option.disabled = false
-      option.style.color = ''
+      option.style.color = '' // Reset color if it's the currently selected room
     }
 
     roomSelect.appendChild(option)
@@ -314,16 +311,57 @@ function saveEvent () {
 }
 
 /**
- * Handles the removal of a specific event block from the grid when its 'x' button is clicked.
+ * Handles the removal of a specific event block from the grid when its '×' button is clicked.
  * Intercepts the click event to prevent grid slot selection, prompts the user for confirmation,
- * and completely removes the block from the DOM upon approval.
+ * then removes the block from the DOM, clears it from `localSchedule`, and — if the shift
+ * was already persisted — deletes it from the server via the API.
  *
+ * @async
  * @param {Event} e - The DOM click event triggered by the user.
- * @param {HTMLElement} xButton - The specific 'delete-x' button element that was clicked.
+ * @param {HTMLElement} xButton - The specific `.delete-x` button element that was clicked.
+ * @requires localSchedule
+ * @requires window.TEAM_ID
+ * @requires window.DAY_KEYS
+ * @requires getCookie
  */
-function removeEventBlock (e, xButton) {
+async function removeEventBlock (e, xButton) {
   e.stopPropagation()
-  if (confirm('Remove this shift?')) {
-    xButton.closest('.event-block').remove()
+  if (!confirm('Remove this shift?')) return
+ 
+  const block = xButton.closest('.event-block')
+  if (!block) return
+ 
+  // --- 1. Remove from localSchedule ---
+  // day comes from the parent column since it isn't stored on the block itself
+  const parentCol = block.parentElement
+  const dayIndex  = parseInt(parentCol?.dataset.day)
+  const dayKey    = DAY_KEYS?.[dayIndex]
+  const roleId    = block.dataset.roleId
+  const startMin  = block.dataset.startMin
+  const userId    = block.dataset.workerId ?? block.dataset.userId
+ 
+  if (roleId && dayKey && startMin && userId) {
+    localSchedule.removeOne({
+      role_id: roleId,
+      day: dayKey,
+      start_min: parseInt(startMin),
+      user_id: userId
+    })
   }
+ 
+  // --- 2. Delete from DB if the block was already saved ---
+  const shiftId = block.dataset.shiftId
+  if (shiftId) {
+    try {
+      await fetch(`/api/team/${activeScheduleId}/shifts/${shiftId}/delete/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      })
+    } catch (err) {
+      console.error('Failed to delete shift from server:', err)
+    }
+  }
+ 
+  // --- 3. Remove from DOM ---
+  block.remove()
 }

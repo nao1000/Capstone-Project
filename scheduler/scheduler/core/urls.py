@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/team/<uuid:team_id>/room-availability/', views.get_room_availability, name='get_room_availability'),
     path('api/team/<uuid:team_id>/members/remove/', views.remove_member_from_team, name='remove_member'),
     path('api/team/<uuid:team_id>/schedule/<int:schedule_id>/shifts/delete/', views.delete_shifts, name="delete_shifts"),
+    path('api/team/<int:schedule_id>/shifts/<int:shift_id>/delete/', views.delete_shift, name='delete_shift'),
 
     # --- API ENDPOINTS ---
     path('api/team/<uuid:team_id>/get-availability/<int:worker_id>/', views.get_worker_availability, name='get_avail'),
