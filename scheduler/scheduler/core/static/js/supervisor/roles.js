@@ -3,7 +3,8 @@
 
 /**
  * Reads the role name from the input field, sends a request to the server to create it,
- * and dynamically updates the UI to display the new role in the roles list and all member-assignment dropdowns.
+ * and dynamically updates the UI to display the new role in the roles list, 
+ * member-assignment dropdowns, fixed events, and the heatmap modal.
  *
  * @async
  * @returns {Promise<void>} Resolves when the role is successfully created and the UI is updated.
@@ -53,12 +54,29 @@ async function addRole () {
         </div>`
       rolesList.appendChild(block)
 
-      // Add the new role to all member-assignment dropdowns and the fixed-event role input
+      // 1. Add the new role to all member-assignment dropdowns
       const newOption = `<option value="${data.role_id}">${data.name}</option>`
       document.querySelectorAll('select[data-user-id]').forEach(dropdown => {
         dropdown.insertAdjacentHTML('beforeend', newOption)
       })
-      document.getElementById('eventRoleInput').insertAdjacentHTML('beforeend', newOption)
+      
+      // 2. Update the fixed-event role input
+      const eventRoleInput = document.getElementById('eventRoleInput');
+      if (eventRoleInput) {
+        eventRoleInput.insertAdjacentHTML('beforeend', newOption);
+      }
+
+      // 3. Update the Heatmap Modal role list
+      const heatmapRoleList = document.getElementById('heatmapRoleList'); 
+      if (heatmapRoleList) {
+          const newHeatmapItem = `
+            <div class="room-list-item" data-role-id="${data.role_id}"
+                 onclick="selectHeatmapRole('${data.role_id}', '${data.name}', this)">
+                <strong>${data.name}</strong>
+            </div>
+          `;
+          heatmapRoleList.insertAdjacentHTML('beforeend', newHeatmapItem);
+      }
 
       document.getElementById('newRoleInput').value = ''
     } else {

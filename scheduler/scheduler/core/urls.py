@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     # --- DASHBOARD & TEAM MANAGEMENT ---
+    path('', views.signup),
     path('dashboard2/', views.dashboard, name='dashboard2'),
     path('team/create/', views.create_team, name='create_team'),
     path('team/join/', views.join_team, name='join_team'),

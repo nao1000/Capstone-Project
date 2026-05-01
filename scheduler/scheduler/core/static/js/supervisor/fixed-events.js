@@ -25,8 +25,8 @@ function populateTimeDropdowns () {
 }
 
 /**
- * Gathers form data for a new fixed event (obstruction), validates the inputs, 
- * and sends a POST request to the server to create the event. On success, 
+ * Gathers form data for a new fixed event (obstruction), validates the inputs,
+ * and sends a POST request to the server to create the event. On success,
  * dynamically appends a new event tag to the UI and clears the form.
  *
  * @async
@@ -40,12 +40,22 @@ async function addFixedEvent () {
   // Note: timeToMin requires a standard time format (e.g., "10:00 AM" or "14:30")
   // Make sure the dropdown values match what timeToMin expects, or adjust if they are already in minutes.
   // In the current implementation, populateTimeDropdowns sets values as total minutes, so timeToMin might not be needed if reading .value, depending on how timeToMin handles pure numbers. Assuming it handles the formatted string here based on previous utils.
-  const startMin = timeToMin(document.getElementById('eventStartTime').options[document.getElementById('eventStartTime').selectedIndex].text)
-  const endMin = timeToMin(document.getElementById('eventEndTime').options[document.getElementById('eventEndTime').selectedIndex].text)
-  
-  const checkedDays = [...document.querySelectorAll('.day-check input:checked')].map(cb =>
-    parseInt(cb.value)
-  )
+  const startVal = document.getElementById('eventStartTime').value // "HH:MM"
+  const endVal = document.getElementById('eventEndTime').value
+
+  if (!startVal || !endVal) {
+    alert('Please select a start and end time.')
+    return
+  }
+
+  const [startH, startM] = startVal.split(':').map(Number)
+  const [endH, endM] = endVal.split(':').map(Number)
+  const startMin = startH * 60 + startM
+  const endMin = endH * 60 + endM
+
+  const checkedDays = [
+    ...document.querySelectorAll('.day-check input:checked')
+  ].map(cb => parseInt(cb.value))
 
   if (!name) {
     alert('Please enter an event name.')
@@ -64,22 +74,25 @@ async function addFixedEvent () {
   const dayLabel = checkedDays.map(d => dayNames[d]).join(', ')
 
   try {
-    const response = await fetch(`/api/team/${window.TEAM_ID}/obstructions/create/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken
-      },
-      body: JSON.stringify({
-        name,
-        location,
-        role_id: roleId,
-        section,
-        start_min: startMin,
-        end_min: endMin,
-        days: checkedDays
-      })
-    })
+    const response = await fetch(
+      `/api/team/${window.TEAM_ID}/obstructions/create/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          name,
+          location,
+          role_id: roleId,
+          section,
+          start_min: startMin,
+          end_min: endMin,
+          days: checkedDays
+        })
+      }
+    )
 
     const data = await response.json()
 
@@ -97,7 +110,9 @@ async function addFixedEvent () {
 
       // Clear form inputs
       document.getElementById('eventNameInput').value = ''
-      document.querySelectorAll('.day-check input').forEach(cb => (cb.checked = false))
+      document
+        .querySelectorAll('.day-check input')
+        .forEach(cb => (cb.checked = false))
     } else {
       alert(data.error || 'Failed to add obstruction.')
     }
@@ -108,8 +123,8 @@ async function addFixedEvent () {
 }
 
 /**
- * Prompts the user for confirmation, then sends a DELETE request to the API 
- * to remove a specific fixed event (obstruction). On success, removes the 
+ * Prompts the user for confirmation, then sends a DELETE request to the API
+ * to remove a specific fixed event (obstruction). On success, removes the
  * event's DOM element from the UI.
  *
  * @async
