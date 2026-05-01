@@ -14,7 +14,7 @@ from django.db.models import Prefetch
 import json
 
 from ..models import (
-    AvailabilityRange,
+    UnavailabilityRange,
     PreferredTime,
     Role,
     RoleSection,
@@ -51,10 +51,10 @@ def save_availability(request, team_id):
 
         with transaction.atomic():
             # --- Busy blocks ---
-            AvailabilityRange.objects.filter(user=request.user, team=team).delete()
+            UnavailabilityRange.objects.filter(user=request.user, team=team).delete()
             for item in busy_data:
                 day_str = DAY_MAP.get(item.get("day"), "mon")
-                AvailabilityRange.objects.create(
+                UnavailabilityRange.objects.create(
                     user=request.user,
                     team=team,
                     day=day_str,
@@ -117,7 +117,7 @@ def get_worker_availability(request, team_id, worker_id):
         return HttpResponseForbidden("Unauthorized")
 
     target_user = get_object_or_404(User, id=worker_id)
-    ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
+    ranges = UnavailabilityRange.objects.filter(user=target_user, team=team)
 
     availability_list = [
         {

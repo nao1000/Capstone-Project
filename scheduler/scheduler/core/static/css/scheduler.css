@@ -13,9 +13,9 @@
     --event-text: #1e3a8a;
 
     /* Availability Colors */
-    --avail-bg: #e6f4ea;
-    --avail-border: #34a853;
-    --avail-text: #0d652d;
+--avail-bg: #fef3c7;
+    --avail-border: #f59e0b;
+    --avail-text: #92400e;
 
     --font-headers: 'Oswald', sans-serif;
     --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -212,6 +212,10 @@ body {
 .time-header {
     width: 60px;
     flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    background: #f8f9fa;
 }
 
 /* --- SCROLL AREA --- */
@@ -253,8 +257,10 @@ body {
 .time-col {
     border-right: 1px solid var(--grid-line);
     background: #ffffff;
-    position: relative;
     flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 20; 
 }
 
 .day-col {

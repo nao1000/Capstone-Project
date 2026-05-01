@@ -1,7 +1,7 @@
 from ortools.sat.python import cp_model
 from .models import (
     TeamRoleAssignment,
-    AvailabilityRange,
+    UnavailabilityRange,
     FixedObstruction,
     Room,
     RoomAvailability,
@@ -102,7 +102,7 @@ def generate_schedule(
     for ra in room_avails:
         room_avail_map.setdefault((ra.room_id, ra.day), []).append(ra)
 
-    busy_times = AvailabilityRange.objects.filter(team=team, user_id__in=worker_ids)
+    busy_times = UnavailabilityRange.objects.filter(team=team, user_id__in=worker_ids)
     busy_map   = {}
     for busy in busy_times:
         busy_map.setdefault((busy.user_id, busy.day), []).append(busy)
@@ -273,17 +273,37 @@ def generate_schedule(
                         model.Add(sum(active_in_room) <= rm.capacity)
 
         # --- Constraint D: Concurrency cap per role ---
+        # --- Constraint D: Concurrency cap per role ---
         for d in target_days:
-            for t in start_times:
+            for i, t in enumerate(start_times):
                 for r_id, w_ids in role_workers.items():
-                    active = [
+                    # 1. Find shifts for this role starting exactly at time t
+                    active_for_role = [
                         shifts[(d, t, rm.id, w_id, r_id)]
                         for rm in rooms
                         for w_id in w_ids
                         if (d, t, rm.id, w_id, r_id) in shifts
                     ]
-                    if active:
-                        model.Add(sum(active) <= max_concurrent)
+                    
+                    # 2. Look backwards to find shifts that started earlier but overlap with t
+                    for j in range(i - 1, -1, -1):
+                        prev_t = start_times[j]
+                        # If the previous shift's start time + duration crosses into our current time t
+                        if prev_t + duration > t:
+                            active_for_role.extend([
+                                shifts[(d, prev_t, rm.id, w_id, r_id)]
+                                for rm in rooms
+                                for w_id in w_ids
+                                if (d, prev_t, rm.id, w_id, r_id) in shifts
+                            ])
+                        else:
+                            # Since start_times is sorted, if this prev_t doesn't overlap, 
+                            # none of the earlier ones will either.
+                            break 
+
+                    # 3. Enforce that the total active shifts at any minute does not exceed max_concurrent
+                    if active_for_role:
+                        model.Add(sum(active_for_role) <= max_concurrent)
 
         # --- Scoring ---
         scores = {}

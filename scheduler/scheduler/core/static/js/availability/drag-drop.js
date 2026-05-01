@@ -45,7 +45,7 @@ function setupDragListeners () {
       activeEvent.dataset.mode = currentGridMode
       activeEvent.style.top = `${startTop}px`
       activeEvent.style.height = `${window.SLOT_HEIGHT}px`
-      activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Shift</div></div>`
+      activeEvent.innerHTML = `<div class="event-content"><div class="event-title">New Block</div></div>`
 
       col.appendChild(activeEvent)
     })

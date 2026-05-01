@@ -180,7 +180,23 @@ async function loadRoleView (roleId, teamId) {
         a => a.day.toLowerCase() === dayKey
       )
       renderShiftsToGrid(scheduled)
-      
+
+      const prefData = worker.preferredData || []
+      prefData
+        .filter(p => p.day === dayKey)
+        .forEach(pref => {
+          const startOffset = pref.start_min - START_HOUR * 60
+          const top = (startOffset / 15) * SLOT_HEIGHT
+          const height = ((pref.end_min - pref.start_min) / 15) * SLOT_HEIGHT
+
+          const block = document.createElement('div')
+          block.className = 'event-block prefer-block'
+          block.innerHTML = "<div>Preferred Working Hours</div>"
+          block.style.top = `${top}px`
+          block.style.height = `${height}px`
+          workerCol.appendChild(block)
+        })
+
       obstructions.forEach(o => {
         if (o.role_id !== parseInt(roleId)) return
         if (!o.days.includes(dayKey)) return
