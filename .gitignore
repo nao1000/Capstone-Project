@@ -28,3 +28,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Data files (Not for the repo)
+testData/
+*.xlsx
+*.xlsm
+*.csv

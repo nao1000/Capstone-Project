@@ -15,7 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import (
-    AvailabilityRange,
+    UnavailabilityRange,
     PreferredTime,
     Role,
     Shift,
@@ -210,7 +210,7 @@ def availability_view(request, team_id):
         return HttpResponseForbidden("You are not a member of this team.")
 
     # Busy blocks already saved by this worker
-    availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
+    availabilities = UnavailabilityRange.objects.filter(user=request.user, team=team)
 
     # Preferred time blocks already saved
     preferred_times = PreferredTime.objects.filter(user=request.user, team=team)
@@ -283,8 +283,8 @@ def supervisor_view(request, team_id):
             to_attr="current_team_assignment",
         ),
         Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team=team),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team=team),
             to_attr="team_availabilities",
         ),
     )
@@ -346,8 +346,8 @@ def scheduler_view(request, team_id):
 
     workers = team.members.all().prefetch_related(
         Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team=team),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team=team),
             to_attr="team_availability",
         ),
         Prefetch(
@@ -477,10 +477,10 @@ def save_availability(request, team_id):
 
         with transaction.atomic():
             # --- Busy blocks ---
-            AvailabilityRange.objects.filter(user=request.user, team=team).delete()
+            UnavailabilityRange.objects.filter(user=request.user, team=team).delete()
             for item in busy_data:
                 day_str = DAY_MAP.get(item.get("day"), "mon")
-                AvailabilityRange.objects.create(
+                UnavailabilityRange.objects.create(
                     user=request.user,
                     team=team,
                     day=day_str,
@@ -542,7 +542,7 @@ def get_worker_availability(request, team_id, worker_id):
         return HttpResponseForbidden("Unauthorized")
 
     target_user = get_object_or_404(User, id=worker_id)
-    ranges = AvailabilityRange.objects.filter(user=target_user, team=team)
+    ranges = UnavailabilityRange.objects.filter(user=target_user, team=team)
 
     availability_list = []
     for r in ranges:
@@ -1064,8 +1064,8 @@ def filter_view(request, team_id, role_id):
 
     relevant_users = User.objects.filter(id__in=user_ids).prefetch_related(
         models.Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team_id=team_id),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team_id=team_id),
             to_attr="team_avail",
         )
     )

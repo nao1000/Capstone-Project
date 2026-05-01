@@ -13,7 +13,7 @@ from django.views.decorators.cache import never_cache
 from django.db.models import Prefetch
 
 from ..models import (
-    AvailabilityRange,
+    UnavailabilityRange,
     PreferredTime,
     Role,
     Schedule,
@@ -38,7 +38,7 @@ def availability_view(request, team_id):
     if request.user not in team.members.all() and request.user != team.owner:
         return HttpResponseForbidden("You are not a member of this team.")
 
-    availabilities = AvailabilityRange.objects.filter(user=request.user, team=team)
+    unavailabilities = UnavailabilityRange.objects.filter(user=request.user, team=team)
     preferred_times = PreferredTime.objects.filter(user=request.user, team=team)
     role_prefs = (
         UserRolePreference.objects.filter(user=request.user, team=team)
@@ -55,7 +55,7 @@ def availability_view(request, team_id):
             "name": a.eventName,
             "mode": "busy",
         }
-        for a in availabilities
+        for a in unavailabilities
     ]
 
     preferred_list = [
@@ -110,8 +110,8 @@ def supervisor_view(request, team_id):
             to_attr="current_team_assignment",
         ),
         Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team=team),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team=team),
             to_attr="team_availabilities",
         ),
     )
@@ -166,8 +166,8 @@ def scheduler_view(request, team_id):
 
     workers = team.members.all().prefetch_related(
         Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team=team),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team=team),
             to_attr="team_availability",
         ),
         Prefetch(

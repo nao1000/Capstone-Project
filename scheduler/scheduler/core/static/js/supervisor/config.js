@@ -68,3 +68,17 @@ let roomData = Array.from(roomElements).map(el => ({
   name: el.dataset.name,
   schedule: [] // { day: 0, top: 0, height: 60 }
 }))
+
+/**
+ * Standardized keys representing the days of the week.
+ *
+ * @type {Array<string>}
+ */
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
+/**
+ * Standardized display labels for the days of the week.
+ *
+ * @type {Array<string>}
+ */
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

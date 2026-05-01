@@ -56,3 +56,49 @@ def get_or_create_response_link(request, team_id):
     link, _ = AttendeeResponseLink.objects.get_or_create(team=team)
     full_url = request.build_absolute_uri(f'/respond/{link.token}/')
     return JsonResponse({'url': full_url})
+
+def get_preference_density(request, team_id):
+    """
+    Returns aggregated preference data for a team.
+    Data is grouped by role, day, and 15-minute time slots.
+    """
+    # Note: Ensure you have appropriate authentication/authorization checks here
+    
+    preferences = AttendeePreference.objects.filter(team_id=team_id)
+    
+    # We will build a dictionary: { role_id: { day: { slot_index: count } } }
+    density_data = {}
+    
+    START_HOUR = 8
+    
+    for pref in preferences:
+        role_id = str(pref.role_id)
+        day = pref.day
+        
+        if role_id not in density_data:
+            density_data[role_id] = {}
+        if day not in density_data[role_id]:
+            density_data[role_id][day] = {}
+            
+        # Convert start/end minutes back into 15-minute slot indices
+        start_slot = (pref.start_min - (START_HOUR * 60)) // 15
+        end_slot = (pref.end_min - (START_HOUR * 60)) // 15
+        
+        for slot in range(start_slot, end_slot):
+            if slot not in density_data[role_id][day]:
+                density_data[role_id][day][slot] = 0
+            density_data[role_id][day][slot] += 1
+            
+    # Optional: Find the maximum density per role to help the frontend calculate color intensity
+    max_density_per_role = {}
+    for role_id, days in density_data.items():
+        max_val = 0
+        for day_slots in days.values():
+            if day_slots:
+                max_val = max(max_val, max(day_slots.values()))
+        max_density_per_role[role_id] = max_val
+
+    return JsonResponse({
+        'density_data': density_data,
+        'max_density': max_density_per_role
+    })

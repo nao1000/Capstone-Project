@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
 
 from ..models import (
-    AvailabilityRange,
+    UnavailabilityRange,
     Role,
     RoleSection,
     Team,
@@ -98,8 +98,8 @@ def filter_view(request, team_id, role_id):
 
     relevant_users = User.objects.filter(id__in=user_ids).prefetch_related(
         models.Prefetch(
-            "availabilityrange_set",
-            queryset=AvailabilityRange.objects.filter(team_id=team_id),
+            "unavailabilityrange_set",
+            queryset=UnavailabilityRange.objects.filter(team_id=team_id),
             to_attr="team_avail",
         )
     )

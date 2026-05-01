@@ -1,10 +1,10 @@
 from django.contrib import admin
-from .models import AvailabilityRange, Team, Role, Shift, Room, RoomAvailability, TeamRoleAssignment
+from .models import UnavailabilityRange, Team, Role, Shift, Room, RoomAvailability, TeamRoleAssignment
 from .models import ObstructionDay, FixedObstruction
 from .models import UserRolePreference, PreferredTime
 from .models import AttendeePreference, AttendeeResponseLink
 
-admin.site.register(AvailabilityRange)
+admin.site.register(UnavailabilityRange)
 admin.site.register(Team)
 admin.site.register(Role)
 admin.site.register(Shift)

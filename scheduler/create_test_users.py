@@ -11,7 +11,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scheduler.settings')
 django.setup()
 
 from django.contrib.auth.models import User
-from scheduler.core.models import Team, AvailabilityRange, Schedule, Role, RoleSection, FixedObstruction, ObstructionDay, TeamRoleAssignment, Room, RoomAvailability
+from scheduler.core.models import Team, UnavailabilityRange, Schedule, Role, RoleSection, FixedObstruction, ObstructionDay, TeamRoleAssignment, Room, RoomAvailability
 
 # Import the data you typed out manually (or paste it above this line)
 from real_data import WORKERS, COURSES, ROOMS
@@ -127,7 +127,7 @@ def seed_real_data():
 
 
         # Clear old availability just in case you are re-running the script
-        AvailabilityRange.objects.filter(user=user, team=team).delete()
+        UnavailabilityRange.objects.filter(user=user, team=team).delete()
 
         # 3. Parse and create the schedules
         schedule_dict = worker_data.get("schedule", {})
@@ -136,7 +136,7 @@ def seed_real_data():
             for block in time_blocks:
                 start_time, end_time, event_name, building = parse_time_block(block)
 
-                AvailabilityRange.objects.create(
+                UnavailabilityRange.objects.create(
                     user=user,
                     team=team,
                     day=day,

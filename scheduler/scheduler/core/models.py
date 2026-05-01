@@ -199,7 +199,7 @@ class UserRolePreference(models.Model):
 class PreferredTime(models.Model):
     '''
     Times a worker would ideally like to be scheduled.
-    Distinct from AvailabilityRange (busy/blocked times) — this is positive preference.
+    Distinct from UnavailabilityRange (busy/blocked times) — this is positive preference.
     '''
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='preferred_times')
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='preferred_times')
@@ -304,7 +304,7 @@ class RoomAvailability(models.Model):
     def __str__(self):
         return f"{self.room.name} ({self.day}): {self.start_time}-{self.end_time}"
 
-class AvailabilityRange(models.Model):
+class UnavailabilityRange(models.Model):
     '''
     Similar to room availabilty just for when users are busy
     
